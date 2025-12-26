@@ -11,7 +11,7 @@ class AdminPanel {
 
     checkAuthentication() {
         // 检查 sessionStorage 中是否已验证
-        if (sessionStorage.getItem('adminAuthenticated') === 'true') {
+        if (sessionStorage.getItem('hugo_authenticated') === 'true') {
             this.isAuthenticated = true;
             this.init();
         } else {
@@ -61,7 +61,7 @@ class AdminPanel {
                 const data = await response.json();
 
                 if (data.success) {
-                    sessionStorage.setItem('adminAuthenticated', 'true');
+                    sessionStorage.setItem('hugo_authenticated', 'true');
                     loginOverlay.remove();
                     this.isAuthenticated = true;
                     this.init();
@@ -406,9 +406,8 @@ class AdminPanel {
     async deleteArticle(path) {
         if (!confirm('确定要删除这篇文章吗？此操作不可撤销！')) return;
 
-        this.showPasswordDialog('删除文章', async () => {
+        const performDelete = async () => {
             this.showLoading('正在删除...');
-
             try {
                 const response = await fetch(`${this.apiBaseUrl}/api/file?path=${encodeURIComponent(path)}`, {
                     method: 'DELETE'
@@ -428,7 +427,13 @@ class AdminPanel {
             } finally {
                 this.hideLoading();
             }
-        });
+        };
+
+        if (sessionStorage.getItem('hugo_authenticated') === 'true') {
+            await performDelete();
+        } else {
+            this.showPasswordDialog('删除文章', performDelete);
+        }
     }
 
     showPasswordDialog(action, onSuccess) {

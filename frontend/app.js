@@ -190,7 +190,12 @@ class HugoPublisher {
             return;
         }
 
-        this.showPasswordDialog('发布文章', () => this.publishArticle());
+        // 检查是否有会话授权
+        if (sessionStorage.getItem('hugo_authenticated') === 'true') {
+            this.publishArticle();
+        } else {
+            this.showPasswordDialog('发布文章', () => this.publishArticle());
+        }
     }
 
     showPasswordDialog(action, onSuccess) {
@@ -275,7 +280,11 @@ class HugoPublisher {
                 body: JSON.stringify({ password })
             });
             const data = await response.json();
-            return data.success === true;
+            if (data.success === true) {
+                sessionStorage.setItem('hugo_authenticated', 'true');
+                return true;
+            }
+            return false;
         } catch (error) {
             console.error('密码验证错误:', error);
             return false;
@@ -742,7 +751,11 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
 
     confirmDeleteFile(path, filename) {
         if (confirm(`确定要删除文章 "${filename}" 吗？\n\n此操作不可撤销！`)) {
-            this.showPasswordDialog('删除文章', () => this.deleteFile(path, filename));
+            if (sessionStorage.getItem('hugo_authenticated') === 'true') {
+                this.deleteFile(path, filename);
+            } else {
+                this.showPasswordDialog('删除文章', () => this.deleteFile(path, filename));
+            }
         }
     }
 
