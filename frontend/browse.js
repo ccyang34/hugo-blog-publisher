@@ -2,9 +2,12 @@ class ArticleBrowser {
     constructor() {
         this.apiBaseUrl = window.APP_CONFIG?.apiBaseUrl || '';
         this.articles = [];
+        this.filteredArticles = [];
         this.articleDates = {}; // 存储文章日期
         this.currentPath = null;
         this.sortMode = 'date'; // 'date' 或 'name'
+        this.currentPage = 1;
+        this.pageSize = 20;
 
         this.initElements();
         this.bindEvents();
@@ -124,13 +127,60 @@ class ArticleBrowser {
 
     filterArticles() {
         const keyword = this.searchInput.value.toLowerCase().trim();
-        let filtered = this.articles;
+        this.filteredArticles = this.articles;
 
         if (keyword) {
-            filtered = filtered.filter(f => f.name.toLowerCase().includes(keyword));
+            this.filteredArticles = this.filteredArticles.filter(f => f.name.toLowerCase().includes(keyword));
         }
 
-        this.renderArticleList(filtered);
+        this.currentPage = 1; // 重置到第一页
+        this.renderCurrentPage();
+    }
+
+    renderCurrentPage() {
+        const start = (this.currentPage - 1) * this.pageSize;
+        const end = start + this.pageSize;
+        const pageArticles = this.filteredArticles.slice(start, end);
+
+        this.renderArticleList(pageArticles);
+        this.renderPagination();
+    }
+
+    renderPagination() {
+        const totalPages = Math.ceil(this.filteredArticles.length / this.pageSize);
+
+        let paginationHtml = '';
+        if (totalPages > 1) {
+            paginationHtml = `
+                <div class="pagination">
+                    <button class="page-btn" ${this.currentPage <= 1 ? 'disabled' : ''} data-page="prev">上一页</button>
+                    <span class="page-info">第 ${this.currentPage} / ${totalPages} 页</span>
+                    <button class="page-btn" ${this.currentPage >= totalPages ? 'disabled' : ''} data-page="next">下一页</button>
+                </div>
+            `;
+        }
+
+        const footer = document.querySelector('.list-footer');
+        footer.innerHTML = `
+            <span id="articleCount">${this.filteredArticles.length} 篇文章</span>
+            ${paginationHtml}
+        `;
+
+        // 绑定分页按钮事件
+        footer.querySelectorAll('.page-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (btn.dataset.page === 'prev' && this.currentPage > 1) {
+                    this.currentPage--;
+                    this.renderCurrentPage();
+                } else if (btn.dataset.page === 'next') {
+                    const totalPages = Math.ceil(this.filteredArticles.length / this.pageSize);
+                    if (this.currentPage < totalPages) {
+                        this.currentPage++;
+                        this.renderCurrentPage();
+                    }
+                }
+            });
+        });
     }
 
     renderArticleList(articles) {

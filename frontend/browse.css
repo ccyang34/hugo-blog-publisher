@@ -191,6 +191,46 @@
     text-align: center;
 }
 
+.list-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.page-btn {
+    padding: 4px 10px;
+    font-size: 0.75rem;
+    border: 1px solid var(--border-color);
+    background: var(--surface);
+    color: var(--text-primary);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.page-btn:hover:not(:disabled) {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.page-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.page-info {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
 /* Right Panel - Article Content */
 .article-content-panel {
     flex: 1;
