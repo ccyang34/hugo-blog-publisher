@@ -235,16 +235,20 @@ class GitHubService:
                 'error': str(e)
             }
     
-    def list_files(self, path: str = '') -> Dict[str, Any]:
+    def list_files(self, path: str = '', fetch_metadata: bool = False) -> Dict[str, Any]:
         """
         列出仓库目录中的文件
         
         参数:
             path: 目录路径
+            fetch_metadata: 是否获取每个文件的元数据 (如 front matter 中的 date)
             
         返回:
             包含文件列表的字典
         """
+        import re
+        from concurrent.futures import ThreadPoolExecutor
+
         try:
             url = f'{self.base_url}/repos/{self.username}/{self.repo}/contents/{path}'
             
@@ -258,14 +262,37 @@ class GitHubService:
                 files = files.get('children', [])
             
             file_list = []
-            for f in files:
-                file_list.append({
+            
+            def process_file(f):
+                item = {
                     'name': f.get('name', ''),
                     'path': f.get('path', ''),
                     'type': f.get('type', ''),
                     'size': f.get('size', 0),
-                    'url': f.get('html_url', '')
-                })
+                    'url': f.get('html_url', ''),
+                    'updated_at': None # 默认占位
+                }
+                
+                if fetch_metadata and item['type'] == 'file' and item['name'].endswith(('.md', '.markdown')):
+                    try:
+                        content_res = self.get_file_content(item['path'])
+                        if content_res['success']:
+                            content = content_res['content']
+                            # 简单正则提取 date: "..."
+                            date_match = re.search(r'^date:\s*["\']?(.+?)["\']?\s*$', content, re.MULTILINE)
+                            if date_match:
+                                item['updated_at'] = date_match.group(1)
+                    except Exception as e:
+                        print(f"Error fetching metadata for {item['name']}: {e}")
+                
+                return item
+
+            if fetch_metadata:
+                with ThreadPoolExecutor(max_workers=10) as executor:
+                    file_list = list(executor.map(process_file, files))
+            else:
+                for f in files:
+                    file_list.append(process_file(f))
             
             return {
                 'success': True,

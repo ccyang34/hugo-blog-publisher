@@ -293,7 +293,8 @@ def list_files():
     """获取指定目录的文件列表"""
     try:
         path = request.args.get('path', 'content/posts')
-        result = github_service.list_files(path)
+        fetch_metadata = request.args.get('fetch_metadata', 'false').lower() == 'true'
+        result = github_service.list_files(path, fetch_metadata=fetch_metadata)
         
         if result['success']:
             files = [f for f in result.get('files', []) if f['name'].endswith(('.md', '.markdown'))]

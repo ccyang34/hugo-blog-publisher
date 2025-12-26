@@ -50,36 +50,24 @@ class MarkdownGenerator:
         """
         生成Hugo文章文件名
         
-        Hugo文件名格式: YYYY-MM-DD-HHMMSS-title-slug.md
+        Hugo文件名格式: YYYY-MM-DD-title-slug.md
         
         参数:
             title: 文章标题
-            date: 日期字符串，格式为YYYY-MM-DDTHH:mm:ss+08:00
+            date: 日期字符串，格式为YYYY-MM-DD
             
         返回:
             文件名
         """
-        # 提取日期和时间部分
-        now = datetime.now(timezone(timedelta(hours=8)))
-        if date:
-            try:
-                # 尝试解析完整日期时间
-                dt = datetime.fromisoformat(date.replace('Z', '+00:00'))
-                date_part = dt.strftime('%Y-%m-%d')
-                time_part = dt.strftime('%H%M%S')
-            except:
-                date_part = date[:10]
-                time_part = now.strftime('%H%M%S')
-        else:
-            date_part = now.strftime('%Y-%m-%d')
-            time_part = now.strftime('%H%M%S')
+        # 确保文件名只使用日期部分 (YYYY-MM-DD)
+        date_part = date[:10] if date else datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d')
         
         slug = self.slugify(title)
         
         if not slug:
             slug = 'post'
         
-        return f'{date_part}-{time_part}-{slug}.md'
+        return f'{date_part}-{slug}.md'
     
     def generate_front_matter(self, title: str, date: Optional[str] = None,
                              tags: Optional[List[str]] = None,

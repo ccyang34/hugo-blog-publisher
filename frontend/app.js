@@ -597,7 +597,7 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
         this.fileList.innerHTML = '<p class="loading-text">加载中...</p>';
 
         try {
-            const response = await fetch(`${this.apiBaseUrl}/api/files?path=${encodeURIComponent(path)}`);
+            const response = await fetch(`${this.apiBaseUrl}/api/files?path=${encodeURIComponent(path)}&fetch_metadata=true`);
             const data = await response.json();
 
             if (data.success) {
@@ -619,19 +619,38 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
             return;
         }
 
-        // 按文件名降序排列（新日期在前）
-        const sortedFiles = [...files].sort((a, b) => b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' }));
+        // 优先使用属性日期 (updated_at) 排序，否则回退到文件名
+        const sortedFiles = [...files].sort((a, b) => {
+            const dateA = a.updated_at ? new Date(a.updated_at) : new Date(0);
+            const dateB = b.updated_at ? new Date(b.updated_at) : new Date(0);
+
+            if (dateA.getTime() !== dateB.getTime()) {
+                return dateB.getTime() - dateA.getTime();
+            }
+            return b.name.localeCompare(a.name, undefined, { numeric: true });
+        });
 
         sortedFiles.forEach(file => {
             const item = document.createElement('div');
             item.className = 'file-item';
             item.style.cursor = 'pointer';
 
-            const date = file.updated_at ? new Date(file.updated_at).toLocaleDateString('zh-CN') : '';
+            let dateStr = '';
+            if (file.updated_at) {
+                const date = new Date(file.updated_at);
+                dateStr = date.toLocaleString('zh-CN', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+            }
 
             item.innerHTML = `
                 <span class="file-name" title="${file.name}">${file.name}</span>
-                <span class="file-date">${date}</span>
+                <span class="file-date">${dateStr}</span>
             `;
 
             item.addEventListener('click', () => {
