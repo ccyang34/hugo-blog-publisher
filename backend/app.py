@@ -126,7 +126,7 @@ def preview_article():
         
         title = data['title']
         content = data.get('content', '')
-        date = data.get('date', datetime.now().strftime('%Y-%m-%d'))
+        date = data.get('date', datetime.now().strftime('%Y-%m-%d %H:%M'))
         tags = data.get('tags', [])
         category = data.get('category', '')
         
@@ -177,7 +177,7 @@ def publish_article():
         
         title = data['title']
         content = data['content']
-        date = data.get('date', datetime.now().strftime('%Y-%m-%d'))
+        date = data.get('date', datetime.now().strftime('%Y-%m-%d %H:%M'))
         tags = data.get('tags', [])
         category = data.get('category', '')
         target_dir = data.get('target_dir', 'content/posts')
