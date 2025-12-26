@@ -88,10 +88,19 @@ def format_article():
             tags=tags,
             category=category
         )
+
+        # 如果标题为空，自动生成一个标题并返回
+        suggested_title = title
+        if not title:
+            try:
+                suggested_title = deepseek_service.improve_title(formatted_content)
+            except Exception as e:
+                print(f"Warning: Failed to suggest title in format: {e}")
         
         return jsonify({
             'success': True,
-            'formatted_content': formatted_content
+            'formatted_content': formatted_content,
+            'suggested_title': suggested_title
         })
     
     except Exception as e:

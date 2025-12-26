@@ -149,7 +149,13 @@ class HugoPublisher {
                 this.currentContent = data.formatted_content;
                 this.updatePreview(data.formatted_content);
                 this.markdownContent.value = data.formatted_content;
-                this.showNotification('文章排版完成!', 'success');
+
+                // 如果标题输入框为空，自动填充生成的建议标题
+                if (!this.titleInput.value.trim() && data.suggested_title) {
+                    this.titleInput.value = data.suggested_title;
+                }
+
+                this.showNotification('文章优化及预览完成!', 'success');
             } else {
                 this.showNotification(`排版失败: ${data.error}`, 'error');
             }
@@ -162,53 +168,7 @@ class HugoPublisher {
         }
     }
 
-    async previewArticle() {
-        const title = this.titleInput.value.trim();
-        const content = this.currentContent || this.contentTextarea.value.trim();
 
-        if (!title) {
-            this.showNotification('请输入文章标题', 'error');
-            return;
-        }
-
-        if (!content) {
-            this.showNotification('请输入文章内容', 'error');
-            return;
-        }
-
-        this.showLoading('正在生成预览...');
-
-        try {
-            const response = await fetch(`${this.apiBaseUrl}/api/preview`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    title: title,
-                    content: content,
-                    tags: this.getTags(),
-                    category: this.categorySelect.value
-                })
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                this.frontMatter = data.front_matter;
-                this.frontMatterContent.value = data.front_matter;
-                this.updateStats();
-                this.showNotification('预览生成完成!', 'success');
-            } else {
-                this.showNotification(`预览生成失败: ${data.error}`, 'error');
-            }
-        } catch (error) {
-            console.error('预览错误:', error);
-            this.showNotification(`网络错误: ${error.message}`, 'error');
-        } finally {
-            this.hideLoading();
-        }
-    }
 
     async handlePublishWithPassword() {
         const title = this.titleInput.value.trim();
