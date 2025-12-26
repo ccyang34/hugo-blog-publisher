@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://hugo-blog-publisher.vercel.app';
+const API_BASE_URL = 'https://api.ccyang.online';
 
 const AppConfig = {
     apiBaseUrl: API_BASE_URL,
