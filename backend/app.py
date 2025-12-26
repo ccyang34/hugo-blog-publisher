@@ -182,6 +182,20 @@ def publish_article():
         category = data.get('category', '')
         target_dir = data.get('target_dir', 'content/posts')
         draft = data.get('draft', False)
+        auto_format = data.get('auto_format', True)  # 默认自动优化排版
+        
+        # 自动调用 DeepSeek 优化排版
+        if auto_format:
+            try:
+                content = deepseek_service.format_article(
+                    content=content,
+                    title=title,
+                    tags=tags,
+                    category=category
+                )
+            except Exception as e:
+                # 优化失败时继续使用原内容
+                print(f"Warning: Auto format failed: {e}")
         
         # 如果没有标题，调用 DeepSeek 自动生成
         if not title:

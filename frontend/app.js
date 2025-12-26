@@ -316,11 +316,7 @@ class HugoPublisher {
         const title = this.titleInput.value.trim();
         const content = this.currentContent || this.contentTextarea.value.trim();
 
-        if (!title) {
-            this.showNotification('请输入文章标题', 'error');
-            return;
-        }
-
+        // 标题可选，由 DeepSeek 自动生成
         if (!content) {
             this.showNotification('请输入文章内容', 'error');
             return;
