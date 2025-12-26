@@ -69,81 +69,45 @@ class DeepSeekService:
         返回:
             完整的提示词
         """
-        prompt = f"""你是一个专业的博客文章编辑专家，擅长将文章按照Hugo静态网站生成器的Markdown格式进行排版和优化。
-
-请对以下文章进行处理：
-
-## 文章信息
-- 标题：{title if title else '待定'}
-- 分类：{category if category else '未分类'}
-- 标签：{', '.join(tags) if tags else '无'}
+        prompt = f"""你是一个专业的博客文章编辑专家，擅长解析和排版静态网站内容。
+请对以下文章内容进行深度分析并重新排版。
 
 ## 原始内容
 {content}
 
 ## 处理要求
+1. **内容分析**：
+   - 识别文章的核心主题，提取 1 个最合适的分类（Category）。
+   - 提取 5-8 个核心标签（Tags）。
+   - 如果未提供标题或标题较弱，请生成/优化一个简洁有力的标题。
+2. **格式排版**：
+   - 修正错别字，优化段落，添加 H2/H3 小标题。
+   - 遵循规范的 Markdown 语法。
+   - 严禁输出 YAML Front Matter 或 Markdown 一级标题（H1）。
+3. **输出格式**：
+   - 必须以 JSON 格式返回，包含以下字段：
+     - `title`: 建议的标题
+     - `category`: 建议的分类
+     - `tags`: 标签数组
+     - `content`: 格式化后的正文 Markdown
 
-1. **标题处理**：
-   - 如果原始内容中没有标题，请根据内容提炼一个简洁、准确的中文标题
-   - 标题应该简洁明了，不超过50个字符
-
-2. **内容优化**：
-   - 修正错别字和语病
-   - 优化段落结构，使文章层次分明
-   - 适当添加小标题（H2、H3级别）来组织内容
-   - 保持原文的核心意思不变
-
-3. **Markdown格式**：
-   - 正确使用Markdown语法（标题、列表、引用、代码块等）
-   - 中文和英文、数字之间添加空格
-   - 代码块需要标注语言类型
-   - 列表项使用统一的格式
-
-4. **图片引用**：
-   - 文章中的图片请使用标准Markdown格式：![描述](/images/图片文件名)
-   - 如果原文中已有图片链接，**保持原样不做修改**
-   - 不要在文章内容中嵌入 base64 图片
-
-5. **Hugo兼容性**：
-   - 确保内容与Hugo的Markdown渲染器兼容
-   - 避免使用特殊的非标准Markdown语法
-   - 文章正文中只引用图片路径，不做其他处理
-
-7. **严禁事项**：
-   - **绝对不要**包含 YAML Front Matter（即文章开头的 --- 包裹的元数据区域）
-   - **绝对不要**包含文章标题作为 Markdown 一级标题（H1），因为标题会通过元数据单独处理
-   - 只返回文章正文内容
-
-## 输出格式
-请直接返回处理后的 Markdown 格式文章正文，**不要包含 YAML 头部元数据**，不要包含任何解释性文字或 markdown 代码块标记。
-
-文章内容："""
+直接返回 JSON 对象，不要包含解释或代码块标记。"""
+        return prompt
         return prompt
     
-    def format_article(self, content: str, title: str = '', tags: List[str] = None, category: str = '') -> str:
+    def format_article(self, content: str, title: str = '', tags: List[str] = None, category: str = '') -> Dict[str, Any]:
         """
-        格式化文章
-        
-        参数:
-            content: 原始文章内容
-            title: 文章标题
-            tags: 标签列表
-            category: 分类
-            
-        返回:
-            格式化后的Markdown内容
+        格式化文章并分析元数据
         """
         if not content or content.strip() == '':
             raise ValueError('文章内容不能为空')
         
-        tags = tags or []
-        
-        prompt = self._build_format_prompt(content, title, tags, category)
+        prompt = self._build_format_prompt(content, title, tags or [], category)
         
         messages = [
             {
                 'role': 'system',
-                'content': '你是一个专业的博客文章编辑专家，精通各种静态网站生成器的Markdown格式要求，特别是Hugo。你排版的文章格式规范、内容优化得当、层次分明。'
+                'content': '你是一个精通文章解析与排版的 AI 助手。请根据要求输出 JSON 格式的分析结果。'
             },
             {
                 'role': 'user',
@@ -152,10 +116,29 @@ class DeepSeekService:
         ]
         
         try:
-            formatted_content = self._call_api(messages, temperature=0.5)
-            return formatted_content.strip()
-        except requests.exceptions.RequestException as e:
-            raise Exception(f'调用DeepSeek API失败：{str(e)}')
+            response = self._call_api(messages, temperature=0.5)
+            # 处理可能的 JSON 包裹
+            if response.startswith('```json'):
+                response = response.replace('```json', '', 1).rsplit('```', 1)[0].strip()
+            elif response.startswith('```'):
+                response = response.replace('```', '', 1).rsplit('```', 1)[0].strip()
+            
+            result = json.loads(response)
+            return {
+                'title': result.get('title', '').strip(),
+                'category': result.get('category', '').strip(),
+                'tags': result.get('tags', []),
+                'content': result.get('content', '').strip()
+            }
+        except Exception as e:
+            print(f"Error calling DeepSeek for format: {e}")
+            # 降级处理：仅返回原文内容，保持原有元数据
+            return {
+                'title': title,
+                'category': category,
+                'tags': tags or [],
+                'content': content
+            }
     
     def improve_title(self, content: str, original_title: str = '') -> str:
         """

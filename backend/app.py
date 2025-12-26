@@ -84,25 +84,25 @@ def format_article():
         tags = data.get('tags', [])
         category = data.get('category', '')
         
-        formatted_content = deepseek_service.format_article(
+        analysis = deepseek_service.format_article(
             content=content,
             title=title,
             tags=tags,
             category=category
         )
-
-        # 如果标题为空，自动生成一个标题并返回
-        suggested_title = title
-        if not title:
-            try:
-                suggested_title = deepseek_service.improve_title(formatted_content)
-            except Exception as e:
-                print(f"Warning: Failed to suggest title in format: {e}")
+        
+        # 整合分析结果
+        formatted_content = analysis.get('content', '')
+        suggested_title = analysis.get('title', title) if not title else title
+        suggested_category = analysis.get('category', category)
+        suggested_tags = analysis.get('tags', tags)
         
         return jsonify({
             'success': True,
             'formatted_content': formatted_content,
-            'suggested_title': suggested_title
+            'suggested_title': suggested_title,
+            'suggested_category': suggested_category,
+            'suggested_tags': suggested_tags
         })
     
     except Exception as e:
@@ -195,36 +195,41 @@ def publish_article():
         draft = data.get('draft', False)
         auto_format = data.get('auto_format', True)  # 默认自动优化排版
         
-        # 自动调用 DeepSeek 优化排版
-        if auto_format:
-            try:
-                content = deepseek_service.format_article(
-                    content=content,
-                    title=title,
-                    tags=tags,
-                    category=category
-                )
-            except Exception as e:
-                # 优化失败时继续使用原内容
-                print(f"Warning: Auto format failed: {e}")
-        
-        # 清除内容中可能已存在的 Front Matter 头部，防止重复
+        # 1. 清除内容中可能已存在的 Front Matter 头部，防止重复
         parsed = markdown_generator.parse_front_matter(content)
         content = parsed['content']
         
-        # 如果没有标题，调用 DeepSeek 自动生成
-        if not title:
-            try:
-                # 优先从解析出的元数据中获取标题
+        # 2. 调用 DeepSeek 优化排版并分析元数据 (分类、标签、标题)
+        # 即使 auto_format=False，为了获取分类标签也需要分析，除非系统有其他策略
+        # 我们这里默认发布时都会通过 AI 进行分类标签提取
+        try:
+            analysis = deepseek_service.format_article(
+                content=content,
+                title=title,
+                tags=tags,
+                category=category
+            )
+            
+            # 正文使用优化后的内容
+            content = analysis.get('content', content)
+            
+            # 分类和标签强制使用 AI 生成的结果
+            tags = analysis.get('tags', [])
+            category = analysis.get('category', '未分类')
+            
+            # 标题逻辑：如果用户没填，则使用 AI 建议的标题
+            if not title:
+                # 尝试从原本剥离的头部中找标题（如果存在）
                 extracted_title = parsed.get('front_matter', {}).get('title')
-                if extracted_title:
-                    title = extracted_title
-                else:
-                    title = deepseek_service.improve_title(content)
-            except Exception as e:
-                # 生成失败时使用默认标题
-                title = f"未命名文章_{datetime.now(timezone(timedelta(hours=8))).strftime('%Y%p%d%H%M%S')}"
+                title = extracted_title if extracted_title else analysis.get('title', '未命名文章')
+                
+        except Exception as e:
+            print(f"Warning: AI analysis failed: {e}")
+            # 失败时回退：如果没有标题，给个默认的
+            if not title:
+                title = f"未命名文章_{datetime.now(timezone(timedelta(hours=8))).strftime('%Y%m%d%H%M%S')}"
 
+        # 3. 生成文件名和完整的 Hugo 内容
         filename = markdown_generator.generate_filename(title)
         full_content = markdown_generator.wrap_with_front_matter(
             title=title,

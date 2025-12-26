@@ -154,12 +154,18 @@ class HugoPublisher {
                 this.updatePreview(data.formatted_content);
                 this.markdownContent.value = data.formatted_content;
 
-                // 如果标题输入框为空，自动填充生成的建议标题
+                // 自动填充生成的建议信息
                 if (!this.titleInput.value.trim() && data.suggested_title) {
                     this.titleInput.value = data.suggested_title;
                 }
+                if (data.suggested_category) {
+                    this.categorySelect.value = data.suggested_category;
+                }
+                if (data.suggested_tags && data.suggested_tags.length > 0) {
+                    this.tagsInput.value = data.suggested_tags.join(', ');
+                }
 
-                this.showNotification('文章优化及预览完成!', 'success');
+                this.showNotification('文章分析及预览完成!', 'success');
             } else {
                 this.showNotification(`排版失败: ${data.error}`, 'error');
             }
