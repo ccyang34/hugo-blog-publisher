@@ -37,10 +37,6 @@ except Exception as e:
     traceback.print_exc()
     raise
 
-# For Vercel deployment: export the Flask app as the handler
-# Vercel will automatically wrap it as a WSGI handler
-handler = app
-
 # For local development
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)
