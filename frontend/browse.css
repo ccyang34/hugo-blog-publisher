@@ -106,9 +106,12 @@
     margin-bottom: 4px;
     background: var(--background);
     border-radius: var(--radius);
-    cursor: pointer;
     transition: var(--transition);
     border: 2px solid transparent;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
 }
 
 .article-list-item:hover {
@@ -118,6 +121,38 @@
 .article-list-item.active {
     background: rgba(37, 99, 235, 0.1);
     border-color: var(--primary-color);
+}
+
+.article-list-item .item-content {
+    flex: 1;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.article-list-item .item-delete-btn {
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 1.25rem;
+    cursor: pointer;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+    opacity: 0;
+    flex-shrink: 0;
+}
+
+.article-list-item:hover .item-delete-btn {
+    opacity: 1;
+}
+
+.article-list-item .item-delete-btn:hover {
+    background: var(--danger-color);
+    color: white;
 }
 
 .article-list-item .item-title {
@@ -324,7 +359,7 @@
     .browse-main {
         flex-direction: column;
     }
-    
+
     .article-list-panel {
         width: 100%;
         max-width: none;
@@ -333,19 +368,19 @@
         border-right: none;
         border-bottom: 1px solid var(--border-color);
     }
-    
+
     .article-content-panel {
         padding: 16px;
     }
-    
+
     .article-content {
         padding: 20px;
     }
-    
+
     .browse-header h1 {
         font-size: 1.25rem;
     }
-    
+
     .nav-link {
         padding: 6px 12px;
         font-size: 0.75rem;

@@ -112,21 +112,33 @@ class ArticleBrowser {
             const isActive = this.currentPath === f.path;
             return `
                 <div class="article-list-item${isActive ? ' active' : ''}" data-path="${f.path}">
-                    <div class="item-title" title="${f.name}">${f.name.replace('.md', '')}</div>
-                    <div class="item-meta">
-                        <span class="item-dir">${f.dirName}</span>
-                        <span>${date}</span>
+                    <div class="item-content">
+                        <div class="item-title" title="${f.name}">${f.name.replace('.md', '')}</div>
+                        <div class="item-meta">
+                            <span class="item-dir">${f.dirName}</span>
+                            <span>${date}</span>
+                        </div>
                     </div>
+                    <button class="item-delete-btn" data-path="${f.path}" data-name="${f.name}" title="删除">×</button>
                 </div>
             `;
         }).join('');
 
         this.articleCount.textContent = `${articles.length} 篇文章`;
 
-        this.articleList.querySelectorAll('.article-list-item').forEach(item => {
+        this.articleList.querySelectorAll('.item-content').forEach(item => {
             item.addEventListener('click', () => {
-                const path = item.dataset.path;
+                const path = item.parentElement.dataset.path;
                 this.selectArticle(path);
+            });
+        });
+
+        this.articleList.querySelectorAll('.item-delete-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const path = btn.dataset.path;
+                const name = btn.dataset.name;
+                this.confirmDeleteArticle(path, name);
             });
         });
     }
@@ -249,6 +261,127 @@ class ArticleBrowser {
         html = html.replace(/<\/blockquote>\s*<blockquote>/g, '<br>');
 
         return html;
+    }
+
+    confirmDeleteArticle(path, name) {
+        if (!confirm(`确定要删除文章 "${name}" 吗？\n\n此操作不可撤销！`)) return;
+
+        this.showPasswordDialog('删除文章', async () => {
+            await this.deleteArticle(path, name);
+        });
+    }
+
+    showPasswordDialog(action, onSuccess) {
+        const existingDialog = document.getElementById('passwordDialog');
+        if (existingDialog) existingDialog.remove();
+
+        const dialog = document.createElement('div');
+        dialog.id = 'passwordDialog';
+        dialog.className = 'modal';
+        dialog.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>🔐 密码验证</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p>请输入密码以${action}：</p>
+                    <input type="password" id="passwordInput" class="form-input" placeholder="请输入密码" autocomplete="off">
+                    <p id="passwordError" class="error-text" style="display: none;"></p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" id="cancelPasswordBtn">取消</button>
+                    <button class="btn btn-primary" id="confirmPasswordBtn">确认</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(dialog);
+
+        const passwordInput = dialog.querySelector('#passwordInput');
+        const passwordError = dialog.querySelector('#passwordError');
+        const confirmBtn = dialog.querySelector('#confirmPasswordBtn');
+        const cancelBtn = dialog.querySelector('#cancelPasswordBtn');
+        const closeBtn = dialog.querySelector('.modal-close');
+
+        passwordInput.focus();
+
+        const closeDialog = () => dialog.remove();
+
+        const handleConfirm = async () => {
+            const password = passwordInput.value;
+            if (!password) {
+                passwordError.textContent = '请输入密码';
+                passwordError.style.display = 'block';
+                return;
+            }
+
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = '验证中...';
+
+            const isValid = await this.verifyPassword(password);
+            if (isValid) {
+                closeDialog();
+                onSuccess();
+            } else {
+                passwordError.textContent = '密码错误，请重试';
+                passwordError.style.display = 'block';
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = '确认';
+                passwordInput.value = '';
+                passwordInput.focus();
+            }
+        };
+
+        confirmBtn.addEventListener('click', handleConfirm);
+        cancelBtn.addEventListener('click', closeDialog);
+        closeBtn.addEventListener('click', closeDialog);
+        dialog.addEventListener('click', (e) => {
+            if (e.target === dialog) closeDialog();
+        });
+        passwordInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') handleConfirm();
+            if (e.key === 'Escape') closeDialog();
+        });
+    }
+
+    async verifyPassword(password) {
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/api/verify-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password })
+            });
+            const data = await response.json();
+            return data.success === true;
+        } catch (error) {
+            console.error('密码验证错误:', error);
+            return false;
+        }
+    }
+
+    async deleteArticle(path, name) {
+        this.showLoading('正在删除...');
+
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/api/file?path=${encodeURIComponent(path)}`, {
+                method: 'DELETE'
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                alert('删除成功！');
+                this.loadArticles();
+                this.contentPlaceholder.classList.remove('hidden');
+                this.articleContent.classList.add('hidden');
+            } else {
+                alert(`删除失败: ${data.error}`);
+            }
+        } catch (error) {
+            console.error('删除文章错误:', error);
+            alert(`网络错误: ${error.message}`);
+        } finally {
+            this.hideLoading();
+        }
     }
 }
 
