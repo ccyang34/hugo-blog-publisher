@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://your-backend-service.railway.app';
+const API_BASE_URL = 'https://hugo-blog-publisher.onrender.com';
 
 const AppConfig = {
     apiBaseUrl: API_BASE_URL,
