@@ -725,7 +725,7 @@ body {
 .image-upload-area {
     border: 2px dashed var(--border-color);
     border-radius: var(--radius);
-    padding: 20px;
+    padding: 6px;
     text-align: center;
     transition: var(--transition);
     background: var(--background);
@@ -753,7 +753,7 @@ body {
 }
 
 .upload-icon {
-    font-size: 2rem;
+    font-size: 1.5rem;
 }
 
 .upload-progress {
