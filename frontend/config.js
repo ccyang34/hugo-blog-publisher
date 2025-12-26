@@ -1,4 +1,4 @@
-const API_BASE_URL = 'https://hugo-blog-publisher.onrender.com';
+const API_BASE_URL = 'https://hugo-fabu.ccyang.online';
 
 const AppConfig = {
     apiBaseUrl: API_BASE_URL,
