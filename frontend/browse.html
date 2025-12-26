@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>浏览文章 - Hugo博客发布器</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="browse.css">
+</head>
+<body>
+    <div class="browse-container">
+        <header class="browse-header">
+            <div class="header-left">
+                <h1>📖 文章浏览</h1>
+            </div>
+            <nav class="header-nav">
+                <a href="index.html" class="nav-link">发布文章</a>
+                <a href="admin.html" class="nav-link">管理后台</a>
+            </nav>
+        </header>
+        
+        <main class="browse-main">
+            <!-- 左侧文章列表 -->
+            <aside class="article-list-panel">
+                <div class="list-header">
+                    <h2>文章列表</h2>
+                    <button id="refreshListBtn" class="btn btn-sm">刷新</button>
+                </div>
+                <div class="list-filters">
+                    <input type="text" id="searchInput" class="form-input" placeholder="搜索文章...">
+                    <select id="dirFilter" class="form-input">
+                        <option value="all">全部目录</option>
+                        <option value="content/posts" selected>文章</option>
+                        <option value="content/notes">笔记</option>
+                        <option value="content/drafts">草稿</option>
+                    </select>
+                </div>
+                <div id="articleList" class="article-list">
+                    <p class="loading-text">加载中...</p>
+                </div>
+                <div class="list-footer">
+                    <span id="articleCount">0 篇文章</span>
+                </div>
+            </aside>
+            
+            <!-- 右侧文章内容 -->
+            <section class="article-content-panel">
+                <div id="contentPlaceholder" class="content-placeholder">
+                    <div class="placeholder-icon">📄</div>
+                    <p>选择左侧文章查看内容</p>
+                </div>
+                <div id="articleContent" class="article-content hidden">
+                    <div class="content-header">
+                        <h1 id="articleTitle">文章标题</h1>
+                        <div class="article-meta">
+                            <span id="articleDate"></span>
+                            <span id="articleCategory"></span>
+                            <span id="articleTags"></span>
+                        </div>
+                    </div>
+                    <div id="articleBody" class="content-body"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+    
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="loading-spinner"></div>
+        <p id="loadingText">加载中...</p>
+    </div>
+    
+    <script src="config.js"></script>
+    <script src="browse.js"></script>
+</body>
+</html>

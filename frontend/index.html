@@ -1,21 +1,26 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hugo博客发布器</title>
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
     <div class="container">
         <header class="header">
             <div class="header-top">
                 <h1>Hugo博客发布器</h1>
-                <a href="admin.html" class="admin-link">管理后台</a>
+                <div class="header-actions">
+                    <a href="browse.html" class="admin-link">📖 浏览文章</a>
+                    <a href="admin.html" class="admin-link">管理后台</a>
+                </div>
             </div>
             <p class="subtitle">使用DeepSeek AI优化文章，自动发布到GitHub</p>
         </header>
-        
+
         <main class="main-content">
             <div class="editor-section">
                 <div class="section-header">
@@ -25,12 +30,12 @@
                         <button id="sampleBtn" class="btn btn-secondary">示例</button>
                     </div>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="title">文章标题</label>
                     <input type="text" id="title" placeholder="输入文章标题" class="form-input">
                 </div>
-                
+
                 <div class="form-row">
                     <div class="form-group">
                         <label for="category">分类</label>
@@ -43,18 +48,18 @@
                             <option value="笔记">笔记</option>
                         </select>
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="tags">标签</label>
                         <input type="text" id="tags" placeholder="用逗号分隔，如: Python, Flask" class="form-input">
                     </div>
                 </div>
-                
+
                 <div class="form-group">
                     <label for="content">文章内容</label>
                     <textarea id="content" placeholder="在这里粘贴或输入文章内容..." class="form-textarea"></textarea>
                 </div>
-                
+
                 <div class="form-group">
                     <label>图片上传</label>
                     <div class="image-upload-area">
@@ -73,7 +78,7 @@
                     </div>
                     <p class="form-hint">支持的格式：PNG、JPG、GIF、WebP、SVG、BMP。图片将上传到 /images/ 目录</p>
                 </div>
-                
+
                 <div class="action-buttons">
                     <button id="formatBtn" class="btn btn-primary">
                         <span class="btn-icon">✨</span>
@@ -89,7 +94,7 @@
                     </button>
                 </div>
             </div>
-            
+
             <div class="result-section">
                 <div class="section-header">
                     <h2>格式化结果</h2>
@@ -98,7 +103,7 @@
                         <span id="readingTime" class="reading-time">约 0 分钟</span>
                     </div>
                 </div>
-                
+
                 <div class="file-list-section">
                     <div class="file-list-header">
                         <h3>已发布文章</h3>
@@ -112,27 +117,29 @@
                         <p class="loading-text">点击"刷新文件列表"加载文章...</p>
                     </div>
                 </div>
-                
+
                 <div class="tabs">
                     <button class="tab active" data-tab="preview">预览</button>
                     <button class="tab" data-tab="markdown">Markdown</button>
                     <button class="tab" data-tab="front-matter">Front Matter</button>
                 </div>
-                
+
                 <div id="previewTab" class="tab-content active">
                     <div id="previewContent" class="preview-content markdown-body">
                         <p class="placeholder-text">格式化后的文章预览将显示在这里...</p>
                     </div>
                 </div>
-                
+
                 <div id="markdownTab" class="tab-content">
-                    <textarea id="markdownContent" class="form-textarea code-area" placeholder="Markdown代码..."></textarea>
+                    <textarea id="markdownContent" class="form-textarea code-area"
+                        placeholder="Markdown代码..."></textarea>
                 </div>
-                
+
                 <div id="frontMatterTab" class="tab-content">
-                    <textarea id="frontMatterContent" class="form-textarea code-area" placeholder="Front Matter..."></textarea>
+                    <textarea id="frontMatterContent" class="form-textarea code-area"
+                        placeholder="Front Matter..."></textarea>
                 </div>
-                
+
                 <div class="publish-section">
                     <div class="publish-options">
                         <div class="form-group inline">
@@ -148,13 +155,13 @@
                             <span>设为草稿</span>
                         </label>
                     </div>
-                    
+
                     <button id="publishBtn" class="btn btn-success">
                         <span class="btn-icon">🚀</span>
                         发布到GitHub
                     </button>
                 </div>
-                
+
                 <div id="publishResult" class="publish-result hidden">
                     <div class="result-success hidden">
                         <h3>✅ 发布成功!</h3>
@@ -168,12 +175,12 @@
                 </div>
             </div>
         </main>
-        
+
         <footer class="footer">
             <p>Powered by DeepSeek AI | Hosted on Cloudflare Pages</p>
         </footer>
     </div>
-    
+
     <div id="publishModal" class="modal hidden">
         <div class="modal-content">
             <div class="modal-header">
@@ -191,13 +198,14 @@
             </div>
         </div>
     </div>
-    
+
     <div id="loadingOverlay" class="loading-overlay hidden">
         <div class="loading-spinner"></div>
         <p id="loadingText">处理中...</p>
     </div>
-    
+
     <script src="config.js"></script>
     <script src="app.js"></script>
 </body>
+
 </html>

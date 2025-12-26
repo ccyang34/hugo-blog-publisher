@@ -4,76 +4,76 @@ class HugoPublisher {
         this.currentContent = '';
         this.frontMatter = {};
         this.uploadedImages = [];
-        
+
         this.initElements();
         this.bindEvents();
         this.checkApiHealth();
     }
-    
+
     initElements() {
         this.titleInput = document.getElementById('title');
         this.categorySelect = document.getElementById('category');
         this.tagsInput = document.getElementById('tags');
         this.contentTextarea = document.getElementById('content');
-        
+
         this.formatBtn = document.getElementById('formatBtn');
         this.previewBtn = document.getElementById('previewBtn');
         this.publishBtn = document.getElementById('publishBtn');
         this.clearBtn = document.getElementById('clearBtn');
         this.sampleBtn = document.getElementById('sampleBtn');
-        
+
         this.previewContent = document.getElementById('previewContent');
         this.markdownContent = document.getElementById('markdownContent');
         this.frontMatterContent = document.getElementById('frontMatterContent');
-        
+
         this.wordCountEl = document.getElementById('wordCount');
         this.readingTimeEl = document.getElementById('readingTime');
-        
+
         this.targetDirSelect = document.getElementById('targetDir');
         this.isDraftCheckbox = document.getElementById('isDraft');
-        
+
         this.publishResult = document.getElementById('publishResult');
         this.successMessage = document.getElementById('successMessage');
         this.viewLink = document.getElementById('viewLink');
         this.errorMessage = document.getElementById('errorMessage');
-        
+
         this.loadingOverlay = document.getElementById('loadingOverlay');
         this.loadingText = document.getElementById('loadingText');
-        
+
         this.tabs = document.querySelectorAll('.tab');
         this.tabContents = document.querySelectorAll('.tab-content');
-        
+
         this.imageInput = document.getElementById('imageInput');
         this.imageList = document.getElementById('imageList');
         this.imageUploadProgress = document.getElementById('imageUploadProgress');
         this.progressFill = this.imageUploadProgress.querySelector('.progress-fill');
         this.progressText = this.imageUploadProgress.querySelector('.progress-text');
-        
+
         this.fileList = document.getElementById('fileList');
         this.fileDirSelect = document.getElementById('fileDirSelect');
         this.refreshFilesBtn = document.getElementById('refreshFilesBtn');
     }
-    
+
     bindEvents() {
         this.formatBtn.addEventListener('click', () => this.formatArticle());
         this.previewBtn.addEventListener('click', () => this.previewArticle());
-        this.publishBtn.addEventListener('click', () => this.publishArticle());
+        this.publishBtn.addEventListener('click', () => this.handlePublishWithPassword());
         this.clearBtn.addEventListener('click', () => this.clearForm());
         this.sampleBtn.addEventListener('click', () => this.loadSample());
-        
+
         this.contentTextarea.addEventListener('input', () => this.updateStats());
         this.contentTextarea.addEventListener('paste', (e) => this.handlePaste(e));
-        
+
         this.tabs.forEach(tab => {
             tab.addEventListener('click', (e) => this.switchTab(e.target.dataset.tab));
         });
-        
+
         this.refreshFilesBtn.addEventListener('click', () => this.loadFiles());
         this.fileDirSelect.addEventListener('change', () => this.loadFiles());
-        
+
         this.imageInput.addEventListener('change', (e) => this.handleImageSelect(e));
     }
-    
+
     async checkApiHealth() {
         try {
             const response = await fetch(`${this.apiBaseUrl}/api/health`);
@@ -84,16 +84,16 @@ class HugoPublisher {
             console.warn('API健康检查失败:', error);
         }
     }
-    
+
     showLoading(message = '处理中...') {
         this.loadingText.textContent = message;
         this.loadingOverlay.classList.remove('hidden');
     }
-    
+
     hideLoading() {
         this.loadingOverlay.classList.add('hidden');
     }
-    
+
     showNotification(message, type = 'info') {
         const notification = document.createElement('div');
         notification.className = `notification notification-${type}`;
@@ -111,24 +111,24 @@ class HugoPublisher {
         `;
         notification.textContent = message;
         document.body.appendChild(notification);
-        
+
         setTimeout(() => {
             notification.style.animation = 'slideOut 0.3s ease';
             setTimeout(() => notification.remove(), 300);
         }, 3000);
     }
-    
+
     async formatArticle() {
         const content = this.contentTextarea.value.trim();
-        
+
         if (!content) {
             this.showNotification('请输入文章内容', 'error');
             return;
         }
-        
+
         this.setButtonsDisabled(true);
         this.showLoading('正在使用DeepSeek优化文章排版...');
-        
+
         try {
             const response = await fetch(`${this.apiBaseUrl}/api/format`, {
                 method: 'POST',
@@ -142,9 +142,9 @@ class HugoPublisher {
                     category: this.categorySelect.value
                 })
             });
-            
+
             const data = await response.json();
-            
+
             if (data.success) {
                 this.currentContent = data.formatted_content;
                 this.updatePreview(data.formatted_content);
@@ -161,23 +161,23 @@ class HugoPublisher {
             this.hideLoading();
         }
     }
-    
+
     async previewArticle() {
         const title = this.titleInput.value.trim();
         const content = this.currentContent || this.contentTextarea.value.trim();
-        
+
         if (!title) {
             this.showNotification('请输入文章标题', 'error');
             return;
         }
-        
+
         if (!content) {
             this.showNotification('请输入文章内容', 'error');
             return;
         }
-        
+
         this.showLoading('正在生成预览...');
-        
+
         try {
             const response = await fetch(`${this.apiBaseUrl}/api/preview`, {
                 method: 'POST',
@@ -191,9 +191,9 @@ class HugoPublisher {
                     category: this.categorySelect.value
                 })
             });
-            
+
             const data = await response.json();
-            
+
             if (data.success) {
                 this.frontMatter = data.front_matter;
                 this.frontMatterContent.value = data.front_matter;
@@ -209,24 +209,130 @@ class HugoPublisher {
             this.hideLoading();
         }
     }
-    
-    async publishArticle() {
+
+    async handlePublishWithPassword() {
         const title = this.titleInput.value.trim();
         const content = this.currentContent || this.contentTextarea.value.trim();
-        
+
         if (!title) {
             this.showNotification('请输入文章标题', 'error');
             return;
         }
-        
+
         if (!content) {
             this.showNotification('请输入文章内容', 'error');
             return;
         }
-        
+
+        this.showPasswordDialog('发布文章', () => this.publishArticle());
+    }
+
+    showPasswordDialog(action, onSuccess) {
+        // 移除已存在的对话框
+        const existingDialog = document.getElementById('passwordDialog');
+        if (existingDialog) existingDialog.remove();
+
+        const dialog = document.createElement('div');
+        dialog.id = 'passwordDialog';
+        dialog.className = 'modal';
+        dialog.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>🔐 密码验证</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p>请输入密码以${action}：</p>
+                    <input type="password" id="passwordInput" class="form-input" placeholder="请输入密码" autocomplete="off">
+                    <p id="passwordError" class="error-text" style="display: none;"></p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" id="cancelPasswordBtn">取消</button>
+                    <button class="btn btn-primary" id="confirmPasswordBtn">确认</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(dialog);
+
+        const passwordInput = dialog.querySelector('#passwordInput');
+        const passwordError = dialog.querySelector('#passwordError');
+        const confirmBtn = dialog.querySelector('#confirmPasswordBtn');
+        const cancelBtn = dialog.querySelector('#cancelPasswordBtn');
+        const closeBtn = dialog.querySelector('.modal-close');
+
+        passwordInput.focus();
+
+        const closeDialog = () => dialog.remove();
+
+        const handleConfirm = async () => {
+            const password = passwordInput.value;
+            if (!password) {
+                passwordError.textContent = '请输入密码';
+                passwordError.style.display = 'block';
+                return;
+            }
+
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = '验证中...';
+
+            const isValid = await this.verifyPassword(password);
+            if (isValid) {
+                closeDialog();
+                onSuccess();
+            } else {
+                passwordError.textContent = '密码错误，请重试';
+                passwordError.style.display = 'block';
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = '确认';
+                passwordInput.value = '';
+                passwordInput.focus();
+            }
+        };
+
+        confirmBtn.addEventListener('click', handleConfirm);
+        cancelBtn.addEventListener('click', closeDialog);
+        closeBtn.addEventListener('click', closeDialog);
+        dialog.addEventListener('click', (e) => {
+            if (e.target === dialog) closeDialog();
+        });
+        passwordInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') handleConfirm();
+            if (e.key === 'Escape') closeDialog();
+        });
+    }
+
+    async verifyPassword(password) {
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/api/verify-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password })
+            });
+            const data = await response.json();
+            return data.success === true;
+        } catch (error) {
+            console.error('密码验证错误:', error);
+            return false;
+        }
+    }
+
+    async publishArticle() {
+        const title = this.titleInput.value.trim();
+        const content = this.currentContent || this.contentTextarea.value.trim();
+
+        if (!title) {
+            this.showNotification('请输入文章标题', 'error');
+            return;
+        }
+
+        if (!content) {
+            this.showNotification('请输入文章内容', 'error');
+            return;
+        }
+
         this.publishBtn.disabled = true;
         this.showLoading('正在发布到GitHub...');
-        
+
         try {
             const response = await fetch(`${this.apiBaseUrl}/api/publish`, {
                 method: 'POST',
@@ -242,11 +348,11 @@ class HugoPublisher {
                     draft: this.isDraftCheckbox.checked
                 })
             });
-            
+
             const data = await response.json();
-            
+
             this.publishResult.classList.remove('hidden');
-            
+
             if (data.success) {
                 this.publishResult.querySelector('.result-success').classList.remove('hidden');
                 this.publishResult.querySelector('.result-error').classList.add('hidden');
@@ -271,12 +377,12 @@ class HugoPublisher {
             this.hideLoading();
         }
     }
-    
+
     updatePreview(markdown) {
         const html = this.markdownToHtml(markdown);
         this.previewContent.innerHTML = html;
     }
-    
+
     markdownToHtml(markdown) {
         let html = markdown
             .replace(/^### (.+)$/gm, '<h3>$1</h3>')
@@ -292,42 +398,42 @@ class HugoPublisher {
             .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
             .replace(/\n\n/g, '</p><p>')
             .replace(/^(?!<)(.+)$/gm, '<p>$1</p>');
-        
+
         html = html.replace(/<li>.*<\/li>/s, (match) => {
             if (match.includes('<ul>') || match.includes('<ol>')) {
                 return match;
             }
             return '<ul>' + match + '</ul>';
         });
-        
+
         return html;
     }
-    
+
     updateStats() {
         const content = this.currentContent || this.contentTextarea.value;
         const words = content.replace(/\s/g, '').length;
         const readingTime = Math.ceil(words / 200);
-        
+
         this.wordCountEl.textContent = `${words} 字`;
         this.readingTimeEl.textContent = `约 ${readingTime} 分钟`;
     }
-    
+
     switchTab(tabId) {
         this.tabs.forEach(tab => {
             tab.classList.toggle('active', tab.dataset.tab === tabId);
         });
-        
+
         this.tabContents.forEach(content => {
             content.classList.toggle('active', content.id === `${tabId}Tab`);
         });
     }
-    
+
     getTags() {
         const tagsValue = this.tagsInput.value.trim();
         if (!tagsValue) return [];
         return tagsValue.split(',').map(tag => tag.trim()).filter(tag => tag);
     }
-    
+
     clearForm() {
         this.titleInput.value = '';
         this.categorySelect.value = '';
@@ -342,7 +448,7 @@ class HugoPublisher {
         this.publishResult.classList.add('hidden');
         this.showNotification('已清空表单', 'info');
     }
-    
+
     loadSample() {
         this.titleInput.value = '使用DeepSeek优化博客文章排版';
         this.categorySelect.value = '技术';
@@ -375,11 +481,11 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
         this.updateStats();
         this.showNotification('已加载示例文章', 'info');
     }
-    
+
     async handlePaste(e) {
         const items = e.clipboardData?.items;
         if (!items) return;
-        
+
         for (const item of items) {
             if (item.type.startsWith('image/')) {
                 e.preventDefault();
@@ -389,7 +495,7 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
             }
         }
     }
-    
+
     async handleImageSelect(e) {
         const file = e.target.files[0];
         if (file) {
@@ -397,39 +503,39 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
         }
         e.target.value = '';
     }
-    
+
     async uploadImage(file) {
         const maxSize = 10 * 1024 * 1024;
         if (file.size > maxSize) {
             this.showNotification('图片大小不能超过10MB', 'error');
             return;
         }
-        
+
         this.imageUploadProgress.classList.remove('hidden');
         this.progressFill.style.width = '0%';
         this.progressText.textContent = '上传中...';
-        
+
         try {
             const formData = new FormData();
             formData.append('file', file);
-            
+
             const response = await fetch(`${this.apiBaseUrl}/api/upload-image`, {
                 method: 'POST',
                 body: formData
             });
-            
+
             const data = await response.json();
-            
+
             if (data.success) {
                 this.progressFill.style.width = '100%';
                 this.progressText.textContent = '上传成功!';
-                
+
                 this.uploadedImages.push({
                     url: data.url,
                     filename: data.filename,
                     timestamp: Date.now()
                 });
-                
+
                 this.renderUploadedImages();
                 this.insertImageToContent(data.url, file.name);
                 this.showNotification('图片上传成功!', 'success');
@@ -446,27 +552,27 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
             }, 1500);
         }
     }
-    
+
     insertImageToContent(url, filename) {
         const imageMarkdown = `![${filename}](${url})`;
         const textarea = this.contentTextarea;
         const start = textarea.selectionStart;
         const end = textarea.selectionEnd;
         const text = textarea.value;
-        
+
         const newText = text.substring(0, start) + imageMarkdown + text.substring(end);
         textarea.value = newText;
-        
+
         const newCursorPos = start + imageMarkdown.length;
         textarea.selectionStart = textarea.selectionEnd = newCursorPos;
         textarea.focus();
-        
+
         this.updateStats();
     }
-    
+
     renderUploadedImages() {
         this.imageList.innerHTML = '';
-        
+
         this.uploadedImages.forEach((img, index) => {
             const item = document.createElement('div');
             item.className = 'uploaded-image-item';
@@ -475,45 +581,45 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
                 <button class="copy-btn" title="复制链接">📋</button>
                 <button class="delete-btn" title="删除">×</button>
             `;
-            
+
             item.querySelector('.copy-btn').addEventListener('click', (e) => {
                 e.stopPropagation();
                 navigator.clipboard.writeText(`![${img.filename}](${img.url})`);
                 this.showNotification('已复制图片链接!', 'success');
             });
-            
+
             item.querySelector('.delete-btn').addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.uploadedImages.splice(index, 1);
                 this.renderUploadedImages();
                 this.removeImageFromContent(img.url);
             });
-            
+
             this.imageList.appendChild(item);
         });
     }
-    
+
     removeImageFromContent(url) {
         const textarea = this.contentTextarea;
         const regex = new RegExp(`!\\[.*?\\]\\(${url}\\)`, 'g');
         textarea.value = textarea.value.replace(regex, '');
         this.updateStats();
     }
-    
+
     setButtonsDisabled(disabled) {
         this.formatBtn.disabled = disabled;
         this.previewBtn.disabled = disabled;
         this.publishBtn.disabled = disabled;
     }
-    
+
     async loadFiles() {
         const path = this.fileDirSelect.value;
         this.fileList.innerHTML = '<p class="loading-text">加载中...</p>';
-        
+
         try {
             const response = await fetch(`${this.apiBaseUrl}/api/files?path=${encodeURIComponent(path)}`);
             const data = await response.json();
-            
+
             if (data.success) {
                 this.renderFiles(data.files);
             } else {
@@ -524,53 +630,53 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
             this.fileList.innerHTML = `<p class="error-text">网络错误: ${error.message}</p>`;
         }
     }
-    
+
     renderFiles(files) {
         this.fileList.innerHTML = '';
-        
+
         if (!files || files.length === 0) {
             this.fileList.innerHTML = '<p class="empty-text">该目录下没有文章</p>';
             return;
         }
-        
+
         files.forEach(file => {
             const item = document.createElement('div');
             item.className = 'file-item';
-            
+
             const date = file.updated_at ? new Date(file.updated_at).toLocaleDateString('zh-CN') : '';
-            
+
             item.innerHTML = `
                 <span class="file-name" title="${file.name}">${file.name}</span>
                 <span class="file-date">${date}</span>
                 <button class="file-delete-btn" title="删除">×</button>
             `;
-            
+
             item.querySelector('.file-name').addEventListener('click', () => {
                 this.loadFileContent(file.path);
             });
-            
+
             item.querySelector('.file-delete-btn').addEventListener('click', (e) => {
                 e.stopPropagation();
                 this.confirmDeleteFile(file.path, file.name);
             });
-            
+
             this.fileList.appendChild(item);
         });
     }
-    
+
     async loadFileContent(path) {
         this.showLoading('加载文章内容...');
-        
+
         try {
             const response = await fetch(`${this.apiBaseUrl}/api/file?path=${encodeURIComponent(path)}`);
             const data = await response.json();
-            
+
             if (data.success) {
                 const content = atob(data.content);
                 const lines = content.split('\n');
                 let frontMatterEnd = 0;
                 let markdownStart = 0;
-                
+
                 for (let i = 0; i < lines.length; i++) {
                     if (lines[i].trim() === '---') {
                         if (frontMatterEnd === 0) {
@@ -581,17 +687,17 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
                         }
                     }
                 }
-                
+
                 const frontMatter = lines.slice(0, frontMatterEnd + 1).join('\n');
                 const markdown = lines.slice(markdownStart).join('\n');
-                
+
                 this.frontMatterContent.value = frontMatter;
                 this.markdownContent.value = markdown;
                 this.contentTextarea.value = markdown;
-                
+
                 const frontMatterObj = this.parseFrontMatter(frontMatter);
                 this.frontMatter = frontMatterObj;
-                
+
                 if (frontMatterObj.title) {
                     this.titleInput.value = frontMatterObj.title;
                 }
@@ -601,7 +707,7 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
                 if (frontMatterObj.tags && frontMatterObj.tags.length > 0) {
                     this.tagsInput.value = frontMatterObj.tags.join(', ');
                 }
-                
+
                 this.updatePreview(markdown);
                 this.updateStats();
                 this.showNotification('文章加载成功!', 'success');
@@ -615,7 +721,7 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
             this.hideLoading();
         }
     }
-    
+
     parseFrontMatter(frontMatter) {
         const result = {
             title: '',
@@ -623,13 +729,13 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
             categories: [],
             tags: []
         };
-        
+
         const lines = frontMatter.split('\n');
         let inFrontMatter = false;
-        
+
         for (const line of lines) {
             const trimmed = line.trim();
-            
+
             if (trimmed === '---') {
                 if (!inFrontMatter) {
                     inFrontMatter = true;
@@ -638,15 +744,15 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
                     break;
                 }
             }
-            
+
             if (!inFrontMatter) continue;
-            
+
             const colonIndex = trimmed.indexOf(':');
             if (colonIndex === -1) continue;
-            
+
             const key = trimmed.slice(0, colonIndex).trim();
             const value = trimmed.slice(colonIndex + 1).trim();
-            
+
             if (key === 'title') {
                 result.title = value.replace(/^["']|["']$/g, '');
             } else if (key === 'date') {
@@ -663,25 +769,25 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
                 }
             }
         }
-        
+
         return result;
     }
-    
+
     confirmDeleteFile(path, filename) {
         if (confirm(`确定要删除文章 "${filename}" 吗？\n\n此操作不可撤销！`)) {
-            this.deleteFile(path, filename);
+            this.showPasswordDialog('删除文章', () => this.deleteFile(path, filename));
         }
     }
-    
+
     async deleteFile(path, filename) {
         this.showLoading('正在删除文章...');
-        
+
         try {
             const response = await fetch(`${this.apiBaseUrl}/api/file?path=${encodeURIComponent(path)}`, {
                 method: 'DELETE'
             });
             const data = await response.json();
-            
+
             if (data.success) {
                 this.showNotification('文章删除成功!', 'success');
                 this.loadFiles();
