@@ -405,6 +405,7 @@
 
     .browse-header {
         flex-shrink: 0;
+        padding: 10px 16px;
     }
 
     .browse-main {
@@ -418,8 +419,8 @@
     .article-list-panel {
         width: 100%;
         max-width: none;
-        height: 45vh !important;
-        min-height: 250px;
+        height: 60vh !important;
+        min-height: 300px;
         border-right: none;
         border-bottom: 2px solid var(--border-color);
         flex-shrink: 0;
@@ -434,22 +435,35 @@
     .list-header {
         flex-shrink: 0;
         flex-wrap: wrap;
-        gap: 8px;
-        padding: 12px;
+        gap: 6px;
+        padding: 8px 12px;
+    }
+
+    .list-header h2 {
+        font-size: 0.9rem;
     }
 
     .list-filters {
         flex-shrink: 0;
+        padding: 8px 12px;
+        gap: 6px;
+    }
+
+    .list-filters .form-input {
+        padding: 6px 10px;
+        font-size: 0.8rem;
     }
 
     .article-list {
         flex: 1;
         overflow-y: auto;
         min-height: 0;
+        padding: 4px 8px;
     }
 
     .list-footer {
         flex-shrink: 0;
+        padding: 8px 12px;
     }
 
     .list-actions {
@@ -469,12 +483,16 @@
 
     .content-placeholder {
         height: auto;
-        min-height: 120px;
-        padding: 20px;
+        min-height: 80px;
+        padding: 16px;
     }
 
     .placeholder-icon {
-        font-size: 2.5rem;
+        font-size: 2rem;
+    }
+
+    .content-placeholder p {
+        font-size: 0.875rem;
     }
 
     .article-content {
@@ -482,7 +500,7 @@
     }
 
     .browse-header h1 {
-        font-size: 1.1rem;
+        font-size: 1rem;
     }
 
     .nav-link {
@@ -491,14 +509,26 @@
     }
 
     .article-list-item {
-        padding: 10px 12px;
+        padding: 8px 10px;
+        margin-bottom: 2px;
     }
 
     .article-list-item .item-title {
         font-size: 0.8rem;
+        margin-bottom: 2px;
     }
 
     .article-list-item .item-meta {
+        font-size: 0.65rem;
+    }
+
+    .article-list-item .item-dir {
+        padding: 1px 4px;
+        font-size: 0.6rem;
+    }
+
+    .btn-sm {
+        padding: 4px 8px;
         font-size: 0.7rem;
     }
 }
