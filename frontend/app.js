@@ -19,6 +19,7 @@ class HugoPublisher {
         this.formatBtn = document.getElementById('formatBtn');
 
         this.publishBtn = document.getElementById('publishBtn');
+        this.publishBtnLeft = document.getElementById('publishBtnLeft');
         this.clearBtn = document.getElementById('clearBtn');
         this.sampleBtn = document.getElementById('sampleBtn');
 
@@ -58,6 +59,9 @@ class HugoPublisher {
         this.formatBtn.addEventListener('click', () => this.formatArticle());
 
         this.publishBtn.addEventListener('click', () => this.handlePublishWithPassword());
+        if (this.publishBtnLeft) {
+            this.publishBtnLeft.addEventListener('click', () => this.handlePublishWithPassword());
+        }
         this.clearBtn.addEventListener('click', () => this.clearForm());
         this.sampleBtn.addEventListener('click', () => this.loadSample());
 
@@ -285,6 +289,7 @@ class HugoPublisher {
         }
 
         this.publishBtn.disabled = true;
+        if (this.publishBtnLeft) this.publishBtnLeft.disabled = true;
         // 根据是否需要自动优化显示不同提示
         const loadingMsg = alreadyFormatted ? '正在发布到GitHub...' : '正在优化排版并发布到GitHub...';
         this.showLoading(loadingMsg);
@@ -331,6 +336,7 @@ class HugoPublisher {
             this.showNotification(`发布失败: ${error.message}`, 'error');
         } finally {
             this.publishBtn.disabled = false;
+            if (this.publishBtnLeft) this.publishBtnLeft.disabled = false;
             this.hideLoading();
         }
     }
@@ -565,8 +571,10 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
 
     setButtonsDisabled(disabled) {
         this.formatBtn.disabled = disabled;
-
         this.publishBtn.disabled = disabled;
+        if (this.publishBtnLeft) {
+            this.publishBtnLeft.disabled = disabled;
+        }
     }
 
     async loadFiles() {
