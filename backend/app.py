@@ -352,6 +352,11 @@ def verify_password():
         
         correct_password = os.environ.get('PUBLISH_PASSWORD', 'chen')
         
+        # 调试日志：输出比对信息（生产环境建议排查后删除）
+        print(f"DEBUG: Comparing passwords.")
+        print(f"DEBUG: Received: '{password}' (len: {len(password)})")
+        print(f"DEBUG: Expected: '{correct_password}' (len: {len(correct_password)})")
+        
         if password == correct_password:
             return jsonify({
                 'success': True,
