@@ -11,7 +11,13 @@ class ArticleBrowser {
 
         this.initElements();
         this.bindEvents();
-        this.loadArticles();
+
+        // 检查是否有会话授权
+        if (sessionStorage.getItem('hugo_authenticated') === 'true') {
+            this.loadArticles();
+        } else {
+            this.handleAccessValidation();
+        }
     }
 
     initElements() {
@@ -386,11 +392,9 @@ class ArticleBrowser {
     }
 
     confirmDeleteArticle(path, name) {
-        if (!confirm(`确定要删除文章 "${name}" 吗？\n\n此操作不可撤销！`)) return;
-
-        this.showPasswordDialog('删除文章', async () => {
-            await this.deleteArticle(path, name);
-        });
+        if (confirm(`确定要删除文章 "${name}" 吗？\n\n此操作不可撤销！`)) {
+            this.deleteArticle(path, name);
+        }
     }
 
     showPasswordDialog(action, onSuccess) {
@@ -474,7 +478,11 @@ class ArticleBrowser {
                 body: JSON.stringify({ password })
             });
             const data = await response.json();
-            return data.success === true;
+            if (data.success === true) {
+                sessionStorage.setItem('hugo_authenticated', 'true');
+                return true;
+            }
+            return false;
         } catch (error) {
             console.error('密码验证错误:', error);
             return false;
@@ -504,6 +512,16 @@ class ArticleBrowser {
         } finally {
             this.hideLoading();
         }
+    }
+
+    handleAccessValidation() {
+        // 清空列表显示
+        if (this.articleList) {
+            this.articleList.innerHTML = '<p class="empty-text">需要密码验证才能浏览文章</p>';
+        }
+        this.showPasswordDialog('进入浏览页面', () => {
+            this.loadArticles();
+        });
     }
 }
 
