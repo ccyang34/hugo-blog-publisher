@@ -7,7 +7,7 @@ DeepSeek API服务
 import os
 import json
 import requests
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 
 class DeepSeekService:
