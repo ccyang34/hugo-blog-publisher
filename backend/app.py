@@ -7,7 +7,7 @@ Hugo博客发布器 - Flask后端API
 import os
 import time
 from datetime import datetime
-from flask import Flask, request, jsonify, cors
+from flask import Flask, request, jsonify
 from flask_cors import CORS
 from services.deepseek import DeepSeekService
 from services.github import GitHubService
