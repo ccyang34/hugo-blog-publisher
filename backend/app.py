@@ -6,7 +6,7 @@ Hugo博客发布器 - Flask后端API
 
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from .services.deepseek import DeepSeekService
@@ -43,9 +43,11 @@ except ValueError:
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """健康检查"""
+    # 获取北京时间 (UTC+8)
+    beijing_time = datetime.now(timezone(timedelta(hours=8)))
     return jsonify({
         'status': 'ok',
-        'timestamp': datetime.now().isoformat()
+        'timestamp': beijing_time.isoformat()
     })
 
 
@@ -135,7 +137,7 @@ def preview_article():
         
         title = data['title']
         content = data.get('content', '')
-        date = data.get('date', datetime.now().strftime('%Y-%m-%d %H:%M'))
+        date = data.get('date', datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M'))
         tags = data.get('tags', [])
         category = data.get('category', '')
         
@@ -186,7 +188,7 @@ def publish_article():
         
         title = data.get('title', '').strip()
         content = data['content']
-        date = data.get('date', datetime.now().strftime('%Y-%m-%d %H:%M'))
+        date = data.get('date', datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M'))
         tags = data.get('tags', [])
         category = data.get('category', '')
         target_dir = data.get('target_dir', 'content/posts')

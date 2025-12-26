@@ -6,7 +6,7 @@ Markdown格式处理工具
 
 import re
 import os
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Dict, Any
 import unicodedata
 
@@ -60,7 +60,7 @@ class MarkdownGenerator:
             文件名
         """
         if not date:
-            date = datetime.now().strftime('%Y-%m-%d')
+            date = datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d')
         
         slug = self.slugify(title)
         
@@ -87,7 +87,7 @@ class MarkdownGenerator:
             front matter字符串
         """
         if not date:
-            date = datetime.now().strftime('%Y-%m-%d')
+            date = datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d')
         
         if tags is None:
             tags = []
@@ -132,7 +132,7 @@ class MarkdownGenerator:
             完整的Hugo文章内容
         """
         if not date:
-            date = datetime.now().strftime('%Y-%m-%d')
+            date = datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d')
         
         if tags is None:
             tags = []
