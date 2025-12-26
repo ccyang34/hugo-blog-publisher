@@ -22,6 +22,8 @@ class HugoPublisher {
         this.publishBtnLeft = document.getElementById('publishBtnLeft');
         this.clearBtn = document.getElementById('clearBtn');
         this.sampleBtn = document.getElementById('sampleBtn');
+        this.toggleMetadataBtn = document.getElementById('toggleMetadataBtn');
+        this.metadataSection = document.getElementById('metadataSection');
 
         this.previewContent = document.getElementById('previewContent');
         this.markdownContent = document.getElementById('markdownContent');
@@ -64,6 +66,12 @@ class HugoPublisher {
         }
         this.clearBtn.addEventListener('click', () => this.clearForm());
         this.sampleBtn.addEventListener('click', () => this.loadSample());
+
+        if (this.toggleMetadataBtn) {
+            this.toggleMetadataBtn.addEventListener('click', () => {
+                this.metadataSection.classList.toggle('hidden');
+            });
+        }
 
         this.contentTextarea.addEventListener('input', () => this.updateStats());
         this.contentTextarea.addEventListener('paste', (e) => this.handlePaste(e));
