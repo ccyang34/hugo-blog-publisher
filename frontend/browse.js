@@ -93,9 +93,20 @@ class ArticleBrowser {
 
     async fetchFiles(path) {
         try {
-            const response = await fetch(`${this.apiBaseUrl}/api/files?path=${encodeURIComponent(path)}`);
+            const response = await fetch(`${this.apiBaseUrl}/api/files?path=${encodeURIComponent(path)}&fetch_metadata=true`);
             const data = await response.json();
-            return data.success ? data.files : [];
+            if (data.success) {
+                // 批量存储抓取到的日期数据
+                if (data.files) {
+                    data.files.forEach(f => {
+                        if (f.updated_at) {
+                            this.articleDates[f.path] = new Date(f.updated_at).getTime();
+                        }
+                    });
+                }
+                return data.files;
+            }
+            return [];
         } catch (error) {
             console.error(`获取文件错误 (${path}):`, error);
             return [];
@@ -214,8 +225,26 @@ class ArticleBrowser {
 
         this.articleCount.textContent = `${articles.length} 篇文章`;
 
-        // 异步加载每篇文章的日期
-        articles.forEach(f => this.loadArticleDate(f.path));
+        // 更新日期显示
+        articles.forEach(f => {
+            const dateVal = this.articleDates[f.path];
+            const dateSpan = this.articleList.querySelector(`.item-date[data-path="${f.path}"]`);
+            if (dateSpan) {
+                if (dateVal) {
+                    const date = new Date(dateVal);
+                    dateSpan.textContent = date.toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                } else {
+                    dateSpan.textContent = '-';
+                }
+            }
+        });
 
         this.articleList.querySelectorAll('.item-content').forEach(item => {
             item.addEventListener('click', () => {
@@ -235,40 +264,7 @@ class ArticleBrowser {
     }
 
     async loadArticleDate(path) {
-        try {
-            const response = await fetch(`${this.apiBaseUrl}/api/file?path=${encodeURIComponent(path)}`);
-            const data = await response.json();
-
-            if (data.success) {
-                // 从 front matter 中提取 date
-                const dateMatch = data.content.match(/^date:\s*(.+)$/m);
-                if (dateMatch) {
-                    const dateStr = dateMatch[1].trim().replace(/["']/g, '');
-                    const date = new Date(dateStr);
-
-                    // 存储日期用于排序
-                    this.articleDates[path] = date.getTime();
-
-                    const formattedDate = date.toLocaleString('zh-CN', {
-                        year: 'numeric',
-                        month: '2-digit',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    });
-
-                    // 更新对应的日期显示
-                    const dateSpan = this.articleList.querySelector(`.item-date[data-path="${path}"]`);
-                    if (dateSpan) {
-                        dateSpan.textContent = formattedDate;
-                    }
-                }
-            }
-        } catch (error) {
-            console.error(`加载文章日期错误 (${path}):`, error);
-            const dateSpan = this.articleList.querySelector(`.item-date[data-path="${path}"]`);
-            if (dateSpan) dateSpan.textContent = '-';
-        }
+        // 此方法已由 fetchFiles 中的并发抓取逻辑替代，保持为空以兼容旧调用（如果存在）
     }
 
     selectArticle(path) {
