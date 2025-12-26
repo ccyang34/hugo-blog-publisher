@@ -1,0 +1,35 @@
+# Cloudflare Pages Configuration
+# https://developers.cloudflare.com/pages/platform/build-configuration/
+
+name: hugo-blog-publisher-frontend
+
+# Build command (if using a build process)
+# build: npm run build
+
+# Output directory (where static files are located)
+# For static HTML/CSS/JS without build process, this is the root
+# publish: dist
+
+# Root directory for the frontend
+# root: frontend/
+
+# Build environment variables
+# environment:
+#   NODE_VERSION: "18"
+
+# Headers file (optional, already configured in frontend/_headers)
+# headers: frontend/_headers
+
+# Redirects (optional)
+# redirects:
+#   before: /
+#   after: /index.html
+#   status: 200
+
+# Edge Functions (optional, for advanced functionality)
+# directory: functions/
+
+# SPA fallback (if needed)
+# for: /*
+#   status: 200
+#   response: index.html

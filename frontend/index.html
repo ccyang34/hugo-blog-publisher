@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hugo博客发布器</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>Hugo博客发布器</h1>
+            <p class="subtitle">使用DeepSeek AI优化文章，自动发布到GitHub</p>
+        </header>
+        
+        <main class="main-content">
+            <div class="editor-section">
+                <div class="section-header">
+                    <h2>文章编辑</h2>
+                    <div class="header-actions">
+                        <button id="clearBtn" class="btn btn-secondary">清空</button>
+                        <button id="sampleBtn" class="btn btn-secondary">示例</button>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="title">文章标题</label>
+                    <input type="text" id="title" placeholder="输入文章标题" class="form-input">
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="category">分类</label>
+                        <select id="category" class="form-input">
+                            <option value="">选择分类</option>
+                            <option value="技术">技术</option>
+                            <option value="生活">生活</option>
+                            <option value="随笔">随笔</option>
+                            <option value="教程">教程</option>
+                            <option value="笔记">笔记</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="tags">标签</label>
+                        <input type="text" id="tags" placeholder="用逗号分隔，如: Python, Flask" class="form-input">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="content">文章内容</label>
+                    <textarea id="content" placeholder="在这里粘贴或输入文章内容..." class="form-textarea"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>图片上传</label>
+                    <div class="image-upload-area">
+                        <input type="file" id="imageInput" accept="image/*" class="image-input">
+                        <label for="imageInput" class="image-upload-label">
+                            <span class="upload-icon">📷</span>
+                            <span>点击选择图片或拖拽到此处</span>
+                        </label>
+                        <div id="imageUploadProgress" class="upload-progress hidden">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 0%"></div>
+                            </div>
+                            <span class="progress-text">上传中...</span>
+                        </div>
+                        <div id="imageList" class="uploaded-images"></div>
+                    </div>
+                    <p class="form-hint">支持的格式：PNG、JPG、GIF、WebP、SVG、BMP。图片将上传到 /images/ 目录</p>
+                </div>
+                
+                <div class="action-buttons">
+                    <button id="formatBtn" class="btn btn-primary">
+                        <span class="btn-icon">✨</span>
+                        DeepSeek优化排版
+                    </button>
+                    <button id="previewBtn" class="btn btn-secondary">
+                        <span class="btn-icon">👁️</span>
+                        预览
+                    </button>
+                    <button id="refreshFilesBtn" class="btn btn-secondary">
+                        <span class="btn-icon">📂</span>
+                        刷新文件列表
+                    </button>
+                </div>
+            </div>
+            
+            <div class="result-section">
+                <div class="section-header">
+                    <h2>格式化结果</h2>
+                    <div class="header-actions">
+                        <span id="wordCount" class="word-count">0 字</span>
+                        <span id="readingTime" class="reading-time">约 0 分钟</span>
+                    </div>
+                </div>
+                
+                <div class="file-list-section">
+                    <div class="file-list-header">
+                        <h3>已发布文章</h3>
+                        <select id="fileDirSelect" class="form-input file-dir-select">
+                            <option value="content/posts">文章</option>
+                            <option value="content/notes">笔记</option>
+                            <option value="content/drafts">草稿</option>
+                        </select>
+                    </div>
+                    <div id="fileList" class="file-list">
+                        <p class="loading-text">点击"刷新文件列表"加载文章...</p>
+                    </div>
+                </div>
+                
+                <div class="tabs">
+                    <button class="tab active" data-tab="preview">预览</button>
+                    <button class="tab" data-tab="markdown">Markdown</button>
+                    <button class="tab" data-tab="front-matter">Front Matter</button>
+                </div>
+                
+                <div id="previewTab" class="tab-content active">
+                    <div id="previewContent" class="preview-content markdown-body">
+                        <p class="placeholder-text">格式化后的文章预览将显示在这里...</p>
+                    </div>
+                </div>
+                
+                <div id="markdownTab" class="tab-content">
+                    <textarea id="markdownContent" class="form-textarea code-area" placeholder="Markdown代码..."></textarea>
+                </div>
+                
+                <div id="frontMatterTab" class="tab-content">
+                    <textarea id="frontMatterContent" class="form-textarea code-area" placeholder="Front Matter..."></textarea>
+                </div>
+                
+                <div class="publish-section">
+                    <div class="publish-options">
+                        <div class="form-group inline">
+                            <label for="targetDir">发布目录</label>
+                            <select id="targetDir" class="form-input">
+                                <option value="content/posts">content/posts (文章)</option>
+                                <option value="content/notes">content/notes (笔记)</option>
+                                <option value="content/drafts">content/drafts (草稿)</option>
+                            </select>
+                        </div>
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="isDraft">
+                            <span>设为草稿</span>
+                        </label>
+                    </div>
+                    
+                    <button id="publishBtn" class="btn btn-success">
+                        <span class="btn-icon">🚀</span>
+                        发布到GitHub
+                    </button>
+                </div>
+                
+                <div id="publishResult" class="publish-result hidden">
+                    <div class="result-success hidden">
+                        <h3>✅ 发布成功!</h3>
+                        <p id="successMessage"></p>
+                        <a id="viewLink" href="#" target="_blank" class="view-link">查看文章 →</a>
+                    </div>
+                    <div class="result-error hidden">
+                        <h3>❌ 发布失败</h3>
+                        <p id="errorMessage"></p>
+                    </div>
+                </div>
+            </div>
+        </main>
+        
+        <footer class="footer">
+            <p>Powered by DeepSeek AI | Hosted on Cloudflare Pages</p>
+        </footer>
+    </div>
+    
+    <div id="publishModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>确认发布</h3>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>请输入发布密码：</p>
+                <input type="password" id="publishPassword" class="form-input" placeholder="请输入密码">
+                <p id="passwordError" class="error-text hidden">密码错误，请重试</p>
+            </div>
+            <div class="modal-footer">
+                <button id="cancelPublish" class="btn btn-secondary">取消</button>
+                <button id="confirmPublish" class="btn btn-primary">确认发布</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="loading-spinner"></div>
+        <p id="loadingText">处理中...</p>
+    </div>
+    
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
