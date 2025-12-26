@@ -642,22 +642,17 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
         files.forEach(file => {
             const item = document.createElement('div');
             item.className = 'file-item';
+            item.style.cursor = 'pointer';
 
             const date = file.updated_at ? new Date(file.updated_at).toLocaleDateString('zh-CN') : '';
 
             item.innerHTML = `
                 <span class="file-name" title="${file.name}">${file.name}</span>
                 <span class="file-date">${date}</span>
-                <button class="file-delete-btn" title="删除">×</button>
             `;
 
-            item.querySelector('.file-name').addEventListener('click', () => {
+            item.addEventListener('click', () => {
                 this.loadFileContent(file.path);
-            });
-
-            item.querySelector('.file-delete-btn').addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.confirmDeleteFile(file.path, file.name);
             });
 
             this.fileList.appendChild(item);

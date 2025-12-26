@@ -4,8 +4,87 @@ class AdminPanel {
         this.currentSection = 'dashboard';
         this.articles = [];
         this.mediaFiles = [];
+        this.isAuthenticated = false;
 
-        this.init();
+        this.checkAuthentication();
+    }
+
+    checkAuthentication() {
+        // 检查 sessionStorage 中是否已验证
+        if (sessionStorage.getItem('adminAuthenticated') === 'true') {
+            this.isAuthenticated = true;
+            this.init();
+        } else {
+            this.showLoginDialog();
+        }
+    }
+
+    showLoginDialog() {
+        const loginOverlay = document.createElement('div');
+        loginOverlay.id = 'loginOverlay';
+        loginOverlay.className = 'login-overlay';
+        loginOverlay.innerHTML = `
+            <div class="login-box">
+                <h2>🔐 管理后台登录</h2>
+                <p>请输入管理密码</p>
+                <input type="password" id="adminPassword" class="form-input" placeholder="输入密码" autocomplete="off">
+                <p id="loginError" class="error-text" style="display: none;"></p>
+                <button id="loginBtn" class="btn btn-primary">登录</button>
+                <a href="index.html" class="back-link">← 返回发布器</a>
+            </div>
+        `;
+        document.body.appendChild(loginOverlay);
+
+        const passwordInput = document.getElementById('adminPassword');
+        const loginBtn = document.getElementById('loginBtn');
+        const loginError = document.getElementById('loginError');
+
+        passwordInput.focus();
+
+        const handleLogin = async () => {
+            const password = passwordInput.value;
+            if (!password) {
+                loginError.textContent = '请输入密码';
+                loginError.style.display = 'block';
+                return;
+            }
+
+            loginBtn.disabled = true;
+            loginBtn.textContent = '验证中...';
+
+            try {
+                const response = await fetch(`${this.apiBaseUrl}/api/verify-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    sessionStorage.setItem('adminAuthenticated', 'true');
+                    loginOverlay.remove();
+                    this.isAuthenticated = true;
+                    this.init();
+                } else {
+                    loginError.textContent = '密码错误';
+                    loginError.style.display = 'block';
+                    loginBtn.disabled = false;
+                    loginBtn.textContent = '登录';
+                    passwordInput.value = '';
+                    passwordInput.focus();
+                }
+            } catch (error) {
+                loginError.textContent = '网络错误，请重试';
+                loginError.style.display = 'block';
+                loginBtn.disabled = false;
+                loginBtn.textContent = '登录';
+            }
+        };
+
+        loginBtn.addEventListener('click', handleLogin);
+        passwordInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') handleLogin();
+        });
     }
 
     init() {
