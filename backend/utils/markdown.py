@@ -97,13 +97,14 @@ class MarkdownGenerator:
         
         front_matter_lines = ['---']
         front_matter_lines.append(f'title: "{self._escape_yaml_string(title)}"')
-        front_matter_lines.append(f'date: "{date}"')
+        front_matter_lines.append(f'date: {date}')
+        front_matter_lines.append(f'lastmod: {date}')
         
         if category:
-            front_matter_lines.append(f'categories: [{self._escape_yaml_string(category)}]')
+            front_matter_lines.append(f'categories: ["{self._escape_yaml_string(category)}"]')
         
         if tags:
-            tags_str = ', '.join([self._escape_yaml_string(tag) for tag in tags])
+            tags_str = ', '.join([f'"{self._escape_yaml_string(tag)}"' for tag in tags])
             front_matter_lines.append(f'tags: [{tags_str}]')
         
         front_matter_lines.append('---')
@@ -142,16 +143,17 @@ class MarkdownGenerator:
         
         lines = ['---']
         lines.append(f'title: "{self._escape_yaml_string(title)}"')
-        lines.append(f'date: "{date}"')
+        lines.append(f'date: {date}')
+        lines.append(f'lastmod: {date}')
         
         if draft:
             lines.append('draft: true')
         
         if category:
-            lines.append(f'categories: [{self._escape_yaml_string(category)}]')
+            lines.append(f'categories: ["{self._escape_yaml_string(category)}"]')
         
         if tags:
-            tags_str = ', '.join([self._escape_yaml_string(tag) for tag in tags])
+            tags_str = ', '.join([f'"{self._escape_yaml_string(tag)}"' for tag in tags])
             lines.append(f'tags: [{tags_str}]')
         
         if featured_image:
