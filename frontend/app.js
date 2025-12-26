@@ -17,7 +17,7 @@ class HugoPublisher {
         this.contentTextarea = document.getElementById('content');
 
         this.formatBtn = document.getElementById('formatBtn');
-        this.previewBtn = document.getElementById('previewBtn');
+
         this.publishBtn = document.getElementById('publishBtn');
         this.clearBtn = document.getElementById('clearBtn');
         this.sampleBtn = document.getElementById('sampleBtn');
@@ -56,7 +56,7 @@ class HugoPublisher {
 
     bindEvents() {
         this.formatBtn.addEventListener('click', () => this.formatArticle());
-        this.previewBtn.addEventListener('click', () => this.previewArticle());
+
         this.publishBtn.addEventListener('click', () => this.handlePublishWithPassword());
         this.clearBtn.addEventListener('click', () => this.clearForm());
         this.sampleBtn.addEventListener('click', () => this.loadSample());
@@ -605,7 +605,7 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
 
     setButtonsDisabled(disabled) {
         this.formatBtn.disabled = disabled;
-        this.previewBtn.disabled = disabled;
+
         this.publishBtn.disabled = disabled;
     }
 
