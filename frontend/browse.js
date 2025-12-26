@@ -108,7 +108,6 @@ class ArticleBrowser {
         }
 
         this.articleList.innerHTML = articles.map(f => {
-            const date = f.updated_at ? new Date(f.updated_at).toLocaleDateString('zh-CN') : '';
             const isActive = this.currentPath === f.path;
             return `
                 <div class="article-list-item${isActive ? ' active' : ''}" data-path="${f.path}">
@@ -116,7 +115,7 @@ class ArticleBrowser {
                         <div class="item-title" title="${f.name}">${f.name.replace('.md', '')}</div>
                         <div class="item-meta">
                             <span class="item-dir">${f.dirName}</span>
-                            <span>${date}</span>
+                            <span class="item-date" data-path="${f.path}">加载中...</span>
                         </div>
                     </div>
                     <button class="item-delete-btn" data-path="${f.path}" data-name="${f.name}" title="删除">×</button>
@@ -125,6 +124,9 @@ class ArticleBrowser {
         }).join('');
 
         this.articleCount.textContent = `${articles.length} 篇文章`;
+
+        // 异步加载每篇文章的日期
+        articles.forEach(f => this.loadArticleDate(f.path));
 
         this.articleList.querySelectorAll('.item-content').forEach(item => {
             item.addEventListener('click', () => {
@@ -141,6 +143,33 @@ class ArticleBrowser {
                 this.confirmDeleteArticle(path, name);
             });
         });
+    }
+
+    async loadArticleDate(path) {
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/api/file?path=${encodeURIComponent(path)}`);
+            const data = await response.json();
+
+            if (data.success) {
+                // 从 front matter 中提取 date
+                const dateMatch = data.content.match(/^date:\s*(.+)$/m);
+                if (dateMatch) {
+                    const dateStr = dateMatch[1].trim().replace(/["']/g, '');
+                    const date = new Date(dateStr);
+                    const formattedDate = date.toLocaleDateString('zh-CN');
+
+                    // 更新对应的日期显示
+                    const dateSpan = this.articleList.querySelector(`.item-date[data-path="${path}"]`);
+                    if (dateSpan) {
+                        dateSpan.textContent = formattedDate;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error(`加载文章日期错误 (${path}):`, error);
+            const dateSpan = this.articleList.querySelector(`.item-date[data-path="${path}"]`);
+            if (dateSpan) dateSpan.textContent = '-';
+        }
     }
 
     selectArticle(path) {
