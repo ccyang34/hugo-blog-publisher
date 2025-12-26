@@ -2,7 +2,9 @@ class ArticleBrowser {
     constructor() {
         this.apiBaseUrl = window.APP_CONFIG?.apiBaseUrl || '';
         this.articles = [];
+        this.articleDates = {}; // 存储文章日期
         this.currentPath = null;
+        this.sortMode = 'date'; // 'date' 或 'name'
 
         this.initElements();
         this.bindEvents();
@@ -32,6 +34,8 @@ class ArticleBrowser {
         this.refreshListBtn.addEventListener('click', () => this.loadArticles());
         this.searchInput.addEventListener('input', () => this.filterArticles());
         this.dirFilter.addEventListener('change', () => this.loadArticles());
+
+        document.getElementById('sortBtn')?.addEventListener('click', () => this.toggleSort());
     }
 
     showLoading(message = '加载中...') {
@@ -69,8 +73,8 @@ class ArticleBrowser {
                 this.articles = files.map(f => ({ ...f, dir: selectedDir, dirName: dirNames[selectedDir] }));
             }
 
-            // 按更新时间排序
-            this.articles.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+            // 默认按文件名排序（待日期加载后重新排序）
+            this.sortArticles();
             this.filterArticles();
         } catch (error) {
             console.error('加载文章错误:', error);
@@ -86,6 +90,35 @@ class ArticleBrowser {
         } catch (error) {
             console.error(`获取文件错误 (${path}):`, error);
             return [];
+        }
+    }
+
+    sortArticles() {
+        if (this.sortMode === 'name') {
+            // 按文件名排序（A-Z）
+            this.articles.sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
+        } else {
+            // 按日期排序（新到旧）
+            this.articles.sort((a, b) => {
+                const dateA = this.articleDates[a.path] || 0;
+                const dateB = this.articleDates[b.path] || 0;
+                return dateB - dateA;
+            });
+        }
+    }
+
+    toggleSort() {
+        this.sortMode = this.sortMode === 'date' ? 'name' : 'date';
+        this.sortArticles();
+        this.filterArticles();
+        this.updateSortButton();
+    }
+
+    updateSortButton() {
+        const sortBtn = document.getElementById('sortBtn');
+        if (sortBtn) {
+            sortBtn.textContent = this.sortMode === 'date' ? '📅 时间' : '📝 文件名';
+            sortBtn.title = this.sortMode === 'date' ? '当前按时间排序，点击切换' : '当前按文件名排序，点击切换';
         }
     }
 
@@ -156,6 +189,10 @@ class ArticleBrowser {
                 if (dateMatch) {
                     const dateStr = dateMatch[1].trim().replace(/["']/g, '');
                     const date = new Date(dateStr);
+
+                    // 存储日期用于排序
+                    this.articleDates[path] = date.getTime();
+
                     const formattedDate = date.toLocaleString('zh-CN', {
                         year: 'numeric',
                         month: '2-digit',

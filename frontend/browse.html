@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="browse.css">
 </head>
+
 <body>
     <div class="browse-container">
         <header class="browse-header">
@@ -18,13 +20,16 @@
                 <a href="admin.html" class="nav-link">管理后台</a>
             </nav>
         </header>
-        
+
         <main class="browse-main">
             <!-- 左侧文章列表 -->
             <aside class="article-list-panel">
                 <div class="list-header">
                     <h2>文章列表</h2>
-                    <button id="refreshListBtn" class="btn btn-sm">刷新</button>
+                    <div class="list-actions">
+                        <button id="sortBtn" class="btn btn-sm" title="当前按时间排序，点击切换">📅 时间</button>
+                        <button id="refreshListBtn" class="btn btn-sm">刷新</button>
+                    </div>
                 </div>
                 <div class="list-filters">
                     <input type="text" id="searchInput" class="form-input" placeholder="搜索文章...">
@@ -42,7 +47,7 @@
                     <span id="articleCount">0 篇文章</span>
                 </div>
             </aside>
-            
+
             <!-- 右侧文章内容 -->
             <section class="article-content-panel">
                 <div id="contentPlaceholder" class="content-placeholder">
@@ -63,14 +68,15 @@
             </section>
         </main>
     </div>
-    
+
     <!-- Loading Overlay -->
     <div id="loadingOverlay" class="loading-overlay hidden">
         <div class="loading-spinner"></div>
         <p id="loadingText">加载中...</p>
     </div>
-    
+
     <script src="config.js"></script>
     <script src="browse.js"></script>
 </body>
+
 </html>
