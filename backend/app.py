@@ -57,6 +57,12 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/favicon.ico')
+def favicon():
+    """消除 favicon.ico 404 错误"""
+    return '', 204
+
+
 @app.route('/api/format', methods=['POST'])
 def format_article():
     """
