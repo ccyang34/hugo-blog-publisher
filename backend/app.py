@@ -169,19 +169,27 @@ def publish_article():
     try:
         data = request.json
         
-        if not data or 'title' not in data or 'content' not in data:
+        if not data or 'content' not in data:
             return jsonify({
                 'success': False,
-                'error': '缺少必要参数（title和content）'
+                'error': '缺少必要参数（content）'
             }), 400
         
-        title = data['title']
+        title = data.get('title', '').strip()
         content = data['content']
         date = data.get('date', datetime.now().strftime('%Y-%m-%d %H:%M'))
         tags = data.get('tags', [])
         category = data.get('category', '')
         target_dir = data.get('target_dir', 'content/posts')
         draft = data.get('draft', False)
+        
+        # 如果没有标题，调用 DeepSeek 自动生成
+        if not title:
+            try:
+                title = deepseek_service.improve_title(content)
+            except Exception as e:
+                # 生成失败时使用默认标题
+                title = f"未命名文章_{datetime.now().strftime('%Y%m%d%H%M%S')}"
         
         filename = markdown_generator.generate_filename(title)
         full_content = markdown_generator.wrap_with_front_matter(
