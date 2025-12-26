@@ -1,0 +1,28 @@
+# Python
+*.pyc
+__pycache__/
+*.egg-info/
+build/
+dist/
+venv/
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Vercel
+.vercel/
