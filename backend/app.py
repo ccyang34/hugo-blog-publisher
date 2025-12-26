@@ -16,9 +16,28 @@ from utils.markdown import MarkdownGenerator
 app = Flask(__name__, template_folder='templates', static_folder='static')
 CORS(app, origins=[os.environ.get('FRONTEND_URL', '*')])
 
-deepseek_service = DeepSeekService()
-github_service = GitHubService()
-markdown_generator = MarkdownGenerator()
+try:
+    deepseek_service = DeepSeekService()
+except ValueError:
+    # 如果DeepSeek API密钥未设置，创建一个模拟服务
+    class MockDeepSeekService:
+        def format_markdown(self, content):
+            return content + "\n\n<!-- 由于DeepSeek API密钥未设置，未进行格式优化 -->"
+    
+    deepseek_service = MockDeepSeekService()
+    print("Warning: DeepSeek API key not set, using mock service")
+
+try:
+    github_service = GitHubService()
+except ValueError:
+    github_service = None
+    print("Warning: GitHub credentials not set, GitHub functionality disabled")
+
+try:
+    markdown_generator = MarkdownGenerator()
+except ValueError:
+    markdown_generator = None
+    print("Warning: Markdown generator not initialized, some functionality may be disabled")
 
 
 @app.route('/api/health', methods=['GET'])
