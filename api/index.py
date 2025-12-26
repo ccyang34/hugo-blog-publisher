@@ -38,19 +38,34 @@ except Exception as e:
     raise
 
 # Vercel handler function
-def handler(request):
+def handler(event, context=None):
     """Vercel handler that proxies requests to the Flask app"""
     try:
+        # Parse Vercel event object
+        http_method = event.get('httpMethod', 'GET')
+        path = event.get('path', '/')
+        headers = event.get('headers', {})
+        query_string = event.get('queryStringParameters', {})
+        query_string = '&'.join([f"{k}={v}" for k, v in query_string.items()]) if query_string else ''
+        
+        # Process request body
+        body = event.get('body', '')
+        if body and event.get('isBase64Encoded', False):
+            import base64
+            body = base64.b64decode(body)
+        else:
+            body = body.encode('utf-8')
+        
         # Build the WSGI environment
         environ = {
-            'REQUEST_METHOD': request.method,
-            'PATH_INFO': request.path,
-            'QUERY_STRING': request.query_string.decode('utf-8') if request.query_string else '',
-            'CONTENT_TYPE': request.headers.get('Content-Type', ''),
-            'CONTENT_LENGTH': str(len(request.get_data())),
+            'REQUEST_METHOD': http_method,
+            'PATH_INFO': path,
+            'QUERY_STRING': query_string,
+            'CONTENT_TYPE': headers.get('content-type', ''),
+            'CONTENT_LENGTH': str(len(body)),
             'wsgi.version': (1, 0),
-            'wsgi.url_scheme': request.headers.get('X-Forwarded-Proto', 'http'),
-            'wsgi.input': BytesIO(request.get_data()),
+            'wsgi.url_scheme': headers.get('x-forwarded-proto', 'http'),
+            'wsgi.input': BytesIO(body),
             'wsgi.errors': sys.stderr,
             'wsgi.multithread': False,
             'wsgi.multiprocess': False,
@@ -58,7 +73,7 @@ def handler(request):
         }
 
         # Add HTTP headers to the environment
-        for key, value in request.headers.items():
+        for key, value in headers.items():
             header_name = 'HTTP_' + key.upper().replace('-', '_')
             environ[header_name] = value
 
