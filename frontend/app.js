@@ -619,7 +619,10 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
             return;
         }
 
-        files.forEach(file => {
+        // 按文件名降序排列（新日期在前）
+        const sortedFiles = [...files].sort((a, b) => b.name.localeCompare(a.name, undefined, { numeric: true, sensitivity: 'base' }));
+
+        sortedFiles.forEach(file => {
             const item = document.createElement('div');
             item.className = 'file-item';
             item.style.cursor = 'pointer';
