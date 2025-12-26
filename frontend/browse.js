@@ -156,7 +156,13 @@ class ArticleBrowser {
                 if (dateMatch) {
                     const dateStr = dateMatch[1].trim().replace(/["']/g, '');
                     const date = new Date(dateStr);
-                    const formattedDate = date.toLocaleDateString('zh-CN');
+                    const formattedDate = date.toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
 
                     // 更新对应的日期显示
                     const dateSpan = this.articleList.querySelector(`.item-date[data-path="${path}"]`);
