@@ -48,6 +48,10 @@ class HugoPublisher {
         this.imageUploadProgress = document.getElementById('imageUploadProgress');
         this.progressFill = this.imageUploadProgress.querySelector('.progress-fill');
         this.progressText = this.imageUploadProgress.querySelector('.progress-text');
+        
+        this.fileList = document.getElementById('fileList');
+        this.fileDirSelect = document.getElementById('fileDirSelect');
+        this.refreshFilesBtn = document.getElementById('refreshFilesBtn');
     }
     
     bindEvents() {
@@ -63,6 +67,9 @@ class HugoPublisher {
         this.tabs.forEach(tab => {
             tab.addEventListener('click', (e) => this.switchTab(e.target.dataset.tab));
         });
+        
+        this.refreshFilesBtn.addEventListener('click', () => this.loadFiles());
+        this.fileDirSelect.addEventListener('change', () => this.loadFiles());
         
         this.imageInput.addEventListener('change', (e) => this.handleImageSelect(e));
     }
@@ -497,6 +504,196 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
         this.formatBtn.disabled = disabled;
         this.previewBtn.disabled = disabled;
         this.publishBtn.disabled = disabled;
+    }
+    
+    async loadFiles() {
+        const path = this.fileDirSelect.value;
+        this.fileList.innerHTML = '<p class="loading-text">加载中...</p>';
+        
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/api/files?path=${encodeURIComponent(path)}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                this.renderFiles(data.files);
+            } else {
+                this.fileList.innerHTML = `<p class="error-text">加载失败: ${data.error}</p>`;
+            }
+        } catch (error) {
+            console.error('加载文件列表错误:', error);
+            this.fileList.innerHTML = `<p class="error-text">网络错误: ${error.message}</p>`;
+        }
+    }
+    
+    renderFiles(files) {
+        this.fileList.innerHTML = '';
+        
+        if (!files || files.length === 0) {
+            this.fileList.innerHTML = '<p class="empty-text">该目录下没有文章</p>';
+            return;
+        }
+        
+        files.forEach(file => {
+            const item = document.createElement('div');
+            item.className = 'file-item';
+            
+            const date = file.updated_at ? new Date(file.updated_at).toLocaleDateString('zh-CN') : '';
+            
+            item.innerHTML = `
+                <span class="file-name" title="${file.name}">${file.name}</span>
+                <span class="file-date">${date}</span>
+                <button class="file-delete-btn" title="删除">×</button>
+            `;
+            
+            item.querySelector('.file-name').addEventListener('click', () => {
+                this.loadFileContent(file.path);
+            });
+            
+            item.querySelector('.file-delete-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.confirmDeleteFile(file.path, file.name);
+            });
+            
+            this.fileList.appendChild(item);
+        });
+    }
+    
+    async loadFileContent(path) {
+        this.showLoading('加载文章内容...');
+        
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/api/file?path=${encodeURIComponent(path)}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                const content = atob(data.content);
+                const lines = content.split('\n');
+                let frontMatterEnd = 0;
+                let markdownStart = 0;
+                
+                for (let i = 0; i < lines.length; i++) {
+                    if (lines[i].trim() === '---') {
+                        if (frontMatterEnd === 0) {
+                            frontMatterEnd = i;
+                        } else {
+                            markdownStart = i + 1;
+                            break;
+                        }
+                    }
+                }
+                
+                const frontMatter = lines.slice(0, frontMatterEnd + 1).join('\n');
+                const markdown = lines.slice(markdownStart).join('\n');
+                
+                this.frontMatterContent.value = frontMatter;
+                this.markdownContent.value = markdown;
+                this.contentTextarea.value = markdown;
+                
+                const frontMatterObj = this.parseFrontMatter(frontMatter);
+                this.frontMatter = frontMatterObj;
+                
+                if (frontMatterObj.title) {
+                    this.titleInput.value = frontMatterObj.title;
+                }
+                if (frontMatterObj.categories && frontMatterObj.categories.length > 0) {
+                    this.categorySelect.value = frontMatterObj.categories[0];
+                }
+                if (frontMatterObj.tags && frontMatterObj.tags.length > 0) {
+                    this.tagsInput.value = frontMatterObj.tags.join(', ');
+                }
+                
+                this.updatePreview(markdown);
+                this.updateStats();
+                this.showNotification('文章加载成功!', 'success');
+            } else {
+                this.showNotification(`加载失败: ${data.error}`, 'error');
+            }
+        } catch (error) {
+            console.error('加载文章错误:', error);
+            this.showNotification(`网络错误: ${error.message}`, 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+    
+    parseFrontMatter(frontMatter) {
+        const result = {
+            title: '',
+            date: '',
+            categories: [],
+            tags: []
+        };
+        
+        const lines = frontMatter.split('\n');
+        let inFrontMatter = false;
+        
+        for (const line of lines) {
+            const trimmed = line.trim();
+            
+            if (trimmed === '---') {
+                if (!inFrontMatter) {
+                    inFrontMatter = true;
+                    continue;
+                } else {
+                    break;
+                }
+            }
+            
+            if (!inFrontMatter) continue;
+            
+            const colonIndex = trimmed.indexOf(':');
+            if (colonIndex === -1) continue;
+            
+            const key = trimmed.slice(0, colonIndex).trim();
+            const value = trimmed.slice(colonIndex + 1).trim();
+            
+            if (key === 'title') {
+                result.title = value.replace(/^["']|["']$/g, '');
+            } else if (key === 'date') {
+                result.date = value;
+            } else if (key === 'categories') {
+                const match = value.match(/\[(.*)\]/);
+                if (match) {
+                    result.categories = match[1].split(',').map(c => c.trim().replace(/["']/g, ''));
+                }
+            } else if (key === 'tags') {
+                const match = value.match(/\[(.*)\]/);
+                if (match) {
+                    result.tags = match[1].split(',').map(t => t.trim().replace(/["']/g, ''));
+                }
+            }
+        }
+        
+        return result;
+    }
+    
+    confirmDeleteFile(path, filename) {
+        if (confirm(`确定要删除文章 "${filename}" 吗？\n\n此操作不可撤销！`)) {
+            this.deleteFile(path, filename);
+        }
+    }
+    
+    async deleteFile(path, filename) {
+        this.showLoading('正在删除文章...');
+        
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/api/file?path=${encodeURIComponent(path)}`, {
+                method: 'DELETE'
+            });
+            const data = await response.json();
+            
+            if (data.success) {
+                this.showNotification('文章删除成功!', 'success');
+                this.loadFiles();
+            } else {
+                this.showNotification(`删除失败: ${data.error}`, 'error');
+            }
+        } catch (error) {
+            console.error('删除文章错误:', error);
+            this.showNotification(`网络错误: ${error.message}`, 'error');
+        } finally {
+            this.hideLoading();
+        }
     }
 }
 

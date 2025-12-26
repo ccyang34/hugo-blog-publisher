@@ -235,19 +235,33 @@ def list_files():
         }), 500
 
 
-@app.route('/api/file', methods=['GET'])
+@app.route('/api/file', methods=['GET', 'DELETE'])
 def get_file():
-    """获取文件内容"""
+    """获取或删除文件内容"""
     try:
-        path = request.args.get('path', '')
-        if not path:
-            return jsonify({
-                'success': False,
-                'error': '缺少文件路径'
-            }), 400
-        
-        result = github_service.get_file_content(path)
-        return jsonify(result)
+        if request.method == 'DELETE':
+            path = request.args.get('path', '')
+            if not path:
+                return jsonify({
+                    'success': False,
+                    'error': '缺少文件路径'
+                }), 400
+            
+            result = github_service.delete_file(
+                path=path,
+                message=f'Delete: {path}'
+            )
+            return jsonify(result)
+        else:
+            path = request.args.get('path', '')
+            if not path:
+                return jsonify({
+                    'success': False,
+                    'error': '缺少文件路径'
+                }), 400
+            
+            result = github_service.get_file_content(path)
+            return jsonify(result)
     
     except Exception as e:
         return jsonify({

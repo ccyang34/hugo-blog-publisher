@@ -549,12 +549,38 @@ body {
     text-overflow: ellipsis;
     white-space: nowrap;
     flex: 1;
+    margin-right: 8px;
 }
 
 .file-list .file-date {
     font-size: 0.75rem;
     color: var(--text-secondary);
-    margin-left: 12px;
+    margin-right: 8px;
+}
+
+.file-list .file-delete-btn {
+    width: 24px;
+    height: 24px;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-size: 1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: var(--transition);
+}
+
+.file-list .file-item:hover .file-delete-btn {
+    opacity: 1;
+}
+
+.file-list .file-delete-btn:hover {
+    background: var(--danger-color);
+    color: white;
 }
 
 .file-list .loading-text {
