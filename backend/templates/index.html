@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hugo 博客发布器 - API 测试界面</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🚀 Hugo 博客发布器 API 测试</h1>
+            <p class="subtitle">后端管理界面</p>
+        </header>
+
+        <nav class="tabs">
+            <button class="tab active" data-tab="format">DeepSeek 排版</button>
+            <button class="tab" data-tab="preview">预览 Front Matter</button>
+            <button class="tab" data-tab="publish">发布文章</button>
+            <button class="tab" data-tab="upload">上传图片</button>
+            <button class="tab" data-tab="files">文件管理</button>
+        </nav>
+
+        <div class="content">
+            <section id="format" class="tab-content active">
+                <h2>DeepSeek AI 排版</h2>
+                <div class="form-group">
+                    <label>文章标题（可选）</label>
+                    <input type="text" id="format-title" placeholder="输入文章标题">
+                </div>
+                <div class="form-group">
+                    <label>标签（可选，逗号分隔）</label>
+                    <input type="text" id="format-tags" placeholder="标签1, 标签2, 标签3">
+                </div>
+                <div class="form-group">
+                    <label>分类（可选）</label>
+                    <input type="text" id="format-category" placeholder="文章分类">
+                </div>
+                <div class="form-group">
+                    <label>文章内容</label>
+                    <textarea id="format-content" rows="15" placeholder="输入或粘贴文章内容..."></textarea>
+                </div>
+                <button onclick="formatArticle()" class="btn btn-primary">🤖 DeepSeek 优化排版</button>
+                <div id="format-result" class="result hidden">
+                    <h3>排版结果：</h3>
+                    <textarea id="format-output" rows="15" readonly></textarea>
+                    <button onclick="copyToClipboard('format-output')" class="btn btn-secondary">📋 复制</button>
+                </div>
+            </section>
+
+            <section id="preview" class="tab-content">
+                <h2>预览 Front Matter</h2>
+                <div class="form-group">
+                    <label>文章标题</label>
+                    <input type="text" id="preview-title" placeholder="输入文章标题">
+                </div>
+                <div class="form-group">
+                    <label>日期（可选）</label>
+                    <input type="date" id="preview-date">
+                </div>
+                <div class="form-group">
+                    <label>标签（可选，逗号分隔）</label>
+                    <input type="text" id="preview-tags" placeholder="标签1, 标签2, 标签3">
+                </div>
+                <div class="form-group">
+                    <label>分类（可选）</label>
+                    <input type="text" id="preview-category" placeholder="文章分类">
+                </div>
+                <div class="form-group">
+                    <label>文章内容</label>
+                    <textarea id="preview-content" rows="10" placeholder="输入文章内容..."></textarea>
+                </div>
+                <button onclick="previewArticle()" class="btn btn-primary">👁️ 生成预览</button>
+                <div id="preview-result" class="result hidden">
+                    <h3>Front Matter：</h3>
+                    <textarea id="preview-output" rows="10" readonly></textarea>
+                    <button onclick="copyToClipboard('preview-output')" class="btn btn-secondary">📋 复制</button>
+                </div>
+            </section>
+
+            <section id="publish" class="tab-content">
+                <h2>发布文章到 GitHub</h2>
+                <div class="form-group">
+                    <label>文章标题</label>
+                    <input type="text" id="publish-title" placeholder="输入文章标题">
+                </div>
+                <div class="form-group">
+                    <label>日期（可选）</label>
+                    <input type="date" id="publish-date">
+                </div>
+                <div class="form-group">
+                    <label>标签（可选，逗号分隔）</label>
+                    <input type="text" id="publish-tags" placeholder="标签1, 标签2, 标签3">
+                </div>
+                <div class="form-group">
+                    <label>分类（可选）</label>
+                    <input type="text" id="publish-category" placeholder="文章分类">
+                </div>
+                <div class="form-group">
+                    <label>目标目录</label>
+                    <input type="text" id="publish-target-dir" value="content/posts" placeholder="content/posts">
+                </div>
+                <div class="form-group">
+                    <label>文章内容（Markdown 格式）</label>
+                    <textarea id="publish-content" rows="15" placeholder="输入 Markdown 格式的文章内容..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>发布密码</label>
+                    <input type="password" id="publish-password" placeholder="输入发布密码">
+                </div>
+                <button onclick="publishArticle()" class="btn btn-success">🚀 发布到 GitHub</button>
+                <div id="publish-result" class="result hidden"></div>
+            </section>
+
+            <section id="upload" class="tab-content">
+                <h2>上传图片到 GitHub</h2>
+                <div class="form-group">
+                    <label>选择图片文件</label>
+                    <input type="file" id="upload-file" accept="image/*">
+                </div>
+                <div class="form-group">
+                    <label>自定义文件名（可选）</label>
+                    <input type="text" id="upload-custom-name" placeholder="例如：my-image">
+                </div>
+                <div class="form-group">
+                    <label>发布密码</label>
+                    <input type="password" id="upload-password" placeholder="输入发布密码">
+                </div>
+                <button onclick="uploadImage()" class="btn btn-primary">📤 上传图片</button>
+                <div id="upload-result" class="result hidden"></div>
+            </section>
+
+            <section id="files" class="tab-content">
+                <h2>文件管理</h2>
+                <div class="form-group">
+                    <label>目录路径</label>
+                    <input type="text" id="files-path" value="content/posts" placeholder="content/posts">
+                </div>
+                <button onclick="listFiles()" class="btn btn-primary">📂 刷新文件列表</button>
+                <div id="files-result" class="result hidden">
+                    <h3>文件列表：</h3>
+                    <div id="files-list" class="files-list"></div>
+                </div>
+            </section>
+        </div>
+
+        <div id="toast" class="toast hidden"></div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

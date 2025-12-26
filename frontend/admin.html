@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理后台 - Hugo博客发布器</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+    <div class="admin-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>管理后台</h2>
+                <a href="index.html" class="back-link">← 返回发布器</a>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#dashboard" class="nav-item active" data-section="dashboard">
+                    <span class="nav-icon">📊</span>
+                    <span>数据概览</span>
+                </a>
+                <a href="#articles" class="nav-item" data-section="articles">
+                    <span class="nav-icon">📝</span>
+                    <span>文章管理</span>
+                </a>
+                <a href="#media" class="nav-item" data-section="media">
+                    <span class="nav-icon">🖼️</span>
+                    <span>媒体库</span>
+                </a>
+                <a href="#system" class="nav-item" data-section="system">
+                    <span class="nav-icon">⚙️</span>
+                    <span>系统状态</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <p>Powered by DeepSeek AI</p>
+            </div>
+        </aside>
+        
+        <main class="admin-main">
+            <section id="dashboard" class="admin-section active">
+                <div class="section-title">
+                    <h1>数据概览</h1>
+                    <p>博客运营数据统计</p>
+                </div>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">📄</div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="totalArticles">0</span>
+                            <span class="stat-label">文章总数</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📁</div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="totalNotes">0</span>
+                            <span class="stat-label">笔记数量</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📂</div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="totalDrafts">0</span>
+                            <span class="stat-label">草稿数量</span>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🖼️</div>
+                        <div class="stat-info">
+                            <span class="stat-value" id="totalImages">0</span>
+                            <span class="stat-label">图片数量</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="dashboard-grid">
+                    <div class="dashboard-card">
+                        <div class="card-header">
+                            <h3>分类统计</h3>
+                        </div>
+                        <div id="categoryStats" class="card-content">
+                            <p class="loading-text">加载中...</p>
+                        </div>
+                    </div>
+                    
+                    <div class="dashboard-card">
+                        <div class="card-header">
+                            <h3>标签云</h3>
+                        </div>
+                        <div id="tagCloud" class="card-content tag-cloud">
+                            <p class="loading-text">加载中...</p>
+                        </div>
+                    </div>
+                    
+                    <div class="dashboard-card full-width">
+                        <div class="card-header">
+                            <h3>最近更新</h3>
+                        </div>
+                        <div id="recentUpdates" class="card-content">
+                            <p class="loading-text">加载中...</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <section id="articles" class="admin-section">
+                <div class="section-title">
+                    <h1>文章管理</h1>
+                    <p>查看和管理所有文章</p>
+                </div>
+                
+                <div class="toolbar">
+                    <div class="search-box">
+                        <input type="text" id="articleSearch" placeholder="搜索文章..." class="form-input">
+                    </div>
+                    <div class="filter-group">
+                        <select id="articleCategory" class="form-input">
+                            <option value="">全部分类</option>
+                            <option value="技术">技术</option>
+                            <option value="生活">生活</option>
+                            <option value="随笔">随笔</option>
+                            <option value="教程">教程</option>
+                            <option value="笔记">笔记</option>
+                        </select>
+                        <select id="articleDir" class="form-input">
+                            <option value="all">全部目录</option>
+                            <option value="content/posts">文章</option>
+                            <option value="content/notes">笔记</option>
+                            <option value="content/drafts">草稿</option>
+                        </select>
+                    </div>
+                    <button id="refreshArticles" class="btn btn-primary">
+                        <span>🔄</span> 刷新
+                    </button>
+                </div>
+                
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>文章标题</th>
+                                <th>分类</th>
+                                <th>标签</th>
+                                <th>目录</th>
+                                <th>更新时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="articlesTableBody">
+                            <tr>
+                                <td colspan="6" class="loading-text">点击刷新按钮加载文章...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            
+            <section id="media" class="admin-section">
+                <div class="section-title">
+                    <h1>媒体库</h1>
+                    <p>管理博客图片资源</p>
+                </div>
+                
+                <div class="media-toolbar">
+                    <div class="search-box">
+                        <input type="text" id="mediaSearch" placeholder="搜索图片..." class="form-input">
+                    </div>
+                    <button id="refreshMedia" class="btn btn-primary">
+                        <span>🔄</span> 刷新
+                    </button>
+                </div>
+                
+                <div id="mediaGrid" class="media-grid">
+                    <p class="loading-text">点击刷新按钮加载图片...</p>
+                </div>
+            </section>
+            
+            <section id="system" class="admin-section">
+                <div class="section-title">
+                    <h1>系统状态</h1>
+                    <p>查看后端服务状态和配置</p>
+                </div>
+                
+                <div class="system-grid">
+                    <div class="dashboard-card">
+                        <div class="card-header">
+                            <h3>服务状态</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="status-item">
+                                <span class="status-label">后端服务</span>
+                                <span id="backendStatus" class="status-badge status-checking">检查中...</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">GitHub 连接</span>
+                                <span id="githubStatus" class="status-badge status-checking">检查中...</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">API 健康</span>
+                                <span id="apiStatus" class="status-badge status-checking">检查中...</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="dashboard-card">
+                        <div class="card-header">
+                            <h3>系统配置</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="config-item">
+                                <span class="config-label">后端地址</span>
+                                <span class="config-value" id="backendUrl">-</span>
+                            </div>
+                            <div class="config-item">
+                                <span class="config-label">默认目录</span>
+                                <span class="config-value">content/posts</span>
+                            </div>
+                            <div class="config-item">
+                                <span class="config-label">最大上传</span>
+                                <span class="config-value">50 MB</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="dashboard-card full-width">
+                        <div class="card-header">
+                            <h3>快捷操作</h3>
+                        </div>
+                        <div class="card-content">
+                            <div class="quick-actions">
+                                <button id="checkHealth" class="btn btn-secondary">
+                                    <span>❤️</span> 检查健康
+                                </button>
+                                <button id="syncFiles" class="btn btn-secondary">
+                                    <span>🔄</span> 同步文件
+                                </button>
+                                <button id="clearCache" class="btn btn-secondary">
+                                    <span>🗑️</span> 清除缓存
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+    
+    <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="loading-spinner"></div>
+        <p id="loadingText">处理中...</p>
+    </div>
+    
+    <div id="notification" class="admin-notification hidden"></div>
+    
+    <script src="config.js"></script>
+    <script src="admin.js"></script>
+</body>
+</html>

@@ -7,13 +7,13 @@ Hugo博客发布器 - Flask后端API
 import os
 import time
 from datetime import datetime
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from services.deepseek import DeepSeekService
 from services.github import GitHubService
 from utils.markdown import MarkdownGenerator
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='templates', static_folder='static')
 CORS(app, origins=[os.environ.get('FRONTEND_URL', '*')])
 
 deepseek_service = DeepSeekService()
@@ -28,6 +28,12 @@ def health_check():
         'status': 'ok',
         'timestamp': datetime.now().isoformat()
     })
+
+
+@app.route('/', methods=['GET'])
+def index():
+    """主页 - API 测试界面"""
+    return render_template('index.html')
 
 
 @app.route('/api/format', methods=['POST'])
