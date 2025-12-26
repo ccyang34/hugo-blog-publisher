@@ -394,70 +394,111 @@
     font-style: italic;
 }
 
-/* Responsive */
+/* Responsive - Mobile */
 @media (max-width: 768px) {
     .browse-container {
         height: 100vh;
+        display: flex;
+        flex-direction: column;
         overflow: hidden;
     }
 
+    .browse-header {
+        flex-shrink: 0;
+    }
+
     .browse-main {
+        flex: 1;
         flex-direction: column;
-        height: calc(100vh - 70px);
+        height: auto;
         overflow: hidden;
+        position: relative;
     }
 
     .article-list-panel {
         width: 100%;
         max-width: none;
-        height: 50%;
-        min-height: 200px;
-        max-height: 50vh;
+        height: 45vh !important;
+        min-height: 250px;
         border-right: none;
-        border-bottom: 1px solid var(--border-color);
+        border-bottom: 2px solid var(--border-color);
         flex-shrink: 0;
         overflow: hidden;
         display: flex;
         flex-direction: column;
+        position: relative;
+        z-index: 10;
+        background: var(--surface);
+    }
+
+    .list-header {
+        flex-shrink: 0;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 12px;
+    }
+
+    .list-filters {
+        flex-shrink: 0;
     }
 
     .article-list {
         flex: 1;
         overflow-y: auto;
+        min-height: 0;
     }
 
-    .article-content-panel {
-        flex: 1;
-        height: 50%;
-        padding: 16px;
-        overflow-y: auto;
-    }
-
-    .content-placeholder {
-        height: 100%;
-        min-height: 150px;
-    }
-
-    .article-content {
-        padding: 20px;
-    }
-
-    .browse-header h1 {
-        font-size: 1.25rem;
-    }
-
-    .nav-link {
-        padding: 6px 12px;
-        font-size: 0.75rem;
-    }
-
-    .list-header {
-        flex-wrap: wrap;
-        gap: 8px;
+    .list-footer {
+        flex-shrink: 0;
     }
 
     .list-actions {
         width: 100%;
         justify-content: flex-end;
+    }
+
+    .article-content-panel {
+        flex: 1;
+        height: auto;
+        min-height: 0;
+        padding: 12px;
+        overflow-y: auto;
+        position: relative;
+        z-index: 1;
+    }
+
+    .content-placeholder {
+        height: auto;
+        min-height: 120px;
+        padding: 20px;
+    }
+
+    .placeholder-icon {
+        font-size: 2.5rem;
+    }
+
+    .article-content {
+        padding: 16px;
+    }
+
+    .browse-header h1 {
+        font-size: 1.1rem;
+    }
+
+    .nav-link {
+        padding: 6px 10px;
+        font-size: 0.7rem;
+    }
+
+    .article-list-item {
+        padding: 10px 12px;
+    }
+
+    .article-list-item .item-title {
+        font-size: 0.8rem;
+    }
+
+    .article-list-item .item-meta {
+        font-size: 0.7rem;
     }
 }
