@@ -208,14 +208,23 @@ def publish_article():
                 # 优化失败时继续使用原内容
                 print(f"Warning: Auto format failed: {e}")
         
+        # 清除内容中可能已存在的 Front Matter 头部，防止重复
+        parsed = markdown_generator.parse_front_matter(content)
+        content = parsed['content']
+        
         # 如果没有标题，调用 DeepSeek 自动生成
         if not title:
             try:
-                title = deepseek_service.improve_title(content)
+                # 优先从解析出的元数据中获取标题
+                extracted_title = parsed.get('front_matter', {}).get('title')
+                if extracted_title:
+                    title = extracted_title
+                else:
+                    title = deepseek_service.improve_title(content)
             except Exception as e:
                 # 生成失败时使用默认标题
-                title = f"未命名文章_{datetime.now().strftime('%Y%m%d%H%M%S')}"
-        
+                title = f"未命名文章_{datetime.now(timezone(timedelta(hours=8))).strftime('%Y%p%d%H%M%S')}"
+
         filename = markdown_generator.generate_filename(title)
         full_content = markdown_generator.wrap_with_front_matter(
             title=title,
