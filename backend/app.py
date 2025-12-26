@@ -137,7 +137,7 @@ def preview_article():
         
         title = data['title']
         content = data.get('content', '')
-        date = data.get('date', datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M'))
+        date = data.get('date', datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%dT%H:%M:%S+08:00'))
         tags = data.get('tags', [])
         category = data.get('category', '')
         
@@ -188,7 +188,7 @@ def publish_article():
         
         title = data.get('title', '').strip()
         content = data['content']
-        date = data.get('date', datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M'))
+        date = data.get('date', datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%dT%H:%M:%S+08:00'))
         tags = data.get('tags', [])
         category = data.get('category', '')
         target_dir = data.get('target_dir', 'content/posts')

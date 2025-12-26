@@ -59,15 +59,15 @@ class MarkdownGenerator:
         返回:
             文件名
         """
-        if not date:
-            date = datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d')
+        # 确保文件名只使用日期部分 (YYYY-MM-DD)
+        date_part = date[:10] if date else datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d')
         
         slug = self.slugify(title)
         
         if not slug:
             slug = 'post'
         
-        return f'{date}-{slug}.md'
+        return f'{date_part}-{slug}.md'
     
     def generate_front_matter(self, title: str, date: Optional[str] = None,
                              tags: Optional[List[str]] = None,
@@ -87,7 +87,7 @@ class MarkdownGenerator:
             front matter字符串
         """
         if not date:
-            date = datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d')
+            date = datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%dT%H:%M:%S+08:00')
         
         if tags is None:
             tags = []
@@ -97,7 +97,7 @@ class MarkdownGenerator:
         
         front_matter_lines = ['---']
         front_matter_lines.append(f'title: "{self._escape_yaml_string(title)}"')
-        front_matter_lines.append(f'date: {date}')
+        front_matter_lines.append(f'date: "{date}"')
         
         if category:
             front_matter_lines.append(f'categories: [{self._escape_yaml_string(category)}]')
@@ -132,7 +132,7 @@ class MarkdownGenerator:
             完整的Hugo文章内容
         """
         if not date:
-            date = datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d')
+            date = datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%dT%H:%M:%S+08:00')
         
         if tags is None:
             tags = []
@@ -142,7 +142,7 @@ class MarkdownGenerator:
         
         lines = ['---']
         lines.append(f'title: "{self._escape_yaml_string(title)}"')
-        lines.append(f'date: {date}')
+        lines.append(f'date: "{date}"')
         
         if draft:
             lines.append('draft: true')
