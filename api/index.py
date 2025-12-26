@@ -1,90 +1,106 @@
 import sys
 import os
+import traceback
+import pkgutil
+from io import BytesIO
 
-# Add the project root to the Python path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add debugging information
+print(f"DEBUG: Current directory: {os.getcwd()}")
+print(f"DEBUG: Python path: {sys.path}")
+print(f"DEBUG: Current file path: {os.path.abspath(__file__)}")
 
-# Import the Flask app
-from backend.app import app as flask_app
+# List all installed packages
+try:
+    installed_packages = [pkg for pkg in pkgutil.iter_modules()]
+    print(f"DEBUG: Installed packages: {[pkg.name for pkg in installed_packages[:20]]}... (total: {len(installed_packages)})")
+except Exception as e:
+    print(f"DEBUG: Error listing packages: {e}")
 
-# Vercel expects a function named 'handler' that takes a request
-# and returns a response dictionary
+# Try to import flask directly to check if it's installed
+try:
+    import flask
+    print(f"DEBUG: Flask is installed, version: {flask.__version__}")
+except ImportError:
+    print("DEBUG: Flask is NOT installed")
 
+# Set up paths
+base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+print(f"DEBUG: Base path: {base_path}")
+sys.path.insert(0, base_path)
+
+# Import the Flask app directly from the backend
+try:
+    from backend.app import app
+    print("DEBUG: Successfully imported Flask app from backend.app")
+except Exception as e:
+    print(f"DEBUG: Error importing Flask app: {e}")
+    traceback.print_exc()
+    raise
+
+# Vercel handler function
 def handler(request):
-    """Vercel handler for the Flask application"""
+    """Vercel handler that proxies requests to the Flask app"""
     try:
-        # Convert Vercel request to WSGI environment
+        # Build the WSGI environment
         environ = {
             'REQUEST_METHOD': request.method,
             'PATH_INFO': request.path,
             'QUERY_STRING': request.query_string.decode('utf-8') if request.query_string else '',
             'CONTENT_TYPE': request.headers.get('Content-Type', ''),
-            'HTTP_ACCEPT': request.headers.get('Accept', '*/*'),
-            'HTTP_ACCEPT_ENCODING': request.headers.get('Accept-Encoding', ''),
-            'HTTP_ACCEPT_LANGUAGE': request.headers.get('Accept-Language', ''),
-            'HTTP_HOST': request.headers.get('Host', ''),
-            'HTTP_USER_AGENT': request.headers.get('User-Agent', ''),
-            'HTTP_X_FORWARDED_FOR': request.headers.get('X-Forwarded-For', ''),
-            'HTTP_X_FORWARDED_PROTO': request.headers.get('X-Forwarded-Proto', ''),
+            'CONTENT_LENGTH': str(len(request.get_data())),
             'wsgi.version': (1, 0),
             'wsgi.url_scheme': request.headers.get('X-Forwarded-Proto', 'http'),
-            'wsgi.input': request.body,
+            'wsgi.input': BytesIO(request.get_data()),
             'wsgi.errors': sys.stderr,
             'wsgi.multithread': False,
             'wsgi.multiprocess': False,
             'wsgi.run_once': True,
         }
-        
-        # Handle content length
-        content_length = len(request.body)
-        if content_length > 0:
-            environ['CONTENT_LENGTH'] = str(content_length)
-        
-        # Add all request headers to environ
+
+        # Add HTTP headers to the environment
         for key, value in request.headers.items():
             header_name = 'HTTP_' + key.upper().replace('-', '_')
             environ[header_name] = value
-        
-        # Collect response data
+
+        # Create a response container
         response_data = []
         status_code = None
-        response_headers = []
-        
-        def start_response(status, headers):
-            nonlocal status_code, response_headers
+        headers = []
+
+        def start_response(status, response_headers):
+            nonlocal status_code, headers
             status_code = status
-            response_headers = headers
+            headers = response_headers
             return response_data.append
-        
-        # Call the Flask app
-        flask_app(environ, start_response)
-        
-        # Convert response to Vercel format
+
+        # Call the Flask app WSGI interface
+        app(environ, start_response)
+
+        # Convert to Vercel response format
         status_code_num = int(status_code.split()[0])
-        headers_dict = {}
-        for header_name, header_value in response_headers:
-            headers_dict[header_name] = header_value
-        
-        # Ensure CORS headers are present
+        headers_dict = dict(headers)
+
+        # Ensure CORS headers
         headers_dict.setdefault('Access-Control-Allow-Origin', '*')
         headers_dict.setdefault('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
         headers_dict.setdefault('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-        
+
         return {
             'statusCode': status_code_num,
             'headers': headers_dict,
             'body': b''.join(response_data)
         }
     except Exception as e:
+        # Return detailed error for debugging
         return {
             'statusCode': 500,
             'headers': {
-                'Content-Type': 'application/json',
+                'Content-Type': 'text/plain',
                 'Access-Control-Allow-Origin': '*'
             },
-            'body': f'{{"error": "{str(e)}"}}'
+            'body': f"Error in handler: {str(e)}\n\nTraceback:\n{traceback.format_exc()}"
         }
 
 # For local development
 if __name__ == '__main__':
-    flask_app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=True, host='0.0.0.0', port=5000)

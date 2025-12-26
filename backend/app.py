@@ -9,9 +9,9 @@ import time
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
-from services.deepseek import DeepSeekService
-from services.github import GitHubService
-from utils.markdown import MarkdownGenerator
+from .services.deepseek import DeepSeekService
+from .services.github import GitHubService
+from .utils.markdown import MarkdownGenerator
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 CORS(app, origins=[os.environ.get('FRONTEND_URL', '*')])
