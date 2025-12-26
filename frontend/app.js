@@ -314,6 +314,8 @@ class HugoPublisher {
 
     async publishArticle() {
         const title = this.titleInput.value.trim();
+        // 判断是否已手动优化过
+        const alreadyFormatted = !!this.currentContent;
         const content = this.currentContent || this.contentTextarea.value.trim();
 
         // 标题可选，由 DeepSeek 自动生成
@@ -323,7 +325,9 @@ class HugoPublisher {
         }
 
         this.publishBtn.disabled = true;
-        this.showLoading('正在发布到GitHub...');
+        // 根据是否需要自动优化显示不同提示
+        const loadingMsg = alreadyFormatted ? '正在发布到GitHub...' : '正在优化排版并发布到GitHub...';
+        this.showLoading(loadingMsg);
 
         try {
             const response = await fetch(`${this.apiBaseUrl}/api/publish`, {
@@ -337,7 +341,8 @@ class HugoPublisher {
                     tags: this.getTags(),
                     category: this.categorySelect.value,
                     target_dir: this.targetDirSelect.value,
-                    draft: this.isDraftCheckbox.checked
+                    draft: this.isDraftCheckbox.checked,
+                    auto_format: !alreadyFormatted  // 已手动优化则跳过自动优化
                 })
             });
 
