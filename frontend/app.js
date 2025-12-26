@@ -672,7 +672,13 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
             const data = await response.json();
 
             if (data.success) {
-                const content = atob(data.content);
+                // 支持 UTF-8 的 Base64 解码
+                const binaryString = atob(data.content);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                const content = new TextDecoder('utf-8').decode(bytes);
                 const lines = content.split('\n');
                 let frontMatterEnd = 0;
                 let markdownStart = 0;
