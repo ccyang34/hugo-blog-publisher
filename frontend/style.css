@@ -149,7 +149,8 @@ body {
     }
 
     .header h1 {
-        font-size: 0.6rem;
+        font-size: 0.5rem;
+        /* Reduced by ~20% */
         width: auto;
         /* Allow it to shrink/grow properly */
         margin-bottom: 0;
@@ -169,7 +170,7 @@ body {
         flex: 0 1 auto;
         /* Don't stretch too much */
         padding: 4px 6px;
-        font-size: 0.6rem;
+        font-size: 0.7rem;
         height: 26px;
         /* Very short */
         min-width: 50px;
@@ -187,7 +188,8 @@ body {
     }
 
     .section-header h2 {
-        font-size: 0.6rem;
+        font-size: 0.5rem;
+        /* Reduced by ~20% */
         width: auto;
         margin-bottom: 0;
         white-space: nowrap;
@@ -206,7 +208,7 @@ body {
     .section-header .btn {
         padding: 2px 6px;
         /* Tiny padding */
-        font-size: 0.6rem;
+        font-size: 0.7rem;
         height: 24px;
         min-width: 40px;
         max-width: 80px;
