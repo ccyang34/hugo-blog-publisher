@@ -398,6 +398,7 @@
 @media (max-width: 768px) {
     .browse-container {
         height: 100vh;
+        width: 100vw;
         display: flex;
         flex-direction: column;
         overflow: hidden;
@@ -419,10 +420,9 @@
     .article-list-panel {
         width: 100%;
         max-width: none;
-        height: 60vh !important;
-        min-height: 300px;
+        height: 100%;
         border-right: none;
-        border-bottom: 2px solid var(--border-color);
+        border-bottom: none;
         flex-shrink: 0;
         overflow: hidden;
         display: flex;
@@ -430,6 +430,10 @@
         position: relative;
         z-index: 10;
         background: var(--surface);
+    }
+
+    .article-list-panel.hidden-mobile {
+        display: none;
     }
 
     .list-header {
@@ -472,19 +476,43 @@
     }
 
     .article-content-panel {
-        flex: 1;
-        height: auto;
+        width: 100%;
+        height: 100%;
         min-height: 0;
         padding: 12px;
         overflow-y: auto;
+        position: fixed;
+        /* Cover the list on mobile */
+        top: 0;
+        /* Will need adjustment based on header height, but JS logic will likely just hide list */
+        left: 0;
+        z-index: 20;
+        background: var(--background);
+        display: none;
+        /* Hidden by default on mobile */
+    }
+
+    .article-content-panel.active-mobile {
+        display: block;
         position: relative;
-        z-index: 1;
+        /* Restoring normal flow if we are hiding list */
+    }
+
+    .mobile-nav {
+        display: flex;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .mobile-nav.hidden {
+        display: block !important;
+        /* Force show on mobile */
     }
 
     .content-placeholder {
-        height: auto;
-        min-height: 80px;
-        padding: 16px;
+        display: none !important;
+        /* Don't show placeholder on mobile */
     }
 
     .placeholder-icon {
@@ -531,4 +559,9 @@
         padding: 4px 8px;
         font-size: 0.7rem;
     }
+}
+
+/* Default state for mobile nav on desktop */
+.mobile-nav {
+    display: none;
 }

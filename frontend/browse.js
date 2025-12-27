@@ -37,6 +37,11 @@ class ArticleBrowser {
 
         this.loadingOverlay = document.getElementById('loadingOverlay');
         this.loadingText = document.getElementById('loadingText');
+
+        // Elements for mobile view
+        this.articleListPanel = document.querySelector('.article-list-panel');
+        this.articleContentPanel = document.getElementById('articleContentPanel');
+        this.backToListBtn = document.getElementById('backToListBtn');
     }
 
     bindEvents() {
@@ -45,6 +50,11 @@ class ArticleBrowser {
         this.dirFilter.addEventListener('change', () => this.loadArticles());
 
         document.getElementById('sortBtn')?.addEventListener('click', () => this.toggleSort());
+
+        // Mobile navigation event
+        if (this.backToListBtn) {
+            this.backToListBtn.addEventListener('click', () => this.showListPanel());
+        }
     }
 
     showLoading(message = '加载中...') {
@@ -276,6 +286,29 @@ class ArticleBrowser {
         });
 
         this.loadArticleContent(path);
+
+        // Mobile: Show content panel
+        this.showContentPanel();
+    }
+
+    showContentPanel() {
+        // Only active on mobile view width
+        if (window.innerWidth <= 768) {
+            this.articleListPanel.classList.add('hidden-mobile');
+            this.articleContentPanel.classList.add('active-mobile');
+            // Hide placeholder on mobile to ensure content is visible
+            if (this.contentPlaceholder) this.contentPlaceholder.classList.add('hidden');
+        }
+    }
+
+    showListPanel() {
+        this.articleListPanel.classList.remove('hidden-mobile');
+        this.articleContentPanel.classList.remove('active-mobile');
+        this.currentPath = null;
+        // Reset active state
+        this.articleList.querySelectorAll('.article-list-item').forEach(item => {
+            item.classList.remove('active');
+        });
     }
 
     async loadArticleContent(path) {
@@ -499,6 +532,8 @@ class ArticleBrowser {
                 this.loadArticles();
                 this.contentPlaceholder.classList.remove('hidden');
                 this.articleContent.classList.add('hidden');
+                // Return to list view on mobile
+                this.showListPanel();
             } else {
                 alert(`删除失败: ${data.error}`);
             }
