@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 import re
+from markdownify import markdownify as md
 
 def fetch_article_content(url):
     """
@@ -55,14 +56,13 @@ def fetch_article_content(url):
         if not article:
             return None
 
-        # Clean up text
-        lines = (line.strip() for line in article.get_text().splitlines())
-        chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-        text = '\n\n'.join(chunk for chunk in chunks if chunk)
+        # Convert to Markdown using markdownify to preserve layout (headers, lists, links, images)
+        # We strip the article content to remove surrounding whitespace
+        text = md(str(article), heading_style="ATX", strip=['script', 'style'])
         
         return {
             'title': title.strip() if title else "",
-            'content': text
+            'content': text.strip()
         }
 
     except Exception as e:
