@@ -170,7 +170,7 @@ body {
         flex: 0 1 auto;
         /* Don't stretch too much */
         padding: 4px 6px;
-        font-size: 0.7rem;
+        font-size: 0.6rem;
         height: 26px;
         /* Very short */
         min-width: 50px;
