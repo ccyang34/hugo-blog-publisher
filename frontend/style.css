@@ -1059,3 +1059,40 @@ body {
         background: #334155;
     }
 }
+/* Mobile overrides for Image Upload Area: Compact, Vertically Centered, Single Line */
+@media (max-width: 640px) {
+    .image-upload-area {
+        padding: 0 !important;
+        height: 36px !important; /* Fixed height */
+        min-height: unset !important;
+        display: flex !important;
+        align-items: center !important; /* Vertical Center */
+        justify-content: center !important; /* Horizontal Center */
+    }
+
+    .image-upload-area .image-upload-label {
+        margin: 0 !important;
+        padding: 0 !important;
+        display: flex !important;
+        align-items: center !important; /* Center icon and text vertically */
+        justify-content: center !important;
+        gap: 6px !important;
+        font-size: 0.75rem !important;
+        white-space: nowrap !important; /* Force one line */
+        width: 100% !important;
+        height: 100% !important;
+        border: none !important; /* Remove inner border if any */
+    }
+
+    .image-upload-area .upload-icon {
+        font-size: 1.1rem !important;
+        line-height: 1 !important;
+    }
+}
+
+/* Fix flex direction to force row layout */
+@media (max-width: 640px) {
+    .image-upload-area .image-upload-label {
+        flex-direction: row !important;
+    }
+}
