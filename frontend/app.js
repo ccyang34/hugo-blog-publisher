@@ -341,7 +341,7 @@ class HugoPublisher {
             if (data.success) {
                 this.publishResult.querySelector('.result-success').classList.remove('hidden');
                 this.publishResult.querySelector('.result-error').classList.add('hidden');
-                this.successMessage.textContent = '文章已成功发布到 GitHub 仓库！';
+                this.successMessage.textContent = `文章已成功发布到 ${data.file_path}`;
                 this.viewLink.href = data.url;
                 this.showNotification('发布成功!', 'success');
             } else {
