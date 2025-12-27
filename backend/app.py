@@ -225,7 +225,25 @@ def publish_article():
         draft = data.get('draft', False)
         auto_format = data.get('auto_format', True)  # 默认自动优化排版
         
-        # 1. 清除内容中可能已存在的 Front Matter 头部，防止重复
+        # 1. Check if content is a URL (Same logic as format_article)
+        url_pattern = re.compile(r'^https?://\S+$')
+        if url_pattern.match(content.strip()):
+            print(f"Detected URL in publish: {content.strip()}, fetching content...")
+            scraped_data = fetch_article_content(content.strip())
+            
+            if scraped_data:
+                content = scraped_data['content']
+                # Only use scraped title if user didn't provide one
+                if not title and scraped_data['title']:
+                    title = scraped_data['title']
+                    print(f"Use scraped title: {title}")
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': '无法从链接获取内容，请检查链接是否有效'
+                }), 400
+
+        # 2. 清除内容中可能已存在的 Front Matter 头部，防止重复
         parsed = markdown_generator.parse_front_matter(content)
         content = parsed['content']
         
