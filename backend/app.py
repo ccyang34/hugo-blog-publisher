@@ -45,7 +45,6 @@ try:
 except ValueError:
     markdown_generator = None
     print("Warning: Markdown generator not initialized, some functionality may be disabled")
-    print("Warning: Markdown generator not initialized, some functionality may be disabled")
 
 
 # Initial in-memory job store
@@ -306,6 +305,11 @@ def preview_article():
 
 
 @app.route('/api/publish', methods=['POST'])
+def publish_article():
+    """发布文章到GitHub"""
+    try:
+        data = request.json
+        
         # Validate parameters (Check for content presence)
         if not data or 'content' not in data:
             return jsonify({
