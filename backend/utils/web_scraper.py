@@ -37,7 +37,14 @@ def fetch_article_content(url):
         # Extract content - Primitive heuristic: find the container with the most p tags or longest text
         # Better: look for <article>, <main>, or div with class containing 'content', 'article', 'post'
         
-        article = soup.find('article')
+        # WeChat specific handling
+        article = soup.find(id='js_content')
+        if not article:
+            article = soup.find(class_='rich_media_content')
+
+        if not article:
+            article = soup.find('article')
+            
         if not article:
             article = soup.find('main')
             
@@ -55,6 +62,14 @@ def fetch_article_content(url):
             
         if not article:
             return None
+
+        # Pre-process: Handle lazy loading images (especially WeChat)
+        # WeChat uses data-src instead of src
+        for img in article.find_all('img'):
+            if img.get('data-src'):
+                img['src'] = img['data-src']
+                # Clean up other attributes to keep markdown clean? 
+                # markdownify usually just takes src.
 
         # Convert to Markdown using markdownify to preserve layout (headers, lists, links, images)
         # We strip the article content to remove surrounding whitespace
