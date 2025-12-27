@@ -11,7 +11,10 @@ from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from .services.deepseek import DeepSeekService
 from .services.github import GitHubService
+
 from .utils.markdown import MarkdownGenerator
+from .utils.web_scraper import fetch_article_content
+import re
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 CORS(app, origins=[os.environ.get('FRONTEND_URL', '*')])
@@ -91,6 +94,25 @@ def format_article():
         title = data.get('title', '')
         tags = data.get('tags', [])
         category = data.get('category', '')
+        
+        # Check if content is a URL
+        # Basic regex for URL: starts with http/https, no spaces, seems like a single link
+        url_pattern = re.compile(r'^https?://\S+$')
+        if url_pattern.match(content.strip()):
+            print(f"Detected URL: {content.strip()}, fetching content...")
+            scraped_data = fetch_article_content(content.strip())
+            
+            if scraped_data:
+                content = scraped_data['content']
+                # Only use scraped title if user didn't provide one
+                if not title and scraped_data['title']:
+                    title = scraped_data['title']
+                    print(f"Use scraped title: {title}")
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': '无法从链接获取内容，请检查链接是否有效'
+                }), 400
         
         analysis = deepseek_service.format_article(
             content=content,
