@@ -14,7 +14,11 @@ from .services.github import GitHubService
 
 from .utils.markdown import MarkdownGenerator
 from .utils.web_scraper import fetch_article_content
+from .utils.web_scraper import fetch_article_content
 import re
+import threading
+import uuid
+import traceback
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 CORS(app, origins=[os.environ.get('FRONTEND_URL', '*')])
@@ -41,6 +45,116 @@ try:
 except ValueError:
     markdown_generator = None
     print("Warning: Markdown generator not initialized, some functionality may be disabled")
+    print("Warning: Markdown generator not initialized, some functionality may be disabled")
+
+
+# Initial in-memory job store
+jobs = {}
+
+def process_publish_task(job_id, data, deepseek_service, github_service, markdown_generator):
+    """
+    Background task to process article publishing
+    """
+    try:
+        # Update status to processing
+        jobs[job_id]['status'] = 'processing'
+        jobs[job_id]['message'] = '正在分析文章内容...'
+        jobs[job_id]['progress'] = 10
+        
+        title = data.get('title', '').strip()
+        content = data['content']
+        date = data.get('date', datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%dT%H:%M:%S+08:00'))
+        tags = data.get('tags', [])
+        category = data.get('category', '')
+        target_dir = data.get('target_dir', 'content/posts')
+        draft = data.get('draft', False)
+        auto_format = data.get('auto_format', True)
+
+        # 1. Check if content is a URL
+        url_pattern = re.compile(r'^https?://\S+$')
+        if url_pattern.match(content.strip()):
+            jobs[job_id]['message'] = '正在抓取链接内容...'
+            print(f"Detected URL in publish: {content.strip()}, fetching content...")
+            scraped_data = fetch_article_content(content.strip())
+            
+            if scraped_data:
+                content = scraped_data['content']
+                if not title and scraped_data['title']:
+                    title = scraped_data['title']
+                    print(f"Use scraped title: {title}")
+            else:
+                raise Exception('无法从链接获取内容，请检查链接是否有效')
+
+        # 2. Parse Front Matter to avoid duplication
+        parsed = markdown_generator.parse_front_matter(content)
+        content = parsed['content']
+        
+        # 3. AI Analysis
+        jobs[job_id]['message'] = '正在进行AI优化排版...'
+        jobs[job_id]['progress'] = 30
+        
+        try:
+            analysis = deepseek_service.format_article(
+                content=content,
+                title=title,
+                tags=tags,
+                category=category
+            )
+            
+            content = analysis.get('content', content)
+            tags = analysis.get('tags', [])
+            category = analysis.get('category', '未分类')
+            
+            if not title:
+                extracted_title = parsed.get('front_matter', {}).get('title')
+                title = extracted_title if extracted_title else analysis.get('title', '未命名文章')
+                
+        except Exception as e:
+            print(f"Warning: AI analysis failed: {e}")
+            if not title:
+                title = f"未命名文章_{datetime.now(timezone(timedelta(hours=8))).strftime('%Y%m%d%H%M%S')}"
+
+        # 4. Generate full content
+        jobs[job_id]['message'] = '正在生成文件...'
+        jobs[job_id]['progress'] = 60
+        
+        filename = markdown_generator.generate_filename(title)
+        full_content = markdown_generator.wrap_with_front_matter(
+            title=title,
+            content=content,
+            date=date,
+            tags=tags,
+            category=category,
+            draft=draft
+        )
+        
+        # 5. Upload to GitHub
+        jobs[job_id]['message'] = '正在上传到GitHub...'
+        jobs[job_id]['progress'] = 80
+        
+        result = github_service.upload_file(
+            content=full_content,
+            filename=filename,
+            target_dir=target_dir,
+            message=f'Publish: {title}'
+        )
+        
+        if result['success']:
+            jobs[job_id]['status'] = 'completed'
+            jobs[job_id]['progress'] = 100
+            jobs[job_id]['message'] = '文章发布成功'
+            jobs[job_id]['result'] = {
+                'file_path': result['file_path'],
+                'url': result['url']
+            }
+        else:
+            raise Exception(result.get('error', '上传失败'))
+            
+    except Exception as e:
+        print(f"Job {job_id} failed: {str(e)}")
+        traceback.print_exc()
+        jobs[job_id]['status'] = 'failed'
+        jobs[job_id]['error'] = str(e)
 
 
 @app.route('/api/health', methods=['GET'])
@@ -192,127 +306,58 @@ def preview_article():
 
 
 @app.route('/api/publish', methods=['POST'])
-def publish_article():
-    """
-    发布文章到GitHub
-    
-    请求参数:
-    {
-        "title": "文章标题",
-        "content": "文章内容（Markdown格式）",
-        "date": "2024-12-25"（可选，默认当前时间）,
-        "tags": ["标签1", "标签2"]（可选）,
-        "category": "分类"（可选）,
-        "target_dir": "content/posts"（可选，默认content/posts）,
-        "draft": false（可选，默认false）
-    }
-    """
-    try:
-        data = request.json
-        
+        # Validate parameters (Check for content presence)
         if not data or 'content' not in data:
             return jsonify({
                 'success': False,
                 'error': '缺少必要参数（content）'
             }), 400
+            
+        # Create a new job
+        job_id = str(uuid.uuid4())
+        jobs[job_id] = {
+            'id': job_id,
+            'status': 'pending',
+            'created_at': datetime.now().isoformat(),
+            'message': '任务已提交',
+            'progress': 0
+        }
         
-        title = data.get('title', '').strip()
-        content = data['content']
-        date = data.get('date', datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%dT%H:%M:%S+08:00'))
-        tags = data.get('tags', [])
-        category = data.get('category', '')
-        target_dir = data.get('target_dir', 'content/posts')
-        draft = data.get('draft', False)
-        auto_format = data.get('auto_format', True)  # 默认自动优化排版
-        
-        # 1. Check if content is a URL (Same logic as format_article)
-        url_pattern = re.compile(r'^https?://\S+$')
-        if url_pattern.match(content.strip()):
-            print(f"Detected URL in publish: {content.strip()}, fetching content...")
-            scraped_data = fetch_article_content(content.strip())
-            
-            if scraped_data:
-                content = scraped_data['content']
-                # Only use scraped title if user didn't provide one
-                if not title and scraped_data['title']:
-                    title = scraped_data['title']
-                    print(f"Use scraped title: {title}")
-            else:
-                return jsonify({
-                    'success': False,
-                    'error': '无法从链接获取内容，请检查链接是否有效'
-                }), 400
-
-        # 2. 清除内容中可能已存在的 Front Matter 头部，防止重复
-        parsed = markdown_generator.parse_front_matter(content)
-        content = parsed['content']
-        
-        # 2. 调用 DeepSeek 优化排版并分析元数据 (分类、标签、标题)
-        # 即使 auto_format=False，为了获取分类标签也需要分析，除非系统有其他策略
-        # 我们这里默认发布时都会通过 AI 进行分类标签提取
-        try:
-            analysis = deepseek_service.format_article(
-                content=content,
-                title=title,
-                tags=tags,
-                category=category
-            )
-            
-            # 正文使用优化后的内容
-            content = analysis.get('content', content)
-            
-            # 分类和标签强制使用 AI 生成的结果
-            tags = analysis.get('tags', [])
-            category = analysis.get('category', '未分类')
-            
-            # 标题逻辑：如果用户没填，则使用 AI 建议的标题
-            if not title:
-                # 尝试从原本剥离的头部中找标题（如果存在）
-                extracted_title = parsed.get('front_matter', {}).get('title')
-                title = extracted_title if extracted_title else analysis.get('title', '未命名文章')
-                
-        except Exception as e:
-            print(f"Warning: AI analysis failed: {e}")
-            # 失败时回退：如果没有标题，给个默认的
-            if not title:
-                title = f"未命名文章_{datetime.now(timezone(timedelta(hours=8))).strftime('%Y%m%d%H%M%S')}"
-
-        # 3. 生成文件名和完整的 Hugo 内容
-        filename = markdown_generator.generate_filename(title)
-        full_content = markdown_generator.wrap_with_front_matter(
-            title=title,
-            content=content,
-            date=date,
-            tags=tags,
-            category=category,
-            draft=draft
+        # Start background thread
+        thread = threading.Thread(
+            target=process_publish_task,
+            args=(job_id, data, deepseek_service, github_service, markdown_generator)
         )
+        thread.daemon = True
+        thread.start()
         
-        result = github_service.upload_file(
-            content=full_content,
-            filename=filename,
-            target_dir=target_dir,
-            message=f'Publish: {title}'
-        )
-        
-        if result['success']:
-            return jsonify({
-                'success': True,
-                'message': '文章发布成功',
-                'file_path': result['file_path'],
-                'url': result['url']
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': result.get('error', '上传失败')
-            }), 500
+        return jsonify({
+            'success': True,
+            'message': '任务提交成功',
+            'job_id': job_id
+        })
     
     except Exception as e:
         return jsonify({
             'success': False,
             'error': str(e)
         }), 500
+
+
+@app.route('/api/status/<job_id>', methods=['GET'])
+def get_job_status(job_id):
+    """获取任务状态"""
+    job = jobs.get(job_id)
+    if not job:
+        return jsonify({
+            'success': False,
+            'error': '任务不存在'
+        }), 404
+        
+    return jsonify({
+        'success': True,
+        'job': job
+    })
 
 
 @app.route('/api/config', methods=['GET'])

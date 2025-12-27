@@ -314,7 +314,7 @@ class HugoPublisher {
         this.publishBtn.disabled = true;
         if (this.publishBtnLeft) this.publishBtnLeft.disabled = true;
         // 根据是否需要自动优化显示不同提示
-        const loadingMsg = alreadyFormatted ? '正在发布到GitHub...' : '正在优化排版并发布到GitHub...';
+        const loadingMsg = alreadyFormatted ? '正在提交发布任务...' : '正在提交AI优化任务...';
         this.showLoading(loadingMsg);
 
         try {
@@ -336,32 +336,76 @@ class HugoPublisher {
 
             const data = await response.json();
 
-            this.publishResult.classList.remove('hidden');
-
-            if (data.success) {
-                this.publishResult.querySelector('.result-success').classList.remove('hidden');
-                this.publishResult.querySelector('.result-error').classList.add('hidden');
-                this.successMessage.textContent = `文章已成功发布到 ${data.file_path}`;
-                this.viewLink.href = data.url;
-                this.showNotification('发布成功!', 'success');
+            if (data.success && data.job_id) {
+                this.showNotification('任务提交成功，正在后台处理...', 'success');
+                this.pollStatus(data.job_id);
             } else {
-                this.publishResult.querySelector('.result-success').classList.add('hidden');
-                this.publishResult.querySelector('.result-error').classList.remove('hidden');
-                this.errorMessage.textContent = data.error || '发布失败，请稍后重试';
-                this.showNotification(`发布失败: ${data.error}`, 'error');
+                this.handlePublishError(data.error || '发布失败');
             }
         } catch (error) {
             console.error('发布错误:', error);
-            this.publishResult.classList.remove('hidden');
-            this.publishResult.querySelector('.result-success').classList.add('hidden');
-            this.publishResult.querySelector('.result-error').classList.remove('hidden');
-            this.errorMessage.textContent = `网络错误: ${error.message}`;
-            this.showNotification(`发布失败: ${error.message}`, 'error');
-        } finally {
-            this.publishBtn.disabled = false;
-            if (this.publishBtnLeft) this.publishBtnLeft.disabled = false;
-            this.hideLoading();
+            this.handlePublishError(`网络错误: ${error.message}`);
         }
+    }
+
+    async pollStatus(jobId) {
+        const pollInterval = 1000; // 1 second
+
+        const checkStatus = async () => {
+            try {
+                const response = await fetch(`${this.apiBaseUrl}/api/status/${jobId}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    const job = data.job;
+                    this.showLoading(`${job.message} (${job.progress}%)`);
+
+                    if (job.status === 'completed') {
+                        this.handlePublishSuccess(job.result);
+                    } else if (job.status === 'failed') {
+                        this.handlePublishError(job.error);
+                    } else {
+                        // Continue polling
+                        setTimeout(checkStatus, pollInterval);
+                    }
+                } else {
+                    this.handlePublishError('无法获取任务状态');
+                }
+            } catch (error) {
+                console.error('Polling error:', error);
+                this.handlePublishError(`状态查询失败: ${error.message}`);
+            }
+        };
+
+        // Start polling
+        checkStatus();
+    }
+
+    handlePublishSuccess(result) {
+        this.hideLoading();
+        this.publishBtn.disabled = false;
+        if (this.publishBtnLeft) this.publishBtnLeft.disabled = false;
+
+        this.publishResult.classList.remove('hidden');
+        this.publishResult.querySelector('.result-success').classList.remove('hidden');
+        this.publishResult.querySelector('.result-error').classList.add('hidden');
+
+        this.successMessage.textContent = `文章已成功发布到 ${result.file_path}`;
+        this.viewLink.href = result.url;
+        this.showNotification('发布成功!', 'success');
+    }
+
+    handlePublishError(errorMsg) {
+        this.hideLoading();
+        this.publishBtn.disabled = false;
+        if (this.publishBtnLeft) this.publishBtnLeft.disabled = false;
+
+        this.publishResult.classList.remove('hidden');
+        this.publishResult.querySelector('.result-success').classList.add('hidden');
+        this.publishResult.querySelector('.result-error').classList.remove('hidden');
+
+        this.errorMessage.textContent = errorMsg;
+        this.showNotification(`发布失败: ${errorMsg}`, 'error');
     }
 
     updatePreview(markdown) {
