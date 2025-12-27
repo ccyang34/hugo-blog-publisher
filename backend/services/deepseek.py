@@ -82,7 +82,8 @@ class DeepSeekService:
    - **标题处理**：如果原文没有明确标题，请根据内容**必须**生成一个简洁有力的标题；如果已有标题，请保留或仅做微调。
 2. **格式排版（关键）**：
    - **严格保留原义**：不要重写、摘要或扩写正文内容，保持原文的完整性。
-   - **保留结构**：严格还原原文的层级结构（H2/H3）、列表（有序/无序）、引用、代码块和图片位置。
+   - **保留结构**：严格还原原文的层级结构（H2/H3）、列表（有序/无序）、引用、代码块。
+   - **严禁删除图片/链接**：**必须**保留原文中所有的图片链接 `![alt](url)` 和超链接，位置不能错乱。
    - **优化阅读体验**：仅进行排版层面的优化，如：
      - 修正标点符号（如中英文标点混用）。
      - 优化段落间距。
@@ -106,6 +107,8 @@ class DeepSeekService:
         """
         if not content or content.strip() == '':
             raise ValueError('文章内容不能为空')
+            
+        print(f"DEBUG: DeepSeek Input Content (First 500 chars):\n{content[:500]}\n...")
         
         prompt = self._build_format_prompt(content, title, tags or [], category)
         
