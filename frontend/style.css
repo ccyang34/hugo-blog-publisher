@@ -129,8 +129,100 @@ body {
 }
 
 @media (max-width: 640px) {
+    .container {
+        padding: 12px;
+    }
+
+    .header {
+        padding: 6px 8px;
+        /* Extremely small */
+        margin-bottom: 8px;
+    }
+
+    .header-top {
+        flex-direction: row;
+        flex-wrap: nowrap;
+        /* Try to keep on one line if possible, or wrap tightly */
+        justify-content: space-between;
+        align-items: center;
+        gap: 6px;
+    }
+
+    .header h1 {
+        font-size: 0.6rem;
+        width: auto;
+        /* Allow it to shrink/grow properly */
+        margin-bottom: 0;
+        /* No margin */
+        white-space: nowrap;
+    }
+
+    .header-actions {
+        width: auto;
+        /* Let it wrap content */
+        flex: 1;
+        /* Take remaining space */
+        justify-content: flex-end;
+    }
+
+    .admin-link {
+        flex: 0 1 auto;
+        /* Don't stretch too much */
+        padding: 4px 6px;
+        font-size: 0.6rem;
+        height: 26px;
+        /* Very short */
+        min-width: 50px;
+    }
+
+    .section-header {
+        flex-direction: row;
+        flex-wrap: nowrap;
+        /* Try to keep inline */
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+        padding-bottom: 6px;
+        margin-bottom: 8px;
+    }
+
+    .section-header h2 {
+        font-size: 0.6rem;
+        width: auto;
+        margin-bottom: 0;
+        white-space: nowrap;
+    }
+
+    .section-header .header-actions {
+        width: auto;
+        flex: 1;
+        justify-content: flex-end;
+        overflow-x: visible;
+        flex-wrap: nowrap;
+        gap: 4px;
+        padding-bottom: 0;
+    }
+
+    .section-header .btn {
+        padding: 2px 6px;
+        /* Tiny padding */
+        font-size: 0.6rem;
+        height: 24px;
+        min-width: 40px;
+        max-width: 80px;
+        flex: 0 1 auto;
+    }
+
     .form-row {
         grid-template-columns: 1fr;
+    }
+
+    .action-buttons {
+        flex-direction: column;
+    }
+
+    .action-buttons .btn {
+        width: 100%;
     }
 }
 
