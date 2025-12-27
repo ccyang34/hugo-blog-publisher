@@ -4,6 +4,7 @@ class HugoPublisher {
         this.currentContent = '';
         this.frontMatter = {};
         this.uploadedImages = [];
+        this.jobs = []; // Store active jobs
 
         this.initElements();
         this.bindEvents();
@@ -55,6 +56,15 @@ class HugoPublisher {
         this.fileList = document.getElementById('fileList');
         this.fileDirSelect = document.getElementById('fileDirSelect');
         this.refreshFilesBtn = document.getElementById('refreshFilesBtn');
+
+        // Job Queue Elements
+        this.jobQueueModal = document.getElementById('jobQueueModal');
+        this.jobList = document.getElementById('jobList');
+        if (this.jobQueueModal) {
+            this.jobQueueModal.querySelector('.modal-close').addEventListener('click', () => {
+                this.jobQueueModal.classList.add('hidden');
+            });
+        }
     }
 
     bindEvents() {
@@ -192,18 +202,249 @@ class HugoPublisher {
         const title = this.titleInput.value.trim();
         const content = this.currentContent || this.contentTextarea.value.trim();
 
-        // 标题可选，为空时由 DeepSeek 自动生成
         if (!content) {
             this.showNotification('请输入文章内容', 'error');
             return;
         }
 
-        // 检查是否有会话授权
+        // Check for multiple URLs
+        const lines = content.split('\n').map(line => line.trim()).filter(line => line);
+        const urlPattern = /^https?:\/\/\S+$/;
+
+        // If all non-empty lines are URLs and there are more than 1
+        const isBatchUrl = lines.length > 1 && lines.every(line => urlPattern.test(line));
+
         if (sessionStorage.getItem('hugo_authenticated') === 'true') {
-            this.publishArticle();
+            if (isBatchUrl) {
+                this.publishBatch(lines);
+            } else {
+                this.publishArticle();
+            }
         } else {
-            this.showPasswordDialog('发布文章', () => this.publishArticle());
+            this.showPasswordDialog('发布文章', () => {
+                if (isBatchUrl) {
+                    this.publishBatch(lines);
+                } else {
+                    this.publishArticle();
+                }
+            });
         }
+    }
+
+    async publishBatch(urls) {
+        this.jobs = []; // Reset jobs
+        this.jobQueueModal.classList.remove('hidden');
+        this.jobList.innerHTML = '';
+
+        this.showNotification(`开始批量处理 ${urls.length} 个任务...`, 'success');
+
+        // Initialize jobs in UI
+        urls.forEach((url, index) => {
+            this.jobs.push({
+                id: null, // Will be set after submission
+                tempId: index,
+                title: url, // Show URL as title initially
+                status: 'pending',
+                progress: 0,
+                message: '等待提交...',
+                url: url
+            });
+        });
+        this.renderJobQueue();
+
+        // Submit all jobs sequentially to backend (or parallel, but backend is queue-based anyway)
+        for (let i = 0; i < urls.length; i++) {
+            const url = urls[i];
+            try {
+                // Submit job
+                const response = await fetch(`${this.apiBaseUrl}/api/publish`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: '', // Auto-detect
+                        content: url,
+                        tags: this.getTags(),
+                        category: this.categorySelect.value,
+                        target_dir: this.targetDirSelect.value,
+                        draft: this.isDraftCheckbox.checked,
+                        auto_format: true
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    this.jobs[i].id = data.job_id;
+                    this.jobs[i].status = 'queued';
+                    this.jobs[i].message = '已加入队列';
+                    this.jobs[i].progress = 10;
+                } else {
+                    this.jobs[i].status = 'failed';
+                    this.jobs[i].message = data.error || '提交失败';
+                }
+            } catch (error) {
+                this.jobs[i].status = 'failed';
+                this.jobs[i].message = `网络错误: ${error.message}`;
+            }
+            this.renderJobQueue();
+        }
+
+        // Start polling
+        this.pollJobs();
+    }
+
+    async publishArticle() {
+        const title = this.titleInput.value.trim();
+        // 判断是否已手动优化过
+        const alreadyFormatted = !!this.currentContent;
+        const content = this.currentContent || this.contentTextarea.value.trim();
+
+        // 标题可选，由 DeepSeek 自动生成
+        if (!content) {
+            this.showNotification('请输入文章内容', 'error');
+            return;
+        }
+
+        this.publishBtn.disabled = true;
+        if (this.publishBtnLeft) this.publishBtnLeft.disabled = true;
+
+        // Use Job Queue UI for single tasks too, for consistency? 
+        // Or stick to simple loading overlay for single tasks? 
+        // Let's use Job Queue UI if it's cleaner, but maybe stick to overlay for single tasks to minimize change impact unless requested.
+        // Actually, let's use the new queue system for everything to be consistent.
+
+        this.jobs = [{
+            id: null,
+            tempId: 0,
+            title: title || '新文章',
+            status: 'pending',
+            progress: 0,
+            message: '正在提交...'
+        }];
+
+        // Show Queue Modal instead of Loading Overlay
+        this.jobQueueModal.classList.remove('hidden');
+        this.renderJobQueue();
+
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/api/publish`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    title: title,
+                    content: content,
+                    tags: this.getTags(),
+                    category: this.categorySelect.value,
+                    target_dir: this.targetDirSelect.value,
+                    draft: this.isDraftCheckbox.checked,
+                    auto_format: !alreadyFormatted  // 已手动优化则跳过自动优化
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success && data.job_id) {
+                this.jobs[0].id = data.job_id;
+                this.jobs[0].status = 'queued';
+                this.jobs[0].message = '已加入队列';
+                this.renderJobQueue();
+                this.pollJobs();
+            } else {
+                this.jobs[0].status = 'failed';
+                this.jobs[0].message = data.error || '发布失败';
+                this.renderJobQueue();
+                this.handlePublishError(data.error || '发布失败');
+            }
+        } catch (error) {
+            console.error('发布错误:', error);
+            this.jobs[0].status = 'failed';
+            this.jobs[0].message = `网络错误: ${error.message}`;
+            this.renderJobQueue();
+            this.handlePublishError(`网络错误: ${error.message}`);
+        }
+    }
+
+    renderJobQueue() {
+        this.jobList.innerHTML = '';
+        this.jobs.forEach(job => {
+            const item = document.createElement('div');
+            item.className = 'job-item';
+
+            const statusClass = `status-${job.status}`;
+            const statusText = {
+                'pending': '等待中',
+                'queued': '排队中',
+                'processing': '处理中',
+                'completed': '完成',
+                'failed': '失败'
+            }[job.status] || job.status;
+
+            let resultLink = '';
+            if (job.status === 'completed' && job.result) {
+                resultLink = `<a href="${job.result.url}" target="_blank" class="job-link">查看文章</a>`;
+            }
+
+            item.innerHTML = `
+                <div class="job-header">
+                    <span class="job-title" title="${job.title}">${job.title || '处理中...'}</span>
+                    <span class="job-status ${statusClass}">${statusText}</span>
+                </div>
+                <div class="job-progress-bar">
+                    <div class="job-progress-fill" style="width: ${job.progress}%"></div>
+                </div>
+                <div class="job-header" style="margin-bottom: 0;">
+                    <span class="job-message">${job.message}</span>
+                    ${resultLink}
+                </div>
+            `;
+            this.jobList.appendChild(item);
+        });
+    }
+
+    async pollJobs() {
+        const pollInterval = 1000;
+        let activeJobs = this.jobs.filter(j => j.id && !['completed', 'failed'].includes(j.status));
+
+        if (activeJobs.length === 0) {
+            // All done (or none started)
+            this.setButtonsDisabled(false);
+
+            // If all completed successfully
+            if (this.jobs.every(j => j.status === 'completed')) {
+                this.showNotification('所有任务处理完成!', 'success');
+            }
+            return;
+        }
+
+        // Poll each active job
+        for (const job of activeJobs) {
+            try {
+                const response = await fetch(`${this.apiBaseUrl}/api/status/${job.id}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    const updatedJob = data.job;
+                    // Update local job state
+                    job.status = updatedJob.status;
+                    job.progress = updatedJob.progress;
+                    job.message = updatedJob.message;
+                    job.result = updatedJob.result;
+                    if (updatedJob.error) job.error = updatedJob.error;
+
+                    // If we found a refined title, update it
+                    // (Backend doesn't return title in status, but maybe we can infer or backend could added it. 
+                    //  For now, use message or just keep URL)
+                }
+            } catch (error) {
+                console.error(`Poll error for ${job.id}:`, error);
+            }
+        }
+
+        this.renderJobQueue();
+
+        // Continue polling if there are still active jobs
+        setTimeout(() => this.pollJobs(), pollInterval);
     }
 
     showPasswordDialog(action, onSuccess) {

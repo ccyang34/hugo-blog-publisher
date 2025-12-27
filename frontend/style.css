@@ -1096,3 +1096,72 @@ body {
         flex-direction: row !important;
     }
 }
+
+/* Job Queue Styles */
+.job-item {
+    background: var(--background);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+.job-item:last-child {
+    margin-bottom: 0;
+}
+
+.job-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.job-title {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+.job-status {
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 500;
+}
+
+.status-pending { background: #f1f5f9; color: #64748b; }
+.status-queued { background: #e0f2fe; color: #0284c7; }
+.status-processing { background: #dbeafe; color: #2563eb; }
+.status-completed { background: #dcfce7; color: #16a34a; }
+.status-failed { background: #fee2e2; color: #dc2626; }
+
+.job-progress-bar {
+    height: 4px;
+    background: #e2e8f0;
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 8px;
+}
+
+.job-progress-fill {
+    height: 100%;
+    background: var(--primary-color);
+    transition: width 0.3s ease;
+}
+
+.job-message {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.job-link {
+    font-size: 0.75rem;
+    color: var(--primary-color);
+    text-decoration: none;
+    margin-left: 8px;
+}

@@ -19,6 +19,8 @@ import re
 import threading
 import uuid
 import traceback
+import queue
+import atexit
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 CORS(app, origins=[os.environ.get('FRONTEND_URL', '*')])
@@ -47,8 +49,28 @@ except ValueError:
     print("Warning: Markdown generator not initialized, some functionality may be disabled")
 
 
-# Initial in-memory job store
+# Global job store and queue
 jobs = {}
+task_queue = queue.Queue()
+
+def worker():
+    """Background worker to process the queue"""
+    while True:
+        try:
+            job_id, data = task_queue.get()
+            if job_id is None:  # Sentinel to stop worker
+                break
+                
+            process_publish_task(job_id, data, deepseek_service, github_service, markdown_generator)
+            task_queue.task_done()
+        except Exception as e:
+            print(f"Worker exception: {e}")
+            traceback.print_exc()
+
+# Start worker thread
+worker_thread = threading.Thread(target=worker, daemon=True)
+worker_thread.start()
+
 
 def process_publish_task(job_id, data, deepseek_service, github_service, markdown_generator):
     """
@@ -321,24 +343,20 @@ def publish_article():
         job_id = str(uuid.uuid4())
         jobs[job_id] = {
             'id': job_id,
-            'status': 'pending',
+            'status': 'queued',
             'created_at': datetime.now().isoformat(),
-            'message': '任务已提交',
+            'message': '任务已进入队列...',
             'progress': 0
         }
         
-        # Start background thread
-        thread = threading.Thread(
-            target=process_publish_task,
-            args=(job_id, data, deepseek_service, github_service, markdown_generator)
-        )
-        thread.daemon = True
-        thread.start()
+        # Add to queue instead of starting thread immediately
+        task_queue.put((job_id, data))
         
         return jsonify({
             'success': True,
-            'message': '任务提交成功',
-            'job_id': job_id
+            'message': '任务已加入队列',
+            'job_id': job_id,
+            'queue_position': task_queue.qsize()
         })
     
     except Exception as e:
