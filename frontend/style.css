@@ -215,6 +215,21 @@ body {
         flex: 0 1 auto;
     }
 
+    .section-header .btn {
+        padding: 2px 6px;
+        /* Tiny padding */
+        font-size: 0.7rem;
+        height: 24px;
+        min-width: 40px;
+        max-width: 80px;
+        flex: 0 1 auto;
+    }
+
+    /* Specifically increase font for result section header per user request */
+    .result-section .section-header h2 {
+        font-size: 0.9rem;
+    }
+
     .form-row {
         grid-template-columns: 1fr;
     }
@@ -225,6 +240,23 @@ body {
 
     .action-buttons .btn {
         width: 100%;
+    }
+
+    .preview-content {
+        font-size: 0.8rem;
+        /* Mobile body text */
+    }
+
+    .preview-content h1 {
+        font-size: 1.2rem;
+    }
+
+    .preview-content h2 {
+        font-size: 1rem;
+    }
+
+    .preview-content h3 {
+        font-size: 0.9rem;
     }
 }
 
