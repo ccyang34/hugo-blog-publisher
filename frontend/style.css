@@ -637,9 +637,10 @@ body {
 }
 
 .file-list-section {
-    background: var(--background);
+    /* background: var(--background); Removed to match browse page contrast (items are grey) */
     border-radius: var(--radius);
-    padding: 16px;
+    padding: 0;
+    /* Remove padding as well since we don't need the 'well' look */
     margin-bottom: 16px;
 }
 
@@ -667,65 +668,82 @@ body {
     overflow-y: auto;
 }
 
-.file-list .file-item {
+.article-list-item {
+    padding: 12px 14px;
+    margin-bottom: 4px;
+    background: var(--background);
+    border-radius: var(--radius);
+    transition: var(--transition);
+    border: 2px solid transparent;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 12px;
-    background: var(--surface);
-    border-radius: 6px;
-    margin-bottom: 6px;
-    cursor: pointer;
-    transition: var(--transition);
+    gap: 8px;
 }
 
-.file-list .file-item:hover {
+.article-list-item:hover {
     background: var(--border-color);
 }
 
-.file-list .file-item:last-child {
-    margin-bottom: 0;
+.article-list-item.active {
+    background: rgba(37, 99, 235, 0.1);
+    border-color: var(--primary-color);
 }
 
-.file-list .file-name {
-    font-size: 0.8125rem;
-    color: var(--text-primary);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+.article-list-item .item-content {
     flex: 1;
-    margin-right: 8px;
+    overflow: hidden;
+    cursor: pointer;
 }
 
-.file-list .file-date {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    margin-right: 8px;
-}
-
-.file-list .file-delete-btn {
+.article-list-item .item-delete-btn {
     width: 24px;
     height: 24px;
-    background: transparent;
     border: none;
-    border-radius: 4px;
+    background: transparent;
     color: var(--text-secondary);
-    font-size: 1rem;
+    font-size: 1.25rem;
     cursor: pointer;
+    border-radius: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
-    opacity: 0;
     transition: var(--transition);
+    opacity: 1;
+    flex-shrink: 0;
 }
 
-.file-list .file-item:hover .file-delete-btn {
+.article-list-item:hover .item-delete-btn {
     opacity: 1;
 }
 
-.file-list .file-delete-btn:hover {
+.article-list-item .item-delete-btn:hover {
     background: var(--danger-color);
     color: white;
+}
+
+.article-list-item .item-title {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.article-list-item .item-meta {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    display: flex;
+    gap: 8px;
+}
+
+.article-list-item .item-dir {
+    padding: 2px 6px;
+    background: var(--surface);
+    border-radius: 4px;
+    font-size: 0.7rem;
 }
 
 .file-list .loading-text {
@@ -1059,29 +1077,36 @@ body {
         background: #334155;
     }
 }
+
 /* Mobile overrides for Image Upload Area: Compact, Vertically Centered, Single Line */
 @media (max-width: 640px) {
     .image-upload-area {
         padding: 0 !important;
-        height: 36px !important; /* Fixed height */
+        height: 36px !important;
+        /* Fixed height */
         min-height: unset !important;
         display: flex !important;
-        align-items: center !important; /* Vertical Center */
-        justify-content: center !important; /* Horizontal Center */
+        align-items: center !important;
+        /* Vertical Center */
+        justify-content: center !important;
+        /* Horizontal Center */
     }
 
     .image-upload-area .image-upload-label {
         margin: 0 !important;
         padding: 0 !important;
         display: flex !important;
-        align-items: center !important; /* Center icon and text vertically */
+        align-items: center !important;
+        /* Center icon and text vertically */
         justify-content: center !important;
         gap: 6px !important;
         font-size: 0.75rem !important;
-        white-space: nowrap !important; /* Force one line */
+        white-space: nowrap !important;
+        /* Force one line */
         width: 100% !important;
         height: 100% !important;
-        border: none !important; /* Remove inner border if any */
+        border: none !important;
+        /* Remove inner border if any */
     }
 
     .image-upload-area .upload-icon {
@@ -1134,11 +1159,30 @@ body {
     font-weight: 500;
 }
 
-.status-pending { background: #f1f5f9; color: #64748b; }
-.status-queued { background: #e0f2fe; color: #0284c7; }
-.status-processing { background: #dbeafe; color: #2563eb; }
-.status-completed { background: #dcfce7; color: #16a34a; }
-.status-failed { background: #fee2e2; color: #dc2626; }
+.status-pending {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.status-queued {
+    background: #e0f2fe;
+    color: #0284c7;
+}
+
+.status-processing {
+    background: #dbeafe;
+    color: #2563eb;
+}
+
+.status-completed {
+    background: #dcfce7;
+    color: #16a34a;
+}
+
+.status-failed {
+    background: #fee2e2;
+    color: #dc2626;
+}
 
 .job-progress-bar {
     height: 4px;

@@ -923,10 +923,18 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
             return b.name.localeCompare(a.name, undefined, { numeric: true });
         });
 
+        const dirMap = {
+            'content/posts': '文章',
+            'content/notes': '笔记',
+            'content/drafts': '草稿'
+        };
+        const currentDir = this.fileDirSelect.value;
+        const dirName = dirMap[currentDir] || '文件';
+
         sortedFiles.forEach(file => {
             const item = document.createElement('div');
-            item.className = 'file-item';
-            item.style.cursor = 'pointer';
+            item.className = 'article-list-item';
+            // item.style.cursor = 'pointer'; // 样式表中已定义
 
             let dateStr = '';
             if (file.updated_at) {
@@ -941,13 +949,28 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
                 });
             }
 
+            const displayName = file.name.replace(/\.md$/i, '');
+
             item.innerHTML = `
-                <span class="file-name" title="${file.name}">${file.name}</span>
-                <span class="file-date">${dateStr}</span>
+                <div class="item-content">
+                    <div class="item-title" title="${file.name}">${displayName}</div>
+                    <div class="item-meta">
+                        <span class="item-dir">${dirName}</span>
+                        <span class="item-date">${dateStr || '-'}</span>
+                    </div>
+                </div>
+                <button class="item-delete-btn" title="删除">×</button>
             `;
 
-            item.addEventListener('click', () => {
+            // 绑定点击内容区域加载文章
+            item.querySelector('.item-content').addEventListener('click', () => {
                 this.loadFileContent(file.path);
+            });
+
+            // 绑定删除按钮
+            item.querySelector('.item-delete-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.confirmDeleteFile(file.path, file.name);
             });
 
             this.fileList.appendChild(item);
