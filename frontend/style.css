@@ -740,8 +740,8 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    width: 100%;
-    /* Force width calculation */
+    max-width: 100%;
+    /* Allow shrinking */
 }
 
 .article-list-item .item-meta {
