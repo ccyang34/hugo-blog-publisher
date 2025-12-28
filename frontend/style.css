@@ -666,6 +666,8 @@ body {
 .file-list {
     max-height: 200px;
     overflow-y: auto;
+    max-width: 450px;
+    width: 100%;
 }
 
 .article-list-item {
