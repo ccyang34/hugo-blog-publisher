@@ -5,10 +5,12 @@ class HugoPublisher {
         this.frontMatter = {};
         this.uploadedImages = [];
         this.jobs = []; // Store active jobs
+        this.taskHistory = []; // Store task history
 
         this.initElements();
         this.bindEvents();
         this.checkApiHealth();
+        this.loadTaskHistory(); // Load task history from localStorage
     }
 
     initElements() {
@@ -65,6 +67,11 @@ class HugoPublisher {
                 this.jobQueueModal.classList.add('hidden');
             });
         }
+
+        // Task History Elements
+        this.taskHistoryList = document.getElementById('taskHistoryList');
+        this.taskHistoryCount = document.getElementById('taskHistoryCount');
+        this.clearHistoryBtn = document.getElementById('clearHistoryBtn');
     }
 
     bindEvents() {
@@ -94,6 +101,11 @@ class HugoPublisher {
         this.fileDirSelect.addEventListener('change', () => this.loadFiles());
 
         this.imageInput.addEventListener('change', (e) => this.handleImageSelect(e));
+
+        // Task History Events
+        if (this.clearHistoryBtn) {
+            this.clearHistoryBtn.addEventListener('click', () => this.clearTaskHistory());
+        }
     }
 
     async checkApiHealth() {
@@ -410,6 +422,14 @@ class HugoPublisher {
             // All done (or none started)
             this.setButtonsDisabled(false);
 
+            // Add completed/failed jobs to history
+            for (const job of this.jobs) {
+                if (['completed', 'failed'].includes(job.status) && !job.addedToHistory) {
+                    this.addToTaskHistory(job);
+                    job.addedToHistory = true;
+                }
+            }
+
             // If all completed successfully
             if (this.jobs.every(j => j.status === 'completed')) {
                 this.showNotification('所有任务处理完成!', 'success');
@@ -425,6 +445,8 @@ class HugoPublisher {
 
                 if (data.success) {
                     const updatedJob = data.job;
+                    const previousStatus = job.status;
+
                     // Update local job state
                     job.status = updatedJob.status;
                     job.progress = updatedJob.progress;
@@ -432,9 +454,11 @@ class HugoPublisher {
                     job.result = updatedJob.result;
                     if (updatedJob.error) job.error = updatedJob.error;
 
-                    // If we found a refined title, update it
-                    // (Backend doesn't return title in status, but maybe we can infer or backend could added it. 
-                    //  For now, use message or just keep URL)
+                    // If job just completed or failed, add to history
+                    if (['completed', 'failed'].includes(job.status) && !job.addedToHistory) {
+                        this.addToTaskHistory(job);
+                        job.addedToHistory = true;
+                    }
                 }
             } catch (error) {
                 console.error(`Poll error for ${job.id}:`, error);
@@ -1110,6 +1134,129 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
             this.showNotification(`网络错误: ${error.message}`, 'error');
         } finally {
             this.hideLoading();
+        }
+    }
+
+    // ==================== Task History Methods ====================
+
+    loadTaskHistory() {
+        try {
+            const stored = localStorage.getItem('hugo_task_history');
+            this.taskHistory = stored ? JSON.parse(stored) : [];
+            this.renderTaskHistory();
+        } catch (error) {
+            console.error('Failed to load task history:', error);
+            this.taskHistory = [];
+        }
+    }
+
+    saveTaskHistory() {
+        try {
+            // Keep only the last 50 tasks
+            if (this.taskHistory.length > 50) {
+                this.taskHistory = this.taskHistory.slice(0, 50);
+            }
+            localStorage.setItem('hugo_task_history', JSON.stringify(this.taskHistory));
+        } catch (error) {
+            console.error('Failed to save task history:', error);
+        }
+    }
+
+    addToTaskHistory(job) {
+        const historyItem = {
+            id: job.id,
+            title: job.title || '未命名文章',
+            status: job.status,
+            progress: job.progress,
+            message: job.message,
+            result: job.result,
+            error: job.error,
+            createdAt: new Date().toISOString()
+        };
+
+        // Add to the beginning of the array (newest first)
+        this.taskHistory.unshift(historyItem);
+        this.saveTaskHistory();
+        this.renderTaskHistory();
+    }
+
+    updateTaskHistory(jobId, updates) {
+        const index = this.taskHistory.findIndex(t => t.id === jobId);
+        if (index !== -1) {
+            this.taskHistory[index] = { ...this.taskHistory[index], ...updates };
+            this.saveTaskHistory();
+            this.renderTaskHistory();
+        }
+    }
+
+    renderTaskHistory() {
+        if (!this.taskHistoryList) return;
+
+        if (this.taskHistory.length === 0) {
+            this.taskHistoryList.innerHTML = '<p class="empty-text">暂无任务记录</p>';
+            if (this.taskHistoryCount) {
+                this.taskHistoryCount.textContent = '0 个任务';
+            }
+            return;
+        }
+
+        if (this.taskHistoryCount) {
+            this.taskHistoryCount.textContent = `${this.taskHistory.length} 个任务`;
+        }
+
+        this.taskHistoryList.innerHTML = this.taskHistory.map(task => {
+            const statusClass = `status-${task.status}`;
+            const statusText = {
+                'pending': '等待中',
+                'queued': '排队中',
+                'processing': '处理中',
+                'completed': '完成',
+                'failed': '失败'
+            }[task.status] || task.status;
+
+            const progressClass = task.status === 'completed' ? 'completed' :
+                task.status === 'failed' ? 'failed' : '';
+
+            // Format time
+            const createdDate = new Date(task.createdAt);
+            const timeStr = createdDate.toLocaleString('zh-CN', {
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+
+            let actionHtml = '';
+            if (task.status === 'completed' && task.result?.url) {
+                actionHtml = `<a href="${task.result.url}" target="_blank" class="task-link">查看文章</a>`;
+            }
+
+            return `
+                <div class="task-history-item">
+                    <div class="task-info">
+                        <div class="task-title" title="${task.title}">${task.title}</div>
+                        <div class="task-meta">
+                            <span class="task-time">🕐 ${timeStr}</span>
+                            <span class="task-status-badge ${statusClass}">${statusText}</span>
+                        </div>
+                    </div>
+                    <div class="task-actions">
+                        <div class="task-progress">
+                            <div class="task-progress-fill ${progressClass}" style="width: ${task.progress}%"></div>
+                        </div>
+                        ${actionHtml}
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    clearTaskHistory() {
+        if (confirm('确定要清空所有任务历史吗？')) {
+            this.taskHistory = [];
+            this.saveTaskHistory();
+            this.renderTaskHistory();
+            this.showNotification('任务历史已清空', 'info');
         }
     }
 }
