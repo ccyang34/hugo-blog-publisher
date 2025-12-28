@@ -72,6 +72,7 @@ class HugoPublisher {
         this.taskHistoryList = document.getElementById('taskHistoryList');
         this.taskHistoryCount = document.getElementById('taskHistoryCount');
         this.clearHistoryBtn = document.getElementById('clearHistoryBtn');
+        this.refreshHistoryBtn = document.getElementById('refreshHistoryBtn');
     }
 
     bindEvents() {
@@ -105,6 +106,9 @@ class HugoPublisher {
         // Task History Events
         if (this.clearHistoryBtn) {
             this.clearHistoryBtn.addEventListener('click', () => this.clearTaskHistory());
+        }
+        if (this.refreshHistoryBtn) {
+            this.refreshHistoryBtn.addEventListener('click', () => this.refreshTaskHistory());
         }
     }
 
@@ -1257,6 +1261,68 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
             this.saveTaskHistory();
             this.renderTaskHistory();
             this.showNotification('任务历史已清空', 'info');
+        }
+    }
+
+    async refreshTaskHistory() {
+        if (this.refreshHistoryBtn) {
+            this.refreshHistoryBtn.disabled = true;
+            this.refreshHistoryBtn.textContent = '刷新中...';
+        }
+
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/api/jobs`);
+            const data = await response.json();
+
+            if (data.success && data.jobs) {
+                // Merge server jobs with local history
+                const serverJobs = data.jobs;
+
+                // Update existing tasks or add new ones from server
+                for (const serverJob of serverJobs) {
+                    const existingIndex = this.taskHistory.findIndex(t => t.id === serverJob.id);
+
+                    if (existingIndex !== -1) {
+                        // Update existing task
+                        this.taskHistory[existingIndex] = {
+                            ...this.taskHistory[existingIndex],
+                            status: serverJob.status,
+                            progress: serverJob.progress,
+                            message: serverJob.message,
+                            result: serverJob.result,
+                            error: serverJob.error
+                        };
+                    } else {
+                        // Add new task from server (it might be from another session)
+                        this.taskHistory.unshift({
+                            id: serverJob.id,
+                            title: serverJob.message || '服务器任务',
+                            status: serverJob.status,
+                            progress: serverJob.progress,
+                            message: serverJob.message,
+                            result: serverJob.result,
+                            error: serverJob.error,
+                            createdAt: serverJob.created_at || new Date().toISOString()
+                        });
+                    }
+                }
+
+                this.saveTaskHistory();
+                this.renderTaskHistory();
+
+                const queueInfo = data.queue_size > 0 ? `，队列中还有 ${data.queue_size} 个待处理` : '';
+                this.showNotification(`已刷新 ${serverJobs.length} 个任务${queueInfo}`, 'success');
+            } else {
+                this.showNotification('获取任务状态失败', 'error');
+            }
+        } catch (error) {
+            console.error('Refresh task history error:', error);
+            this.showNotification(`刷新失败: ${error.message}`, 'error');
+        } finally {
+            if (this.refreshHistoryBtn) {
+                this.refreshHistoryBtn.disabled = false;
+                this.refreshHistoryBtn.textContent = '🔄 刷新';
+            }
         }
     }
 }

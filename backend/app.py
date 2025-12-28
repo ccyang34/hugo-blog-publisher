@@ -382,6 +382,25 @@ def get_job_status(job_id):
     })
 
 
+@app.route('/api/jobs', methods=['GET'])
+def get_all_jobs():
+    """获取所有任务状态"""
+    # Sort jobs by created_at descending (newest first)
+    sorted_jobs = sorted(
+        jobs.values(),
+        key=lambda x: x.get('created_at', ''),
+        reverse=True
+    )
+    
+    # Return queue size info too
+    return jsonify({
+        'success': True,
+        'jobs': sorted_jobs,
+        'queue_size': task_queue.qsize(),
+        'total_jobs': len(jobs)
+    })
+
+
 @app.route('/api/config', methods=['GET'])
 def get_config():
     """获取当前配置"""
