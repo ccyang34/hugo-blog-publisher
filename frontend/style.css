@@ -696,6 +696,8 @@ body {
     flex: 1;
     overflow: hidden;
     cursor: pointer;
+    min-width: 0;
+    /* Crucial for text-overflow: ellipsis in flex containers */
 }
 
 .article-list-item .item-delete-btn {
