@@ -95,6 +95,8 @@ body {
     border-radius: var(--radius);
     box-shadow: var(--shadow);
     padding: 24px;
+    overflow: hidden;
+    /* Prevent children from expanding the container */
 }
 
 .section-header {
@@ -642,6 +644,8 @@ body {
     padding: 0;
     /* Remove padding as well since we don't need the 'well' look */
     margin-bottom: 16px;
+    overflow: hidden;
+    /* Prevent children from expanding outside */
 }
 
 .file-list-header {
