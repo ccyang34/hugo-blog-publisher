@@ -668,7 +668,6 @@ body {
     overflow-y: auto;
     overflow-x: hidden;
     /* Prevent horizontal scroll */
-    max-width: 450px;
     width: 100%;
 }
 
@@ -683,10 +682,13 @@ body {
     align-items: center;
     justify-content: space-between;
     gap: 8px;
+    width: 100%;
+    /* Ensure item is full width */
     max-width: 100%;
-    /* Ensure item itself doesn't overflow parent */
+    /* Contain within parent */
     box-sizing: border-box;
-    /* Should be global but explicit helps */
+    min-width: 0;
+    /* Allow shrinking */
 }
 
 .article-list-item:hover {
@@ -704,6 +706,8 @@ body {
     cursor: pointer;
     min-width: 0;
     /* Crucial for text-overflow: ellipsis in flex containers */
+    width: 100%;
+    /* Force width constraints */
 }
 
 .article-list-item .item-delete-btn {
