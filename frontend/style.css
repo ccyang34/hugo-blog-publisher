@@ -666,6 +666,8 @@ body {
 .file-list {
     max-height: 200px;
     overflow-y: auto;
+    overflow-x: hidden;
+    /* Prevent horizontal scroll */
     max-width: 450px;
     width: 100%;
 }
@@ -681,6 +683,10 @@ body {
     align-items: center;
     justify-content: space-between;
     gap: 8px;
+    max-width: 100%;
+    /* Ensure item itself doesn't overflow parent */
+    box-sizing: border-box;
+    /* Should be global but explicit helps */
 }
 
 .article-list-item:hover {
