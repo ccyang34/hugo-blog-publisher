@@ -1294,6 +1294,8 @@ body {
     border-radius: var(--radius);
     border: 1px solid var(--border-color);
     transition: var(--transition);
+    min-width: 0;
+    max-width: 100%;
 }
 
 .task-history-item:last-child {
@@ -1307,6 +1309,10 @@ body {
 .task-history-item .task-info {
     flex: 1;
     min-width: 0;
+    overflow: hidden;
+    /* Required for ellipsis */
+    width: 100%;
+    /* Force width constraints */
 }
 
 .task-history-item .task-title {
