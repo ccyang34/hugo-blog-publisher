@@ -1452,19 +1452,16 @@ body {
 
     .task-history-item .task-actions {
         width: 100%;
-        justify-content: flex-end;
+        justify-content: flex-start;
+        gap: 8px;
         padding-top: 8px;
         border-top: 1px dashed var(--border-color);
     }
 
-    /* Force truncation on mobile titles - The Nuclear Option */
-    .item-title,
-    .task-title {
-        max-width: calc(100vw - 100px) !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        display: block !important;
+    /* Simple mobile title fix - inherit global truncation */
+    .task-history-item .task-title {
+        width: 100%;
+        max-width: 100%;
     }
 }
 
