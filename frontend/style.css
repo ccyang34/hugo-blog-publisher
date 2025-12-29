@@ -1386,7 +1386,7 @@ body {
 /* Mobile responsive for task history */
 @media (max-width: 640px) {
     .task-history-section {
-        margin: 0 16px 24px;
+        margin-top: 16px;
         padding: 16px;
     }
 
