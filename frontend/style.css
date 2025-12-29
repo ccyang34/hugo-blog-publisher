@@ -1456,6 +1456,16 @@ body {
         padding-top: 8px;
         border-top: 1px dashed var(--border-color);
     }
+
+    /* Force truncation on mobile titles - The Nuclear Option */
+    .item-title,
+    .task-title {
+        max-width: calc(100vw - 80px) !important;
+        white-space: nowrap !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        display: block !important;
+    }
 }
 
 /* Log Modal Styles */
