@@ -1379,8 +1379,9 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
                 task.status === 'failed' ? 'failed' : '';
 
             // Format time
-            const createdDate = new Date(task.createdAt);
-            const timeStr = createdDate.toLocaleString('zh-CN', {
+            const dateValue = task.created_at || task.createdAt || task.timestamp || Date.now();
+            const createdDate = new Date(dateValue);
+            const timeStr = isNaN(createdDate.getTime()) ? '刚刚' : createdDate.toLocaleString('zh-CN', {
                 month: '2-digit',
                 day: '2-digit',
                 hour: '2-digit',

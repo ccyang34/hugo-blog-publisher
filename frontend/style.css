@@ -1416,12 +1416,23 @@ body {
     .task-history-item {
         flex-direction: column;
         align-items: flex-start;
-        gap: 8px;
+        gap: 12px;
+        min-width: 0;
+        /* 防止 flex item 溢出 */
+    }
+
+    .task-history-item .task-info {
+        width: 100%;
+        /* 确保填满容器 */
+        max-width: 100%;
+        /* 触发文本截断 */
     }
 
     .task-history-item .task-actions {
         width: 100%;
         justify-content: flex-end;
+        padding-top: 8px;
+        border-top: 1px dashed var(--border-color);
     }
 }
 
