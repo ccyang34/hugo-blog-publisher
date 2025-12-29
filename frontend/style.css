@@ -1460,7 +1460,8 @@ body {
     /* Force truncation on mobile titles - The Nuclear Option */
     .item-title,
     .task-title {
-        max-width: calc(100vw - 80px) !important;
+        max-width: calc(100vw - 100px) !important;
+        /* Increased spacing */
         white-space: nowrap !important;
         overflow: hidden !important;
         text-overflow: ellipsis !important;
