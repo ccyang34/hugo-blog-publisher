@@ -7,3 +7,4 @@ flask-cors==4.0.0
 beautifulsoup4==4.12.3
 markdownify==0.11.6
 qstash
+upstash-redis

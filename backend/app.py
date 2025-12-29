@@ -6,6 +6,7 @@ Hugo博客发布器 - Flask后端API
 
 import os
 import time
+import json
 from datetime import datetime, timedelta, timezone
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
@@ -69,6 +70,55 @@ if QSTASH_TOKEN:
         print(f"Warning: QStash initialization failed: {e}")
 else:
     print("Warning: QSTASH_TOKEN not set, async task functionality disabled")
+
+# Upstash Redis 初始化（用于存储任务历史）
+redis_client = None
+UPSTASH_REDIS_URL = os.environ.get('UPSTASH_REDIS_REST_URL', '')
+UPSTASH_REDIS_TOKEN = os.environ.get('UPSTASH_REDIS_REST_TOKEN', '')
+
+if UPSTASH_REDIS_URL and UPSTASH_REDIS_TOKEN:
+    try:
+        from upstash_redis import Redis
+        redis_client = Redis(url=UPSTASH_REDIS_URL, token=UPSTASH_REDIS_TOKEN)
+        print("Upstash Redis initialized successfully")
+    except Exception as e:
+        print(f"Warning: Redis initialization failed: {e}")
+else:
+    print("Warning: UPSTASH_REDIS not configured, task history will use localStorage only")
+
+TASK_HISTORY_KEY = "hugo_publisher:task_history"
+MAX_TASK_HISTORY = 20
+
+
+def save_task_to_history(task_data):
+    """保存任务到 Redis 历史记录"""
+    if not redis_client:
+        return False
+    try:
+        # 获取现有历史
+        history = redis_client.lrange(TASK_HISTORY_KEY, 0, -1) or []
+        
+        # 添加新任务到列表头部
+        redis_client.lpush(TASK_HISTORY_KEY, json.dumps(task_data))
+        
+        # 只保留最近 MAX_TASK_HISTORY 条
+        redis_client.ltrim(TASK_HISTORY_KEY, 0, MAX_TASK_HISTORY - 1)
+        return True
+    except Exception as e:
+        print(f"Error saving task to history: {e}")
+        return False
+
+
+def get_task_history():
+    """获取任务历史记录"""
+    if not redis_client:
+        return []
+    try:
+        history = redis_client.lrange(TASK_HISTORY_KEY, 0, MAX_TASK_HISTORY - 1) or []
+        return [json.loads(item) if isinstance(item, str) else item for item in history]
+    except Exception as e:
+        print(f"Error getting task history: {e}")
+        return []
 
 
 # Global job store and queue
@@ -373,6 +423,47 @@ def test_qstash():
 def index():
     """主页 - API 测试界面"""
     return render_template('index.html')
+
+
+@app.route('/api/task-history', methods=['GET'])
+def api_get_task_history():
+    """获取任务历史记录"""
+    try:
+        history = get_task_history()
+        return jsonify({
+            'success': True,
+            'history': history,
+            'count': len(history)
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/task-history', methods=['POST'])
+def api_save_task_history():
+    """保存任务到历史记录（供前端调用）"""
+    try:
+        data = request.json
+        if not data:
+            return jsonify({'success': False, 'error': '缺少任务数据'}), 400
+        
+        # 添加时间戳
+        if 'created_at' not in data:
+            data['created_at'] = datetime.now(timezone(timedelta(hours=8))).isoformat()
+        
+        success = save_task_to_history(data)
+        return jsonify({
+            'success': success,
+            'message': '任务已保存' if success else 'Redis 未配置，无法保存'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 
 
@@ -800,6 +891,19 @@ def qstash_webhook():
         
         if result['success']:
             print(f"[QStash] Task {job_id} completed: {result['file_path']}")
+            
+            # 保存到任务历史
+            save_task_to_history({
+                'id': job_id,
+                'title': title,
+                'status': 'completed',
+                'progress': 100,
+                'message': '发布成功',
+                'file_path': result['file_path'],
+                'url': result['url'],
+                'created_at': datetime.now(timezone(timedelta(hours=8))).isoformat()
+            })
+            
             return jsonify({
                 'success': True,
                 'job_id': job_id,
