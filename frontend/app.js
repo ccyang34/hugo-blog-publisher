@@ -435,7 +435,7 @@ class HugoPublisher {
 
                 if (data.mode === 'async') {
                     // QStash 异步模式：任务已提交到后台
-                    this.showNotification('✅ 任务已提交到后台处理，可以关闭页面了！', 'success');
+                    this.showNotification('✅ 内容已提交，剩余流程后台完成，可以离开网页', 'success');
 
                     // 添加到历史记录（状态为处理中）
                     this.addToTaskHistory({
