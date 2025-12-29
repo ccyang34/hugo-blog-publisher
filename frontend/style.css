@@ -1472,7 +1472,8 @@ body {
         /* Visibility safeguards */
         min-height: 24px !important;
         line-height: 1.5 !important;
-        color: var(--text-color) !important;
+        color: var(--text-primary) !important;
+        /* Fixed variable name */
         opacity: 1 !important;
         visibility: visible !important;
     }

@@ -1404,9 +1404,9 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
             }
 
             return `
-                <div class="task-history-item">
+                <div class="task-history-item" id="task-${task.id}">
                     <div class="task-info">
-                        <div class="task-title" title="${task.title}">${task.title}</div>
+                        <div class="task-title" title="${task.title || '无标题任务'}">${task.title || '无标题任务'}</div>
                         <div class="task-meta">
                             <span class="task-time">🕐 ${timeStr}</span>
                             <span class="task-status-badge ${statusClass}">${statusText}</span>
