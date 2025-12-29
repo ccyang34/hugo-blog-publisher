@@ -79,18 +79,34 @@ def add_job_log(job_id, step, status, message, details=None):
         jobs[job_id]['logs'].append(log_entry)
 
 def worker():
-    """Background worker to process the queue"""
+    """Background worker to process the queue - 任务失败时跳过继续处理下一个"""
     while True:
+        job_id = None
         try:
             job_id, data = task_queue.get()
             if job_id is None:  # Sentinel to stop worker
                 break
+            
+            try:
+                process_publish_task(job_id, data, deepseek_service, github_service, markdown_generator)
+            except Exception as e:
+                # 任务处理失败，记录错误但继续处理下一个任务
+                print(f"Task {job_id} failed with exception: {e}")
+                traceback.print_exc()
+                if job_id and job_id in jobs:
+                    jobs[job_id]['status'] = 'failed'
+                    jobs[job_id]['error'] = f'任务处理异常: {str(e)}'
+                    add_job_log(job_id, '任务异常', 'error', f'任务处理异常: {str(e)}')
+            finally:
+                # 无论成功还是失败，都标记任务完成以释放队列
+                task_queue.task_done()
                 
-            process_publish_task(job_id, data, deepseek_service, github_service, markdown_generator)
-            task_queue.task_done()
         except Exception as e:
-            print(f"Worker exception: {e}")
+            print(f"Worker queue exception: {e}")
             traceback.print_exc()
+            # 确保即使获取任务出错也标记完成
+            if job_id is not None:
+                task_queue.task_done()
 
 # Start worker thread
 worker_thread = threading.Thread(target=worker, daemon=True)
