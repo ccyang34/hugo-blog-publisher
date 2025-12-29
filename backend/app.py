@@ -56,9 +56,9 @@ QSTASH_SIGNING_KEY = os.environ.get('QSTASH_CURRENT_SIGNING_KEY', '')
 
 if QSTASH_TOKEN:
     try:
-        from qstash import Client as QStashClient
+        from qstash import QStash
         from qstash import Receiver as QStashReceiver
-        qstash_client = QStashClient(QSTASH_TOKEN)
+        qstash_client = QStash(token=QSTASH_TOKEN)
         if QSTASH_SIGNING_KEY:
             qstash_receiver = QStashReceiver(
                 current_signing_key=QSTASH_SIGNING_KEY,
@@ -551,7 +551,7 @@ def publish_article():
                 }
                 
                 # 通过 QStash 发布任务
-                qstash_client.publish_json(
+                qstash_client.message.publish_json(
                     url=webhook_url,
                     body=task_data,
                     retries=3
