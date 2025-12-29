@@ -1235,8 +1235,7 @@ body {
     background: var(--surface);
     border-radius: var(--radius);
     padding: 20px;
-    margin: 0 auto 24px;
-    max-width: 1200px;
+    margin-top: 24px;
     box-shadow: var(--shadow);
 }
 
