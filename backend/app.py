@@ -127,15 +127,7 @@ task_queue = queue.Queue()
 
 
 def add_job_log(job_id, step, status, message, details=None):
-    """为任务添加详细日志
-    
-    Args:
-        job_id: 任务ID
-        step: 步骤名称
-        status: 状态 ('start', 'success', 'error', 'warning', 'info')
-        message: 日志消息
-        details: 额外详情（可选）
-    """
+    """为任务添加详细日志"""
     log_entry = {
         'timestamp': datetime.now(timezone(timedelta(hours=8))).isoformat(),
         'step': step,
@@ -145,10 +137,33 @@ def add_job_log(job_id, step, status, message, details=None):
     if details:
         log_entry['details'] = details
     
+    # 1. Save to in-memory store (for current instance)
     if job_id in jobs:
         if 'logs' not in jobs[job_id]:
             jobs[job_id]['logs'] = []
         jobs[job_id]['logs'].append(log_entry)
+        
+    # 2. Save to Redis (for persistence)
+    if redis_client:
+        try:
+            log_key = f"hugo_publisher:logs:{job_id}"
+            redis_client.rpush(log_key, json.dumps(log_entry))
+            # Set expiry (e.g., 24 hours)
+            redis_client.expire(log_key, 86400) 
+        except Exception as e:
+            print(f"Failed to save log to Redis: {e}")
+
+def get_job_logs_from_redis(job_id):
+    """从 Redis 获取任务日志"""
+    if not redis_client:
+        return []
+    try:
+        log_key = f"hugo_publisher:logs:{job_id}"
+        logs = redis_client.lrange(log_key, 0, -1) or []
+        return [json.loads(log) if isinstance(log, str) else log for log in logs]
+    except Exception as e:
+        print(f"Failed to get logs from Redis: {e}")
+        return []
 
 def worker():
     """Background worker to process the queue - 任务失败时跳过继续处理下一个"""
@@ -959,18 +974,30 @@ def get_all_jobs():
 @app.route('/api/logs/<job_id>', methods=['GET'])
 def get_job_logs(job_id):
     """获取任务的详细日志"""
+    # 1. Try local memory first
     job = jobs.get(job_id)
-    if not job:
+    logs = job.get('logs', []) if job else []
+    status = job.get('status') if job else 'unknown'
+    
+    # 2. If no logs locally or job not found, try Redis
+    if not logs:
+        redis_logs = get_job_logs_from_redis(job_id)
+        if redis_logs:
+            logs = redis_logs
+            # Try to infer status from last log or history
+            status = 'completed' # simple hook, or check history
+            
+    if not logs and not job:
         return jsonify({
             'success': False,
-            'error': '任务不存在'
+            'error': '无日志记录'
         }), 404
     
     return jsonify({
         'success': True,
         'job_id': job_id,
-        'status': job.get('status'),
-        'logs': job.get('logs', [])
+        'status': status,
+        'logs': logs
     })
 
 

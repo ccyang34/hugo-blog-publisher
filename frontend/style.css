@@ -1323,6 +1323,12 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     margin-bottom: 4px;
+    display: block;
+    /* Ensure block display */
+    width: 100%;
+    /* Force width to match parent */
+    max-width: 100%;
+    /* Prevent overflow */
 }
 
 .task-history-item .task-meta {
