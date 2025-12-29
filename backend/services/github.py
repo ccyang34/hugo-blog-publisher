@@ -6,6 +6,7 @@ GitHub上传服务
 
 import os
 import base64
+import time
 import requests
 from typing import Optional, Dict, Any
 
@@ -32,29 +33,40 @@ class GitHubService:
             'Content-Type': 'application/json'
         }
     
-    def _get_file_sha(self, path: str) -> Optional[str]:
+    def _get_file_sha(self, path: str, max_retries: int = 3) -> Optional[str]:
         """
-        获取文件的SHA值（用于更新文件）
+        获取文件的SHA值（用于更新文件），带自动重试机制
         
         参数:
             path: 文件在仓库中的路径
+            max_retries: 最大重试次数
             
         返回:
             文件的SHA值，如果文件不存在则返回None
         """
         url = f'{self.base_url}/repos/{self.username}/{self.repo}/contents/{path}'
+        last_exception = None
         
-        try:
-            response = requests.get(url, headers=self.headers, timeout=10)
-            
-            if response.status_code == 200:
-                return response.json().get('sha')
-            elif response.status_code == 404:
-                return None
-            else:
-                response.raise_for_status()
-        except requests.exceptions.RequestException as e:
-            raise Exception(f'获取文件SHA失败：{str(e)}')
+        for attempt in range(max_retries):
+            try:
+                response = requests.get(url, headers=self.headers, timeout=15)
+                
+                if response.status_code == 200:
+                    return response.json().get('sha')
+                elif response.status_code == 404:
+                    return None
+                else:
+                    response.raise_for_status()
+            except requests.exceptions.RequestException as e:
+                last_exception = e
+                if attempt < max_retries - 1:
+                    # 重试前等待，时间递增
+                    wait_time = (attempt + 1) * 2  # 2秒, 4秒
+                    print(f"获取文件SHA失败（第{attempt + 1}次尝试），{wait_time}秒后重试: {str(e)}")
+                    time.sleep(wait_time)
+                continue
+        
+        raise Exception(f'获取文件SHA失败（已重试{max_retries}次）：{str(last_exception)}')
     
     def upload_file(self, content: str, filename: str, target_dir: str = 'content/posts',
                    message: str = 'Update file', branch: str = 'main') -> Dict[str, Any]:
