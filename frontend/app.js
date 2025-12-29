@@ -73,6 +73,20 @@ class HugoPublisher {
         this.taskHistoryCount = document.getElementById('taskHistoryCount');
         this.clearHistoryBtn = document.getElementById('clearHistoryBtn');
         this.refreshHistoryBtn = document.getElementById('refreshHistoryBtn');
+
+        // Log Modal Elements
+        this.logModal = document.getElementById('logModal');
+        this.logList = document.getElementById('logList');
+        if (this.logModal) {
+            this.logModal.querySelector('.modal-close').addEventListener('click', () => {
+                this.logModal.classList.add('hidden');
+            });
+            this.logModal.addEventListener('click', (e) => {
+                if (e.target === this.logModal) {
+                    this.logModal.classList.add('hidden');
+                }
+            });
+        }
     }
 
     bindEvents() {
@@ -1231,8 +1245,18 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
             });
 
             let actionHtml = '';
+            // 查看日志按钮
+            if (task.id) {
+                actionHtml += `<button class="task-log-btn" onclick="window.app.showLogModal('${task.id}')">📋 日志</button>`;
+            }
             if (task.status === 'completed' && task.result?.url) {
-                actionHtml = `<a href="${task.result.url}" target="_blank" class="task-link">查看文章</a>`;
+                actionHtml += `<a href="${task.result.url}" target="_blank" class="task-link">查看文章</a>`;
+            }
+
+            // 失败任务显示错误信息
+            let errorHtml = '';
+            if (task.status === 'failed' && task.error) {
+                errorHtml = `<div class="task-error" style="font-size: 0.75rem; color: #dc2626; margin-top: 4px;">✘ ${task.error}</div>`;
             }
 
             return `
@@ -1243,6 +1267,7 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
                             <span class="task-time">🕐 ${timeStr}</span>
                             <span class="task-status-badge ${statusClass}">${statusText}</span>
                         </div>
+                        ${errorHtml}
                     </div>
                     <div class="task-actions">
                         <div class="task-progress">
@@ -1323,6 +1348,75 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
                 this.refreshHistoryBtn.disabled = false;
                 this.refreshHistoryBtn.textContent = '🔄 刷新';
             }
+        }
+    }
+
+    async showLogModal(jobId) {
+        if (!this.logModal || !this.logList) return;
+
+        // 显示模态框
+        this.logModal.classList.remove('hidden');
+        this.logList.innerHTML = '<p class="empty-text">加载日志中...</p>';
+
+        try {
+            const logs = await this.fetchJobLogs(jobId);
+
+            if (!logs || logs.length === 0) {
+                this.logList.innerHTML = '<p class="empty-text">暂无日志记录</p>';
+                return;
+            }
+
+            this.logList.innerHTML = logs.map(log => {
+                const statusIcon = {
+                    'start': '🚀',
+                    'success': '✅',
+                    'error': '❌',
+                    'warning': '⚠️',
+                    'info': 'ℹ️'
+                }[log.status] || '📝';
+
+                const statusClass = `log-${log.status}`;
+
+                // Format time
+                const time = new Date(log.timestamp);
+                const timeStr = time.toLocaleString('zh-CN', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                });
+
+                // Details section
+                let detailsHtml = '';
+                if (log.details) {
+                    detailsHtml = `<div class="log-details">${JSON.stringify(log.details, null, 2)}</div>`;
+                }
+
+                return `
+                    <div class="log-item ${statusClass}">
+                        <div class="log-icon">${statusIcon}</div>
+                        <div class="log-content">
+                            <div class="log-step">${log.step}</div>
+                            <div class="log-message">${log.message}</div>
+                            ${detailsHtml}
+                        </div>
+                        <div class="log-time">${timeStr}</div>
+                    </div>
+                `;
+            }).join('');
+        } catch (error) {
+            console.error('Load logs error:', error);
+            this.logList.innerHTML = `<p class="empty-text" style="color: #dc2626;">加载日志失败: ${error.message}</p>`;
+        }
+    }
+
+    async fetchJobLogs(jobId) {
+        const response = await fetch(`${this.apiBaseUrl}/api/logs/${jobId}`);
+        const data = await response.json();
+
+        if (data.success) {
+            return data.logs || [];
+        } else {
+            throw new Error(data.error || '获取日志失败');
         }
     }
 }

@@ -53,6 +53,31 @@ except ValueError:
 jobs = {}
 task_queue = queue.Queue()
 
+
+def add_job_log(job_id, step, status, message, details=None):
+    """为任务添加详细日志
+    
+    Args:
+        job_id: 任务ID
+        step: 步骤名称
+        status: 状态 ('start', 'success', 'error', 'warning', 'info')
+        message: 日志消息
+        details: 额外详情（可选）
+    """
+    log_entry = {
+        'timestamp': datetime.now(timezone(timedelta(hours=8))).isoformat(),
+        'step': step,
+        'status': status,
+        'message': message
+    }
+    if details:
+        log_entry['details'] = details
+    
+    if job_id in jobs:
+        if 'logs' not in jobs[job_id]:
+            jobs[job_id]['logs'] = []
+        jobs[job_id]['logs'].append(log_entry)
+
 def worker():
     """Background worker to process the queue"""
     while True:
@@ -81,6 +106,7 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
         jobs[job_id]['status'] = 'processing'
         jobs[job_id]['message'] = '正在分析文章内容...'
         jobs[job_id]['progress'] = 10
+        add_job_log(job_id, '开始处理', 'start', '任务开始处理')
         
         title = data.get('title', '').strip()
         content = data['content']
@@ -90,29 +116,51 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
         target_dir = data.get('target_dir', 'content/posts')
         draft = data.get('draft', False)
         auto_format = data.get('auto_format', True)
+        
+        add_job_log(job_id, '参数解析', 'success', '参数解析完成', {
+            'has_title': bool(title),
+            'target_dir': target_dir,
+            'draft': draft
+        })
 
         # 1. Check if content is a URL
         url_pattern = re.compile(r'^https?://\S+$')
-        if url_pattern.match(content.strip()):
+        is_url = url_pattern.match(content.strip())
+        
+        if is_url:
+            url = content.strip()
             jobs[job_id]['message'] = '正在抓取链接内容...'
-            print(f"Detected URL in publish: {content.strip()}, fetching content...")
-            scraped_data = fetch_article_content(content.strip())
+            add_job_log(job_id, 'URL抓取', 'start', f'检测到URL，开始抓取内容', {'url': url})
+            print(f"Detected URL in publish: {url}, fetching content...")
+            
+            scraped_data = fetch_article_content(url)
             
             if scraped_data:
                 content = scraped_data['content']
                 if not title and scraped_data['title']:
                     title = scraped_data['title']
                     print(f"Use scraped title: {title}")
+                add_job_log(job_id, 'URL抓取', 'success', '成功获取文章内容', {
+                    'url': url,
+                    'title': title,
+                    'content_length': len(content)
+                })
             else:
+                add_job_log(job_id, 'URL抓取', 'error', '无法从链接获取内容', {'url': url})
                 raise Exception('无法从链接获取内容，请检查链接是否有效')
+        else:
+            add_job_log(job_id, '内容识别', 'info', '内容为纯文本，无需抓取URL')
 
         # 2. Parse Front Matter to avoid duplication
+        add_job_log(job_id, 'Front Matter解析', 'start', '开始解析Front Matter')
         parsed = markdown_generator.parse_front_matter(content)
         content = parsed['content']
+        add_job_log(job_id, 'Front Matter解析', 'success', 'Front Matter解析完成')
         
         # 3. AI Analysis
         jobs[job_id]['message'] = '正在进行AI优化排版...'
         jobs[job_id]['progress'] = 30
+        add_job_log(job_id, 'AI分析', 'start', '开始AI优化排版')
         
         try:
             analysis = deepseek_service.format_article(
@@ -129,15 +177,23 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
             if not title:
                 extracted_title = parsed.get('front_matter', {}).get('title')
                 title = extracted_title if extracted_title else analysis.get('title', '未命名文章')
+            
+            add_job_log(job_id, 'AI分析', 'success', 'AI优化排版完成', {
+                'title': title,
+                'category': category,
+                'tags': tags
+            })
                 
         except Exception as e:
             print(f"Warning: AI analysis failed: {e}")
+            add_job_log(job_id, 'AI分析', 'warning', f'AI分析失败，使用默认值: {str(e)}')
             if not title:
                 title = f"未命名文章_{datetime.now(timezone(timedelta(hours=8))).strftime('%Y%m%d%H%M%S')}"
 
         # 4. Generate full content
         jobs[job_id]['message'] = '正在生成文件...'
         jobs[job_id]['progress'] = 60
+        add_job_log(job_id, '生成文件', 'start', '开始生成Markdown文件')
         
         filename = markdown_generator.generate_filename(title)
         full_content = markdown_generator.wrap_with_front_matter(
@@ -149,9 +205,18 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
             draft=draft
         )
         
+        add_job_log(job_id, '生成文件', 'success', '文件生成完成', {
+            'filename': filename,
+            'content_length': len(full_content)
+        })
+        
         # 5. Upload to GitHub
         jobs[job_id]['message'] = '正在上传到GitHub...'
         jobs[job_id]['progress'] = 80
+        add_job_log(job_id, 'GitHub上传', 'start', '开始上传到GitHub', {
+            'filename': filename,
+            'target_dir': target_dir
+        })
         
         result = github_service.upload_file(
             content=full_content,
@@ -168,7 +233,13 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
                 'file_path': result['file_path'],
                 'url': result['url']
             }
+            add_job_log(job_id, 'GitHub上传', 'success', '文章发布成功', {
+                'file_path': result['file_path'],
+                'url': result['url']
+            })
+            add_job_log(job_id, '任务完成', 'success', '发布流程全部完成')
         else:
+            add_job_log(job_id, 'GitHub上传', 'error', '上传失败', {'error': result.get('error', '上传失败')})
             raise Exception(result.get('error', '上传失败'))
             
     except Exception as e:
@@ -176,6 +247,7 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
         traceback.print_exc()
         jobs[job_id]['status'] = 'failed'
         jobs[job_id]['error'] = str(e)
+        add_job_log(job_id, '任务失败', 'error', f'任务执行失败: {str(e)}')
 
 
 @app.route('/api/health', methods=['GET'])
@@ -346,8 +418,15 @@ def publish_article():
             'status': 'queued',
             'created_at': datetime.now().isoformat(),
             'message': '任务已进入队列...',
-            'progress': 0
+            'progress': 0,
+            'logs': []  # 初始化日志数组
         }
+        
+        # 记录任务创建日志
+        add_job_log(job_id, '任务创建', 'info', '任务已创建并加入队列', {
+            'title': data.get('title', ''),
+            'target_dir': data.get('target_dir', 'content/posts')
+        })
         
         # Add to queue instead of starting thread immediately
         task_queue.put((job_id, data))
@@ -398,6 +477,24 @@ def get_all_jobs():
         'jobs': sorted_jobs,
         'queue_size': task_queue.qsize(),
         'total_jobs': len(jobs)
+    })
+
+
+@app.route('/api/logs/<job_id>', methods=['GET'])
+def get_job_logs(job_id):
+    """获取任务的详细日志"""
+    job = jobs.get(job_id)
+    if not job:
+        return jsonify({
+            'success': False,
+            'error': '任务不存在'
+        }), 404
+    
+    return jsonify({
+        'success': True,
+        'job_id': job_id,
+        'status': job.get('status'),
+        'logs': job.get('logs', [])
     })
 
 

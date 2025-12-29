@@ -1406,3 +1406,119 @@ body {
         justify-content: flex-end;
     }
 }
+
+/* Log Modal Styles */
+.modal-lg {
+    max-width: 600px;
+}
+
+.log-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.log-list .empty-text {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    text-align: center;
+    padding: 24px;
+}
+
+.log-item {
+    display: flex;
+    gap: 12px;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    background: var(--background);
+    border-radius: var(--radius);
+    border-left: 3px solid var(--border-color);
+    transition: var(--transition);
+}
+
+.log-item:last-child {
+    margin-bottom: 0;
+}
+
+.log-item.log-start {
+    border-left-color: var(--primary-color);
+}
+
+.log-item.log-success {
+    border-left-color: var(--success-color);
+}
+
+.log-item.log-error {
+    border-left-color: var(--danger-color);
+}
+
+.log-item.log-warning {
+    border-left-color: #f59e0b;
+}
+
+.log-item.log-info {
+    border-left-color: #6366f1;
+}
+
+.log-icon {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.875rem;
+    flex-shrink: 0;
+}
+
+.log-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.log-step {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.log-message {
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    word-break: break-word;
+}
+
+.log-time {
+    font-size: 0.6875rem;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
+
+.log-details {
+    margin-top: 6px;
+    padding: 6px 8px;
+    background: var(--surface);
+    border-radius: 4px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* View Log Button in Task History */
+.task-history-item .task-log-btn {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: var(--background);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.task-history-item .task-log-btn:hover {
+    background: var(--border-color);
+    color: var(--text-primary);
+}
