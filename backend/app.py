@@ -343,6 +343,32 @@ def test_github():
         }), 500
 
 
+@app.route('/api/test-qstash', methods=['GET'])
+def test_qstash():
+    """测试 QStash 配置状态"""
+    beijing_time = datetime.now(timezone(timedelta(hours=8)))
+    
+    qstash_status = {
+        'success': True,
+        'qstash_enabled': qstash_client is not None,
+        'qstash_token_set': bool(QSTASH_TOKEN),
+        'qstash_signing_key_set': bool(QSTASH_SIGNING_KEY),
+        'webhook_base_url': os.environ.get('WEBHOOK_BASE_URL', '未设置'),
+        'timestamp': beijing_time.isoformat()
+    }
+    
+    if not QSTASH_TOKEN:
+        qstash_status['success'] = False
+        qstash_status['error'] = 'QSTASH_TOKEN 未设置，异步模式不可用'
+    elif not qstash_client:
+        qstash_status['success'] = False
+        qstash_status['error'] = 'QStash 客户端初始化失败'
+    else:
+        qstash_status['message'] = 'QStash 配置正常，异步模式可用'
+    
+    return jsonify(qstash_status)
+
+
 @app.route('/', methods=['GET'])
 def index():
     """主页 - API 测试界面"""
