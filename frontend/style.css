@@ -1461,11 +1461,17 @@ body {
     .item-title,
     .task-title {
         max-width: calc(100vw - 100px) !important;
-        /* Increased spacing */
-        white-space: nowrap !important;
+        /* Keep width constraint */
+
+        /* Use Line Clamp for safer truncation */
+        display: -webkit-box !important;
+        -webkit-line-clamp: 1;
+        -webkit-box-orient: vertical;
         overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        display: block !important;
+        white-space: normal !important;
+        /* Allow wrapping logic to work */
+        text-overflow: ellipsis;
+        /* Fallback */
     }
 }
 
