@@ -318,36 +318,45 @@ class GitHubService:
                 'error': str(e)
             }
     
-    def get_repo_info(self) -> Dict[str, Any]:
+    def get_repo_info(self, max_retries: int = 3) -> Dict[str, Any]:
         """
-        获取仓库信息
+        获取仓库信息，带自动重试机制
         
         返回:
             包含仓库信息的字典
         """
-        try:
-            url = f'{self.base_url}/repos/{self.username}/{self.repo}'
-            
-            response = requests.get(url, headers=self.headers, timeout=10)
-            
-            response.raise_for_status()
-            
-            result = response.json()
-            
-            return {
-                'success': True,
-                'name': result.get('name', ''),
-                'full_name': result.get('full_name', ''),
-                'description': result.get('description', ''),
-                'default_branch': result.get('default_branch', 'main'),
-                'url': result.get('html_url', '')
-            }
+        url = f'{self.base_url}/repos/{self.username}/{self.repo}'
+        last_exception = None
         
-        except requests.exceptions.RequestException as e:
-            return {
-                'success': False,
-                'error': str(e)
-            }
+        for attempt in range(max_retries):
+            try:
+                response = requests.get(url, headers=self.headers, timeout=15)
+                
+                response.raise_for_status()
+                
+                result = response.json()
+                
+                return {
+                    'success': True,
+                    'name': result.get('name', ''),
+                    'full_name': result.get('full_name', ''),
+                    'description': result.get('description', ''),
+                    'default_branch': result.get('default_branch', 'main'),
+                    'url': result.get('html_url', '')
+                }
+            
+            except requests.exceptions.RequestException as e:
+                last_exception = e
+                if attempt < max_retries - 1:
+                    wait_time = (attempt + 1) * 2
+                    print(f"获取仓库信息失败（第{attempt + 1}次尝试），{wait_time}秒后重试: {str(e)}")
+                    time.sleep(wait_time)
+                continue
+        
+        return {
+            'success': False,
+            'error': f'获取仓库信息失败（已重试{max_retries}次）：{str(last_exception)}'
+        }
     
     def validate_config(self) -> Dict[str, Any]:
         """
