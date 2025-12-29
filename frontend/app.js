@@ -406,8 +406,8 @@ class HugoPublisher {
         this.publishBtn.disabled = true;
         if (this.publishBtnLeft) this.publishBtnLeft.disabled = true;
 
-        // 使用同步模式：显示 loading overlay
-        this.showLoading('正在发布文章，请稍候...');
+        // 使用 QStash 异步模式：提交后立即返回
+        this.showLoading('正在提交发布任务...');
 
         try {
             const response = await fetch(`${this.apiBaseUrl}/api/publish`, {
@@ -422,32 +422,48 @@ class HugoPublisher {
                     category: this.categorySelect.value,
                     target_dir: this.targetDirSelect.value,
                     draft: this.isDraftCheckbox.checked,
-                    sync: true  // 使用同步模式
+                    async: true  // 使用 QStash 异步模式
                 })
             });
 
             const data = await response.json();
 
             if (data.success) {
-                // 同步模式直接返回结果
-                this.handlePublishSuccess({
-                    file_path: data.file_path,
-                    url: data.url
-                });
+                this.hideLoading();
+                this.publishBtn.disabled = false;
+                if (this.publishBtnLeft) this.publishBtnLeft.disabled = false;
 
-                // 添加到历史记录
-                this.addToTaskHistory({
-                    id: Date.now().toString(),
-                    title: data.title || title || '未命名文章',
-                    status: 'completed',
-                    progress: 100,
-                    message: '发布成功',
-                    result: { file_path: data.file_path, url: data.url }
-                });
+                if (data.mode === 'async') {
+                    // QStash 异步模式：任务已提交到后台
+                    this.showNotification('✅ 任务已提交到后台处理，可以关闭页面了！', 'success');
+
+                    // 添加到历史记录（状态为处理中）
+                    this.addToTaskHistory({
+                        id: data.job_id || Date.now().toString(),
+                        title: title || '后台发布任务',
+                        status: 'processing',
+                        progress: 50,
+                        message: '后台处理中...'
+                    });
+                } else {
+                    // 同步模式返回完整结果
+                    this.handlePublishSuccess({
+                        file_path: data.file_path,
+                        url: data.url
+                    });
+
+                    this.addToTaskHistory({
+                        id: Date.now().toString(),
+                        title: data.title || title || '未命名文章',
+                        status: 'completed',
+                        progress: 100,
+                        message: '发布成功',
+                        result: { file_path: data.file_path, url: data.url }
+                    });
+                }
             } else {
                 this.handlePublishError(data.error || '发布失败');
 
-                // 添加失败记录到历史
                 this.addToTaskHistory({
                     id: Date.now().toString(),
                     title: title || '未命名文章',

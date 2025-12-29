@@ -48,6 +48,28 @@ except ValueError:
     markdown_generator = None
     print("Warning: Markdown generator not initialized, some functionality may be disabled")
 
+# QStash 客户端初始化
+qstash_client = None
+qstash_receiver = None
+QSTASH_TOKEN = os.environ.get('QSTASH_TOKEN', '')
+QSTASH_SIGNING_KEY = os.environ.get('QSTASH_CURRENT_SIGNING_KEY', '')
+
+if QSTASH_TOKEN:
+    try:
+        from upstash_qstash import Client as QStashClient
+        from upstash_qstash import Receiver as QStashReceiver
+        qstash_client = QStashClient(QSTASH_TOKEN)
+        if QSTASH_SIGNING_KEY:
+            qstash_receiver = QStashReceiver(
+                current_signing_key=QSTASH_SIGNING_KEY,
+                next_signing_key=os.environ.get('QSTASH_NEXT_SIGNING_KEY', QSTASH_SIGNING_KEY)
+            )
+        print("QStash client initialized successfully")
+    except Exception as e:
+        print(f"Warning: QStash initialization failed: {e}")
+else:
+    print("Warning: QSTASH_TOKEN not set, async task functionality disabled")
+
 
 # Global job store and queue
 jobs = {}
@@ -476,14 +498,56 @@ def publish_article():
                 'error': '缺少必要参数（content）'
             }), 400
         
-        # 检查是否使用同步模式
-        sync_mode = data.get('sync', True)  # 默认使用同步模式
+        # 检查发布模式
+        # async_mode=true: 使用 QStash 异步（推荐，提交后立即返回）
+        # sync=true: 同步模式（等待完成）
+        async_mode = data.get('async', False)
+        sync_mode = data.get('sync', True)
         
-        if sync_mode:
+        if async_mode and qstash_client:
+            # QStash 异步模式：通过 QStash 发送任务，立即返回
+            job_id = str(uuid.uuid4())
+            
+            # 获取当前请求的基础 URL 来构建 webhook URL
+            base_url = os.environ.get('WEBHOOK_BASE_URL', request.host_url.rstrip('/'))
+            webhook_url = f"{base_url}/api/qstash-webhook"
+            
+            try:
+                # 准备发送给 QStash 的数据
+                task_data = {
+                    'job_id': job_id,
+                    'title': data.get('title', ''),
+                    'content': data['content'],
+                    'tags': data.get('tags', []),
+                    'category': data.get('category', ''),
+                    'target_dir': data.get('target_dir', 'content/posts'),
+                    'draft': data.get('draft', False)
+                }
+                
+                # 通过 QStash 发布任务
+                qstash_client.publish_json(
+                    url=webhook_url,
+                    body=task_data,
+                    retries=3
+                )
+                
+                return jsonify({
+                    'success': True,
+                    'message': '任务已提交到后台处理',
+                    'job_id': job_id,
+                    'mode': 'async'
+                })
+                
+            except Exception as e:
+                print(f"QStash publish error: {e}")
+                # 如果 QStash 失败，回退到同步模式
+                return publish_sync(data)
+        
+        elif sync_mode:
             # 同步模式：直接在当前请求中完成发布
             return publish_sync(data)
         else:
-            # 异步模式：使用后台队列（在 Serverless 环境中可能不可靠）
+            # 旧的后台队列模式（在 Serverless 环境中可能不可靠）
             job_id = str(uuid.uuid4())
             jobs[job_id] = {
                 'id': job_id,
@@ -612,6 +676,119 @@ def publish_sync(data):
             'success': False,
             'error': str(e)
         }), 500
+
+
+@app.route('/api/qstash-webhook', methods=['POST'])
+def qstash_webhook():
+    """QStash Webhook 端点 - 接收异步任务并执行发布"""
+    # 验证 QStash 签名（可选但推荐）
+    if qstash_receiver:
+        try:
+            signature = request.headers.get('Upstash-Signature', '')
+            body = request.get_data(as_text=True)
+            qstash_receiver.verify(
+                signature=signature,
+                body=body,
+                url=request.url
+            )
+        except Exception as e:
+            print(f"QStash signature verification failed: {e}")
+            return jsonify({'error': 'Invalid signature'}), 401
+    
+    try:
+        data = request.json
+        job_id = data.get('job_id', str(uuid.uuid4()))
+        
+        print(f"[QStash] Received task {job_id}")
+        
+        # 执行发布任务
+        title = data.get('title', '').strip()
+        content = data['content']
+        date = data.get('date', datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%dT%H:%M:%S+08:00'))
+        tags = data.get('tags', [])
+        category = data.get('category', '')
+        target_dir = data.get('target_dir', 'content/posts')
+        draft = data.get('draft', False)
+
+        # 1. Check if content is a URL
+        url_pattern = re.compile(r'^https?://\S+$')
+        is_url = url_pattern.match(content.strip())
+        
+        if is_url:
+            url = content.strip()
+            print(f"[QStash] Detected URL: {url}, fetching content...")
+            scraped_data = fetch_article_content(url)
+            
+            if scraped_data:
+                content = scraped_data['content']
+                if not title and scraped_data['title']:
+                    title = scraped_data['title']
+            else:
+                print(f"[QStash] Failed to fetch URL content: {url}")
+                return jsonify({'error': '无法获取链接内容'}), 400
+
+        # 2. Parse Front Matter
+        parsed = markdown_generator.parse_front_matter(content)
+        content = parsed['content']
+        
+        # 3. AI Analysis
+        try:
+            analysis = deepseek_service.format_article(
+                content=content,
+                title=title,
+                tags=tags,
+                category=category
+            )
+            
+            content = analysis.get('content', content)
+            tags = analysis.get('tags', [])
+            category = analysis.get('category', '未分类')
+            
+            if not title:
+                extracted_title = parsed.get('front_matter', {}).get('title')
+                title = extracted_title if extracted_title else analysis.get('title', '未命名文章')
+                
+        except Exception as e:
+            print(f"[QStash] AI analysis failed: {e}")
+            if not title:
+                title = f"未命名文章_{datetime.now(timezone(timedelta(hours=8))).strftime('%Y%m%d%H%M%S')}"
+
+        # 4. Generate full content
+        filename = markdown_generator.generate_filename(title)
+        full_content = markdown_generator.wrap_with_front_matter(
+            title=title,
+            content=content,
+            date=date,
+            tags=tags,
+            category=category,
+            draft=draft
+        )
+        
+        # 5. Upload to GitHub
+        result = github_service.upload_file(
+            content=full_content,
+            filename=filename,
+            target_dir=target_dir,
+            message=f'Publish: {title}'
+        )
+        
+        if result['success']:
+            print(f"[QStash] Task {job_id} completed: {result['file_path']}")
+            return jsonify({
+                'success': True,
+                'job_id': job_id,
+                'file_path': result['file_path'],
+                'url': result['url'],
+                'title': title
+            })
+        else:
+            print(f"[QStash] Task {job_id} failed: {result.get('error')}")
+            return jsonify({'success': False, 'error': result.get('error', '上传失败')}), 500
+            
+    except Exception as e:
+        print(f"[QStash] Webhook error: {str(e)}")
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/api/status/<job_id>', methods=['GET'])
