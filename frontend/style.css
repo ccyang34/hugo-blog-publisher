@@ -1460,18 +1460,21 @@ body {
     /* Force truncation on mobile titles - The Nuclear Option */
     .item-title,
     .task-title {
-        max-width: calc(100vw - 100px) !important;
-        /* Keep width constraint */
-
-        /* Use Line Clamp for safer truncation */
-        display: -webkit-box !important;
-        -webkit-line-clamp: 1;
-        -webkit-box-orient: vertical;
+        display: block !important;
+        white-space: nowrap !important;
         overflow: hidden !important;
-        white-space: normal !important;
-        /* Allow wrapping logic to work */
-        text-overflow: ellipsis;
-        /* Fallback */
+        text-overflow: ellipsis !important;
+
+        /* Safe constraints */
+        max-width: 65vw !important;
+        width: 100% !important;
+
+        /* Visibility safeguards */
+        min-height: 24px !important;
+        line-height: 1.5 !important;
+        color: var(--text-color) !important;
+        opacity: 1 !important;
+        visibility: visible !important;
     }
 }
 
