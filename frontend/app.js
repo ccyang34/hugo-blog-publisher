@@ -303,22 +303,29 @@ class HugoPublisher {
         // Initialize jobs in UI
         urls.forEach((url, index) => {
             this.jobs.push({
-                id: null, // Will be set after submission
+                id: `batch_${Date.now()}_${index}`,
                 tempId: index,
                 title: url, // Show URL as title initially
                 status: 'pending',
                 progress: 0,
-                message: '等待提交...',
+                message: '等待处理...',
                 url: url
             });
         });
         this.renderJobQueue();
 
-        // Submit all jobs sequentially to backend (or parallel, but backend is queue-based anyway)
+        // 同步模式：逐个处理，每个完成后再处理下一个
+        let successCount = 0;
+        let failCount = 0;
+
         for (let i = 0; i < urls.length; i++) {
             const url = urls[i];
+            this.jobs[i].status = 'processing';
+            this.jobs[i].message = '正在处理...';
+            this.jobs[i].progress = 30;
+            this.renderJobQueue();
+
             try {
-                // Submit job
                 const response = await fetch(`${this.apiBaseUrl}/api/publish`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -329,29 +336,59 @@ class HugoPublisher {
                         category: this.categorySelect.value,
                         target_dir: this.targetDirSelect.value,
                         draft: this.isDraftCheckbox.checked,
-                        auto_format: true
+                        sync: true  // 使用同步模式
                     })
                 });
 
                 const data = await response.json();
                 if (data.success) {
-                    this.jobs[i].id = data.job_id;
-                    this.jobs[i].status = 'queued';
-                    this.jobs[i].message = '已加入队列';
-                    this.jobs[i].progress = 10;
+                    this.jobs[i].status = 'completed';
+                    this.jobs[i].message = '发布成功';
+                    this.jobs[i].progress = 100;
+                    this.jobs[i].title = data.title || url;
+                    this.jobs[i].result = { file_path: data.file_path, url: data.url };
+                    successCount++;
+
+                    // 添加到历史记录
+                    this.addToTaskHistory({
+                        id: this.jobs[i].id,
+                        title: data.title || url,
+                        status: 'completed',
+                        progress: 100,
+                        message: '发布成功',
+                        result: { file_path: data.file_path, url: data.url }
+                    });
                 } else {
                     this.jobs[i].status = 'failed';
-                    this.jobs[i].message = data.error || '提交失败';
+                    this.jobs[i].message = data.error || '发布失败';
+                    this.jobs[i].error = data.error;
+                    failCount++;
+
+                    this.addToTaskHistory({
+                        id: this.jobs[i].id,
+                        title: url,
+                        status: 'failed',
+                        progress: 0,
+                        message: '发布失败',
+                        error: data.error
+                    });
                 }
             } catch (error) {
                 this.jobs[i].status = 'failed';
                 this.jobs[i].message = `网络错误: ${error.message}`;
+                this.jobs[i].error = error.message;
+                failCount++;
             }
             this.renderJobQueue();
         }
 
-        // Start polling
-        this.pollJobs();
+        // 批量处理完成
+        this.setButtonsDisabled(false);
+        if (failCount === 0) {
+            this.showNotification(`全部 ${successCount} 篇文章发布成功!`, 'success');
+        } else {
+            this.showNotification(`完成: ${successCount} 成功, ${failCount} 失败`, failCount > 0 ? 'error' : 'success');
+        }
     }
 
     async publishArticle() {
@@ -369,23 +406,8 @@ class HugoPublisher {
         this.publishBtn.disabled = true;
         if (this.publishBtnLeft) this.publishBtnLeft.disabled = true;
 
-        // Use Job Queue UI for single tasks too, for consistency? 
-        // Or stick to simple loading overlay for single tasks? 
-        // Let's use Job Queue UI if it's cleaner, but maybe stick to overlay for single tasks to minimize change impact unless requested.
-        // Actually, let's use the new queue system for everything to be consistent.
-
-        this.jobs = [{
-            id: null,
-            tempId: 0,
-            title: title || '新文章',
-            status: 'pending',
-            progress: 0,
-            message: '正在提交...'
-        }];
-
-        // Show Queue Modal instead of Loading Overlay
-        this.jobQueueModal.classList.remove('hidden');
-        this.renderJobQueue();
+        // 使用同步模式：显示 loading overlay
+        this.showLoading('正在发布文章，请稍候...');
 
         try {
             const response = await fetch(`${this.apiBaseUrl}/api/publish`, {
@@ -400,29 +422,43 @@ class HugoPublisher {
                     category: this.categorySelect.value,
                     target_dir: this.targetDirSelect.value,
                     draft: this.isDraftCheckbox.checked,
-                    auto_format: !alreadyFormatted  // 已手动优化则跳过自动优化
+                    sync: true  // 使用同步模式
                 })
             });
 
             const data = await response.json();
 
-            if (data.success && data.job_id) {
-                this.jobs[0].id = data.job_id;
-                this.jobs[0].status = 'queued';
-                this.jobs[0].message = '已加入队列';
-                this.renderJobQueue();
-                this.pollJobs();
+            if (data.success) {
+                // 同步模式直接返回结果
+                this.handlePublishSuccess({
+                    file_path: data.file_path,
+                    url: data.url
+                });
+
+                // 添加到历史记录
+                this.addToTaskHistory({
+                    id: Date.now().toString(),
+                    title: data.title || title || '未命名文章',
+                    status: 'completed',
+                    progress: 100,
+                    message: '发布成功',
+                    result: { file_path: data.file_path, url: data.url }
+                });
             } else {
-                this.jobs[0].status = 'failed';
-                this.jobs[0].message = data.error || '发布失败';
-                this.renderJobQueue();
                 this.handlePublishError(data.error || '发布失败');
+
+                // 添加失败记录到历史
+                this.addToTaskHistory({
+                    id: Date.now().toString(),
+                    title: title || '未命名文章',
+                    status: 'failed',
+                    progress: 0,
+                    message: '发布失败',
+                    error: data.error
+                });
             }
         } catch (error) {
             console.error('发布错误:', error);
-            this.jobs[0].status = 'failed';
-            this.jobs[0].message = `网络错误: ${error.message}`;
-            this.renderJobQueue();
             this.handlePublishError(`网络错误: ${error.message}`);
         }
     }

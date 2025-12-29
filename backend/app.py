@@ -460,7 +460,12 @@ def preview_article():
 
 @app.route('/api/publish', methods=['POST'])
 def publish_article():
-    """发布文章到GitHub"""
+    """发布文章到GitHub
+    
+    支持两种模式：
+    - sync=true: 同步模式，直接在请求中完成发布（推荐用于 Serverless）
+    - sync=false 或不传: 异步模式，使用后台队列处理
+    """
     try:
         data = request.json
         
@@ -470,35 +475,139 @@ def publish_article():
                 'success': False,
                 'error': '缺少必要参数（content）'
             }), 400
+        
+        # 检查是否使用同步模式
+        sync_mode = data.get('sync', True)  # 默认使用同步模式
+        
+        if sync_mode:
+            # 同步模式：直接在当前请求中完成发布
+            return publish_sync(data)
+        else:
+            # 异步模式：使用后台队列（在 Serverless 环境中可能不可靠）
+            job_id = str(uuid.uuid4())
+            jobs[job_id] = {
+                'id': job_id,
+                'status': 'queued',
+                'created_at': datetime.now().isoformat(),
+                'message': '任务已进入队列...',
+                'progress': 0,
+                'logs': []
+            }
             
-        # Create a new job
-        job_id = str(uuid.uuid4())
-        jobs[job_id] = {
-            'id': job_id,
-            'status': 'queued',
-            'created_at': datetime.now().isoformat(),
-            'message': '任务已进入队列...',
-            'progress': 0,
-            'logs': []  # 初始化日志数组
-        }
-        
-        # 记录任务创建日志
-        add_job_log(job_id, '任务创建', 'info', '任务已创建并加入队列', {
-            'title': data.get('title', ''),
-            'target_dir': data.get('target_dir', 'content/posts')
-        })
-        
-        # Add to queue instead of starting thread immediately
-        task_queue.put((job_id, data))
-        
-        return jsonify({
-            'success': True,
-            'message': '任务已加入队列',
-            'job_id': job_id,
-            'queue_position': task_queue.qsize()
-        })
+            add_job_log(job_id, '任务创建', 'info', '任务已创建并加入队列', {
+                'title': data.get('title', ''),
+                'target_dir': data.get('target_dir', 'content/posts')
+            })
+            
+            task_queue.put((job_id, data))
+            
+            return jsonify({
+                'success': True,
+                'message': '任务已加入队列',
+                'job_id': job_id,
+                'queue_position': task_queue.qsize()
+            })
     
     except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+def publish_sync(data):
+    """同步发布文章 - 直接在当前请求中完成所有步骤"""
+    try:
+        title = data.get('title', '').strip()
+        content = data['content']
+        date = data.get('date', datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%dT%H:%M:%S+08:00'))
+        tags = data.get('tags', [])
+        category = data.get('category', '')
+        target_dir = data.get('target_dir', 'content/posts')
+        draft = data.get('draft', False)
+
+        # 1. Check if content is a URL
+        url_pattern = re.compile(r'^https?://\S+$')
+        is_url = url_pattern.match(content.strip())
+        
+        if is_url:
+            url = content.strip()
+            print(f"[Sync] Detected URL: {url}, fetching content...")
+            scraped_data = fetch_article_content(url)
+            
+            if scraped_data:
+                content = scraped_data['content']
+                if not title and scraped_data['title']:
+                    title = scraped_data['title']
+                    print(f"[Sync] Use scraped title: {title}")
+            else:
+                return jsonify({
+                    'success': False,
+                    'error': '无法从链接获取内容，请检查链接是否有效'
+                }), 400
+
+        # 2. Parse Front Matter to avoid duplication
+        parsed = markdown_generator.parse_front_matter(content)
+        content = parsed['content']
+        
+        # 3. AI Analysis
+        try:
+            analysis = deepseek_service.format_article(
+                content=content,
+                title=title,
+                tags=tags,
+                category=category
+            )
+            
+            content = analysis.get('content', content)
+            tags = analysis.get('tags', [])
+            category = analysis.get('category', '未分类')
+            
+            if not title:
+                extracted_title = parsed.get('front_matter', {}).get('title')
+                title = extracted_title if extracted_title else analysis.get('title', '未命名文章')
+                
+        except Exception as e:
+            print(f"[Sync] Warning: AI analysis failed: {e}")
+            if not title:
+                title = f"未命名文章_{datetime.now(timezone(timedelta(hours=8))).strftime('%Y%m%d%H%M%S')}"
+
+        # 4. Generate full content
+        filename = markdown_generator.generate_filename(title)
+        full_content = markdown_generator.wrap_with_front_matter(
+            title=title,
+            content=content,
+            date=date,
+            tags=tags,
+            category=category,
+            draft=draft
+        )
+        
+        # 5. Upload to GitHub
+        result = github_service.upload_file(
+            content=full_content,
+            filename=filename,
+            target_dir=target_dir,
+            message=f'Publish: {title}'
+        )
+        
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'message': '文章发布成功',
+                'file_path': result['file_path'],
+                'url': result['url'],
+                'title': title
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.get('error', '上传失败')
+            }), 500
+            
+    except Exception as e:
+        print(f"[Sync] Publish failed: {str(e)}")
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)
