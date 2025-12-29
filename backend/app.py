@@ -56,8 +56,8 @@ QSTASH_SIGNING_KEY = os.environ.get('QSTASH_CURRENT_SIGNING_KEY', '')
 
 if QSTASH_TOKEN:
     try:
-        from upstash_qstash import Client as QStashClient
-        from upstash_qstash import Receiver as QStashReceiver
+        from qstash import Client as QStashClient
+        from qstash import Receiver as QStashReceiver
         qstash_client = QStashClient(QSTASH_TOKEN)
         if QSTASH_SIGNING_KEY:
             qstash_receiver = QStashReceiver(
