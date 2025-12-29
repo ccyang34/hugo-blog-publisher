@@ -697,15 +697,49 @@ class HugoPublisher {
                     category: this.categorySelect.value,
                     target_dir: this.targetDirSelect.value,
                     draft: this.isDraftCheckbox.checked,
-                    auto_format: !alreadyFormatted  // 已手动优化则跳过自动优化
+                    auto_format: !alreadyFormatted,  // 已手动优化则跳过自动优化
+                    async: true  // 使用 QStash 异步模式
                 })
             });
 
             const data = await response.json();
 
-            if (data.success && data.job_id) {
-                this.showNotification('任务提交成功，正在后台处理...', 'success');
-                this.pollStatus(data.job_id);
+            if (data.success) {
+                this.hideLoading();
+                this.publishBtn.disabled = false;
+                if (this.publishBtnLeft) this.publishBtnLeft.disabled = false;
+
+                if (data.mode === 'async') {
+                    // QStash 异步模式：任务已提交到后台
+                    this.showNotification('✅ 内容已提交，剩余流程后台完成，可以离开网页', 'success');
+
+                    // 添加到历史记录
+                    this.addToTaskHistory({
+                        id: data.job_id || Date.now().toString(),
+                        title: title || '后台发布任务',
+                        status: 'processing',
+                        progress: 50,
+                        message: '后台处理中...'
+                    });
+                } else if (data.job_id) {
+                    // 旧的同步队列模式
+                    this.showNotification('任务提交成功，正在后台处理...', 'success');
+                    this.pollStatus(data.job_id);
+                } else {
+                    // 直接完成
+                    this.handlePublishSuccess({
+                        file_path: data.file_path,
+                        url: data.url
+                    });
+                    this.addToTaskHistory({
+                        id: Date.now().toString(),
+                        title: data.title || title || '未命名文章',
+                        status: 'completed',
+                        progress: 100,
+                        message: '发布成功',
+                        result: { file_path: data.file_path, url: data.url }
+                    });
+                }
             } else {
                 this.handlePublishError(data.error || '发布失败');
             }
