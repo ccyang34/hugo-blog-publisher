@@ -1275,30 +1275,42 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
 
     // ==================== Task History Methods ====================
 
-    loadTaskHistory() {
+    async loadTaskHistory() {
         try {
-            const stored = localStorage.getItem('hugo_task_history');
-            this.taskHistory = stored ? JSON.parse(stored) : [];
+            // 从后端 API 加载历史记录 (Redis)
+            const response = await fetch(`${this.apiBaseUrl}/api/task-history`);
+            const data = await response.json();
+
+            if (data.success && data.history) {
+                this.taskHistory = data.history;
+            } else {
+                // 如果 API 失败或返回空，尝试加载本地缓存
+                const stored = localStorage.getItem('hugo_task_history');
+                this.taskHistory = stored ? JSON.parse(stored) : [];
+            }
             this.renderTaskHistory();
         } catch (error) {
             console.error('Failed to load task history:', error);
-            this.taskHistory = [];
+            // Fallback to local storage
+            const stored = localStorage.getItem('hugo_task_history');
+            this.taskHistory = stored ? JSON.parse(stored) : [];
+            this.renderTaskHistory();
         }
     }
 
     saveTaskHistory() {
         try {
-            // Keep only the last 50 tasks
-            if (this.taskHistory.length > 50) {
-                this.taskHistory = this.taskHistory.slice(0, 50);
+            // Keep only the last 20 tasks locally
+            if (this.taskHistory.length > 20) {
+                this.taskHistory = this.taskHistory.slice(0, 20);
             }
             localStorage.setItem('hugo_task_history', JSON.stringify(this.taskHistory));
         } catch (error) {
-            console.error('Failed to save task history:', error);
+            console.error('Failed to save task history locally:', error);
         }
     }
 
-    addToTaskHistory(job) {
+    async addToTaskHistory(job) {
         const historyItem = {
             id: job.id,
             title: job.title || '未命名文章',
@@ -1307,13 +1319,26 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
             message: job.message,
             result: job.result,
             error: job.error,
-            createdAt: new Date().toISOString()
+            created_at: new Date().toISOString()
         };
 
         // Add to the beginning of the array (newest first)
         this.taskHistory.unshift(historyItem);
-        this.saveTaskHistory();
+        this.saveTaskHistory(); // 保存到本地
         this.renderTaskHistory();
+
+        // 同时也保存到服务器 (Redis)
+        try {
+            await fetch(`${this.apiBaseUrl}/api/task-history`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(historyItem)
+            });
+        } catch (error) {
+            console.error('Failed to save task to server:', error);
+        }
     }
 
     updateTaskHistory(jobId, updates) {
