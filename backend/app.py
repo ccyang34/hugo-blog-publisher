@@ -334,7 +334,8 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
             jobs[job_id]['message'] = '文章发布成功'
             jobs[job_id]['result'] = {
                 'file_path': result['file_path'],
-                'url': result['url']
+                'url': result['url'],
+                'title': title  # Include final title for task history
             }
             add_job_log(job_id, 'GitHub上传', 'success', '文章发布成功', {
                 'file_path': result['file_path'],
