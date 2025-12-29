@@ -261,6 +261,50 @@ def health_check():
     })
 
 
+@app.route('/api/test-github', methods=['GET'])
+def test_github():
+    """测试 GitHub API 连接状态"""
+    beijing_time = datetime.now(timezone(timedelta(hours=8)))
+    
+    if not github_service:
+        return jsonify({
+            'success': False,
+            'error': 'GitHub 服务未配置',
+            'timestamp': beijing_time.isoformat()
+        }), 500
+    
+    try:
+        # 调用 GitHub 服务的验证方法
+        result = github_service.validate_config()
+        
+        if result.get('valid'):
+            repo_info = result.get('repo', {})
+            return jsonify({
+                'success': True,
+                'message': 'GitHub API 连接正常',
+                'repo': {
+                    'name': repo_info.get('name', ''),
+                    'full_name': repo_info.get('full_name', ''),
+                    'default_branch': repo_info.get('default_branch', 'main'),
+                    'url': repo_info.get('url', '')
+                },
+                'timestamp': beijing_time.isoformat()
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.get('error', '验证失败'),
+                'timestamp': beijing_time.isoformat()
+            }), 500
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'timestamp': beijing_time.isoformat()
+        }), 500
+
+
 @app.route('/', methods=['GET'])
 def index():
     """主页 - API 测试界面"""
