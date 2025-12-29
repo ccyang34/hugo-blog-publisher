@@ -833,102 +833,53 @@ def qstash_webhook():
         
         print(f"[QStash] Received task {job_id}")
         
-        # 执行发布任务
-        title = data.get('title', '').strip()
-        content = data['content']
-        date = data.get('date', datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%dT%H:%M:%S+08:00'))
-        tags = data.get('tags', [])
-        category = data.get('category', '')
-        target_dir = data.get('target_dir', 'content/posts')
-        draft = data.get('draft', False)
-
-        # 1. Check if content is a URL
-        url_pattern = re.compile(r'^https?://\S+$')
-        is_url = url_pattern.match(content.strip())
+        # Initialize job entry (critical for process_publish_task)
+        jobs[job_id] = {
+            'id': job_id,
+            'status': 'processing',
+            'created_at': datetime.now(timezone(timedelta(hours=8))).isoformat(),
+            'progress': 0,
+            'logs': []
+        }
         
-        if is_url:
-            url = content.strip()
-            print(f"[QStash] Detected URL: {url}, fetching content...")
-            scraped_data = fetch_article_content(url)
-            
-            if scraped_data:
-                content = scraped_data['content']
-                if not title and scraped_data['title']:
-                    title = scraped_data['title']
-            else:
-                print(f"[QStash] Failed to fetch URL content: {url}")
-                return jsonify({'error': '无法获取链接内容'}), 400
-
-        # 2. Parse Front Matter
-        parsed = markdown_generator.parse_front_matter(content)
-        content = parsed['content']
-        
-        # 3. AI Analysis
+        # Execute publishing via standard processor
         try:
-            analysis = deepseek_service.format_article(
-                content=content,
-                title=title,
-                tags=tags,
-                category=category
-            )
+            # Reusing the robust processor which handles fetching, analysis, uploading AND LOGGING
+            process_publish_task(job_id, data, deepseek_service, github_service, markdown_generator)
             
-            content = analysis.get('content', content)
-            tags = analysis.get('tags', [])
-            category = analysis.get('category', '未分类')
-            
-            if not title:
-                extracted_title = parsed.get('front_matter', {}).get('title')
-                title = extracted_title if extracted_title else analysis.get('title', '未命名文章')
+            # Check result from jobs dict
+            job_result = jobs.get(job_id)
+            if job_result and job_result.get('status') == 'completed':
+                result_data = job_result.get('result', {})
+                print(f"[QStash] Task {job_id} completed via processor")
                 
-        except Exception as e:
-            print(f"[QStash] AI analysis failed: {e}")
-            if not title:
-                title = f"未命名文章_{datetime.now(timezone(timedelta(hours=8))).strftime('%Y%m%d%H%M%S')}"
+                # Save to history
+                save_task_to_history({
+                    'id': job_id,
+                    'title': result_data.get('title', data.get('title', '未命名')), # Fallback title
+                    'status': 'completed',
+                    'progress': 100,
+                    'message': '发布成功',
+                    'file_path': result_data.get('file_path'),
+                    'url': result_data.get('url'),
+                    'created_at': job_result['created_at']
+                })
+                
+                return jsonify({
+                    'success': True,
+                    'job_id': job_id,
+                    'file_path': result_data.get('file_path'),
+                    'url': result_data.get('url')
+                })
+            else:
+                 error_msg = job_result.get('error', 'Unknown error') if job_result else 'Job lost'
+                 print(f"[QStash] Task {job_id} failed via processor: {error_msg}")
+                 return jsonify({'success': False, 'error': error_msg}), 500
 
-        # 4. Generate full content
-        filename = markdown_generator.generate_filename(title)
-        full_content = markdown_generator.wrap_with_front_matter(
-            title=title,
-            content=content,
-            date=date,
-            tags=tags,
-            category=category,
-            draft=draft
-        )
-        
-        # 5. Upload to GitHub
-        result = github_service.upload_file(
-            content=full_content,
-            filename=filename,
-            target_dir=target_dir,
-            message=f'Publish: {title}'
-        )
-        
-        if result['success']:
-            print(f"[QStash] Task {job_id} completed: {result['file_path']}")
-            
-            # 保存到任务历史
-            save_task_to_history({
-                'id': job_id,
-                'title': title,
-                'status': 'completed',
-                'progress': 100,
-                'message': '发布成功',
-                'file_path': result['file_path'],
-                'url': result['url'],
-                'created_at': datetime.now(timezone(timedelta(hours=8))).isoformat()
-            })
-            
-            return jsonify({
-                'success': True,
-                'job_id': job_id,
-                'file_path': result['file_path'],
-                'url': result['url'],
-                'title': title
-            })
-        else:
-            print(f"[QStash] Task {job_id} failed: {result.get('error')}")
-            return jsonify({'success': False, 'error': result.get('error', '上传失败')}), 500
+        except Exception as inner_e:
+            print(f"[QStash] Processor error: {inner_e}")
+            traceback.print_exc()
+            return jsonify({'success': False, 'error': str(inner_e)}), 500
             
     except Exception as e:
         print(f"[QStash] Webhook error: {str(e)}")
