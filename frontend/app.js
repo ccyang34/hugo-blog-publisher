@@ -124,6 +124,12 @@ class HugoPublisher {
         if (this.refreshHistoryBtn) {
             this.refreshHistoryBtn.addEventListener('click', () => this.refreshTaskHistory());
         }
+
+        // Test GitHub Connection
+        const testGithubBtn = document.getElementById('testGithubBtn');
+        if (testGithubBtn) {
+            testGithubBtn.addEventListener('click', () => this.testGithubConnection());
+        }
     }
 
     async checkApiHealth() {
@@ -134,6 +140,32 @@ class HugoPublisher {
             }
         } catch (error) {
             console.warn('API健康检查失败:', error);
+        }
+    }
+
+    async testGithubConnection() {
+        const btn = document.getElementById('testGithubBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = '测试中...';
+        }
+
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/api/test-github`);
+            const data = await response.json();
+
+            if (data.success) {
+                this.showNotification(`✅ GitHub 连接正常: ${data.repo?.full_name || ''}`, 'success');
+            } else {
+                this.showNotification(`❌ GitHub 连接失败: ${data.error}`, 'error');
+            }
+        } catch (error) {
+            this.showNotification(`❌ 测试请求失败: ${error.message}`, 'error');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = '🔗 测试连接';
+            }
         }
     }
 
