@@ -1410,8 +1410,10 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
 
             // Dynamic title based on status
             let displayTitle = task.title;
-            if (!displayTitle) {
-                if (task.status === 'processing' || task.status === 'pending') {
+            if (!displayTitle || displayTitle === '服务器任务') {
+                if (task.message && task.message !== '后台处理中...') {
+                    displayTitle = task.message;
+                } else if (task.status === 'processing' || task.status === 'pending') {
                     displayTitle = '正在发布文章...';
                 } else {
                     displayTitle = '无标题任务';
@@ -1478,6 +1480,8 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
                         // Update existing task
                         this.taskHistory[existingIndex] = {
                             ...this.taskHistory[existingIndex],
+                            // Only update title if server has a real one and local is empty or generic
+                            title: (serverJob.title && serverJob.title !== '服务器任务') ? serverJob.title : this.taskHistory[existingIndex].title,
                             status: serverJob.status,
                             progress: serverJob.progress,
                             message: serverJob.message,
