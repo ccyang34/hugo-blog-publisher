@@ -592,15 +592,45 @@
 }
 
 @media (max-width: 768px) {
+    .admin-container {
+        flex-direction: column;
+    }
+
     .sidebar {
         width: 100%;
         position: relative;
         height: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .sidebar-nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 12px;
+    }
+
+    .nav-item {
+        flex: 1;
+        min-width: 120px;
+        justify-content: center;
+        margin-bottom: 0;
+        padding: 10px 12px;
+    }
+
+    .sidebar-footer {
+        display: none;
     }
 
     .admin-main {
         margin-left: 0;
         padding: 16px;
+        width: 100%;
+    }
+
+    .section-title h1 {
+        font-size: 1.25rem;
     }
 
     .toolbar {
@@ -619,6 +649,14 @@
     .data-table {
         display: block;
         overflow-x: auto;
+    }
+
+    .quick-actions {
+        flex-direction: column;
+    }
+
+    .quick-actions .btn {
+        width: 100%;
     }
 }
 
