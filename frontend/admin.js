@@ -195,11 +195,12 @@ class AdminPanel {
 
     async loadDashboardData() {
         try {
+            // 内容文件需要 fetch_metadata 来获取精确日期
             const [posts, notes, drafts, media] = await Promise.all([
-                this.fetchFiles('content/posts'),
-                this.fetchFiles('content/notes'),
-                this.fetchFiles('content/drafts'),
-                this.fetchFiles('static/images')
+                this.fetchFiles('content/posts', true),  // fetch_metadata=true
+                this.fetchFiles('content/notes', true),
+                this.fetchFiles('content/drafts', true),
+                this.fetchFiles('static/images', false)  // 图片不需要
             ]);
 
             document.getElementById('totalArticles').textContent = posts.length;
@@ -216,9 +217,13 @@ class AdminPanel {
         }
     }
 
-    async fetchFiles(path) {
+    async fetchFiles(path, fetchMetadata = false) {
         try {
-            const response = await fetch(`${this.apiBaseUrl}/api/files?path=${encodeURIComponent(path)}`);
+            let url = `${this.apiBaseUrl}/api/files?path=${encodeURIComponent(path)}`;
+            if (fetchMetadata) {
+                url += '&fetch_metadata=true';
+            }
+            const response = await fetch(url);
             const data = await response.json();
             return data.success ? data.files : [];
         } catch (error) {
