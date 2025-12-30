@@ -1686,7 +1686,8 @@ body {
     color: var(--text-secondary);
 }
 
-#status-text {
+#status-text,
+#github-status-text {
     font-weight: 700;
     color: var(--text-primary);
     font-size: 1rem;
@@ -1734,19 +1735,34 @@ body {
 /* 移动端适配 */
 @media screen and (max-width: 767px) {
     .cf-status-card {
-        flex-direction: column;
-        align-items: stretch;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
         gap: 12px;
     }
 
     .status-group {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
+        flex-direction: row;
+        align-items: center;
+        gap: 12px;
+        flex: 1;
+        flex: 1;
+        justify-content: space-between;
+    }
+
+    #status-text,
+    #github-status-text {
+        font-size: 0.85rem;
+    }
+
+    .status-label {
+        font-size: 0.7rem;
     }
 
     .status-divider {
-        display: none;
+        display: block;
+        height: 30px;
+        margin: 0 4px;
     }
 
     .status-actions {
