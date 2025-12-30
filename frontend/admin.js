@@ -693,8 +693,7 @@ class AdminPanel {
 
         try {
             const response = await fetch(`${this.apiBaseUrl}/api/test-github`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
+                method: 'GET'
             });
             const data = await response.json();
 
