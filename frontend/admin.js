@@ -316,16 +316,29 @@ class AdminPanel {
             return;
         }
 
-        const sorted = files.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at)).slice(0, 5);
+        // Helper function to extract date from filename (YYYY-MM-DD-title.md)
+        const extractDateFromFilename = (filename) => {
+            const match = filename.match(/^(\d{4}-\d{2}-\d{2})/);
+            return match ? match[1] : '1970-01-01';
+        };
 
-        container.innerHTML = sorted.map(file => `
+        // Sort by updated_at if available, otherwise by date in filename
+        const sorted = files.sort((a, b) => {
+            const dateA = a.updated_at || extractDateFromFilename(a.name);
+            const dateB = b.updated_at || extractDateFromFilename(b.name);
+            return new Date(dateB) - new Date(dateA);
+        }).slice(0, 5);
+
+        container.innerHTML = sorted.map(file => {
+            const displayDate = file.updated_at || extractDateFromFilename(file.name);
+            return `
             <div class="recent-item">
                 <div class="recent-info">
                     <div class="recent-name">${file.name}</div>
-                    <div class="recent-meta">${file.path} · ${file.updated_at ? new Date(file.updated_at).toLocaleString('zh-CN') : '-'}</div>
+                    <div class="recent-meta">${file.path} · ${displayDate || '-'}</div>
                 </div>
             </div>
-        `).join('');
+        `}).join('');
     }
 
     async loadArticles() {
