@@ -1403,10 +1403,20 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
                 errorHtml = `<div class="task-error" style="font-size: 0.75rem; color: #dc2626; margin-top: 4px;">✘ ${task.error}</div>`;
             }
 
+            // Dynamic title based on status
+            let displayTitle = task.title;
+            if (!displayTitle) {
+                if (task.status === 'processing' || task.status === 'pending') {
+                    displayTitle = '正在发布文章...';
+                } else {
+                    displayTitle = '无标题任务';
+                }
+            }
+
             return `
                 <div class="task-history-item" id="task-${task.id}">
                     <div class="task-info">
-                        <div class="task-title" title="${task.title || '无标题任务'}">${task.title || '无标题任务'}</div>
+                        <div class="task-title" title="${displayTitle}">${displayTitle}</div>
                         <div class="task-meta">
                             <span class="task-time">🕐 ${timeStr}</span>
                             <span class="task-status-badge ${statusClass}">${statusText}</span>
