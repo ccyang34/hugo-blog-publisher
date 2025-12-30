@@ -350,16 +350,29 @@ class AdminPanel {
         const tbody = document.getElementById('articlesTableBody');
         tbody.innerHTML = '<tr><td colspan="6" class="loading-text">加载中...</td></tr>';
 
+        // Helper function to extract date from filename
+        const extractDateFromFilename = (filename) => {
+            const match = filename.match(/^(\d{4}-\d{2}-\d{2})/);
+            return match ? match[1] : '1970-01-01';
+        };
+
         try {
             const [posts, notes, drafts] = await Promise.all([
-                this.fetchFiles('content/posts'),
-                this.fetchFiles('content/notes'),
-                this.fetchFiles('content/drafts')
+                this.fetchFiles('content/posts', true),
+                this.fetchFiles('content/notes', true),
+                this.fetchFiles('content/drafts', true)
             ]);
 
             this.articles = [...posts.map(f => ({ ...f, dir: 'content/posts', dirName: '文章' })),
             ...notes.map(f => ({ ...f, dir: 'content/notes', dirName: '笔记' })),
             ...drafts.map(f => ({ ...f, dir: 'content/drafts', dirName: '草稿' }))];
+
+            // Sort articles from newest to oldest
+            this.articles.sort((a, b) => {
+                const dateA = a.updated_at || extractDateFromFilename(a.name);
+                const dateB = b.updated_at || extractDateFromFilename(b.name);
+                return new Date(dateB) - new Date(dateA);
+            });
 
             this.renderArticlesTable(this.articles);
         } catch (error) {
