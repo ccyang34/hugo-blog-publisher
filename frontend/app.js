@@ -1647,12 +1647,16 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
 
         this.cfDeployBtn.disabled = true;
         try {
-            const res = await fetch(this.cfDeployHook, { method: 'POST' });
-            if (res.ok) {
+            // 通过 Proxy Worker 发送部署请求，避免 CORS 错误
+            const deployUrl = `${this.cfProxyUrl}?action=deploy`;
+            const res = await fetch(deployUrl);
+            const data = await res.json();
+
+            if (res.ok && data.success) {
                 this.showNotification("✅ 部署已触发！", "success");
                 setTimeout(() => this.fetchDeploymentStatus(), 2000);
             } else {
-                throw new Error('Trigger failed');
+                throw new Error(data.message || 'Trigger failed');
             }
         } catch (e) {
             console.error('Failed to trigger deployment:', e);
