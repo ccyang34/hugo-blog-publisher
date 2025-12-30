@@ -91,18 +91,30 @@ MAX_TASK_HISTORY = 20
 
 
 def save_task_to_history(task_data):
-    """保存任务到 Redis 历史记录"""
+    """保存任务到 Redis 历史记录（如果已存在相同ID则更新，否则新增）"""
     if not redis_client:
         return False
     try:
-        # 获取现有历史
+        task_id = task_data.get('id')
         history = redis_client.lrange(TASK_HISTORY_KEY, 0, -1) or []
         
-        # 添加新任务到列表头部
+        # 检查是否已存在相同 ID 的任务
+        for i, item in enumerate(history):
+            existing_task = json.loads(item) if isinstance(item, str) else item
+            if existing_task.get('id') == task_id:
+                # 找到已存在的任务，更新它（保留原始创建时间）
+                if 'created_at' not in task_data and 'created_at' in existing_task:
+                    task_data['created_at'] = existing_task['created_at']
+                redis_client.lset(TASK_HISTORY_KEY, i, json.dumps(task_data))
+                print(f"[Redis] Updated existing task {task_id}")
+                return True
+        
+        # 不存在，添加新任务到列表头部
         redis_client.lpush(TASK_HISTORY_KEY, json.dumps(task_data))
         
         # 只保留最近 MAX_TASK_HISTORY 条
         redis_client.ltrim(TASK_HISTORY_KEY, 0, MAX_TASK_HISTORY - 1)
+        print(f"[Redis] Added new task {task_id}")
         return True
     except Exception as e:
         print(f"Error saving task to history: {e}")
