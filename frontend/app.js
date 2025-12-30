@@ -89,11 +89,13 @@ class HugoPublisher {
             });
         }
 
-        // Cloudflare Deployment Status Elements
+        // Cloudflare & GitHub Deployment Status Elements
         this.cfStatusBtn = document.getElementById('check-status-btn');
         this.cfDeployBtn = document.getElementById('deploy-btn');
         this.cfStatusText = document.getElementById('status-text');
         this.cfStatusDot = document.getElementById('status-dot');
+        this.ghStatusText = document.getElementById('github-status-text');
+        this.ghStatusDot = document.getElementById('github-status-dot');
     }
 
     bindEvents() {
@@ -1619,17 +1621,21 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
         this.cfStatusBtn.disabled = true;
         this.cfStatusText.innerText = "查询中...";
         this.cfStatusDot.className = "status-dot progress";
+        if (this.ghStatusText) {
+            this.ghStatusText.innerText = "查询中...";
+            this.ghStatusDot.className = "status-dot progress";
+        }
 
         try {
-            const res = await fetch(this.cfProxyUrl);
-            const data = await res.json();
+            // 1. Fetch Cloudflare Status
+            const cfRes = await fetch(this.cfProxyUrl);
+            const cfData = await cfRes.json();
 
-            // 兼容性处理：Proxy 可能返回整个 Cloudflare 响应，也可能只返回 result 部分
-            const result = data.result?.result || data.result || [];
-            const success = data.success || (data.result?.success !== false);
+            const cfResult = cfData.result?.result || cfData.result || [];
+            const cfSuccess = cfData.success || (cfData.result?.success !== false);
 
-            if (success && Array.isArray(result) && result.length > 0) {
-                const latest = result[0];
+            if (cfSuccess && Array.isArray(cfResult) && cfResult.length > 0) {
+                const latest = cfResult[0];
                 const status = (latest.latest_stage?.status || latest.status || 'unknown').toLowerCase();
                 this.cfStatusText.innerText = status.toUpperCase();
                 this.cfStatusDot.className = "status-dot " + (status === 'success' ? 'success' : (status === 'failure' || status === 'error' ? 'failure' : 'progress'));
@@ -1637,10 +1643,44 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
                 this.cfStatusText.innerText = "数据异常";
                 this.cfStatusDot.className = "status-dot";
             }
+
+            // 2. Fetch GitHub Action Status
+            if (this.ghStatusText) {
+                const ghUrl = `${this.cfProxyUrl}?action=github_status`;
+                const ghRes = await fetch(ghUrl);
+                const ghData = await ghRes.json();
+
+                if (ghData.success && ghData.result) {
+                    const status = (ghData.result.status || 'unknown').toLowerCase();
+                    const conclusion = (ghData.result.conclusion || '').toLowerCase();
+
+                    // Mapping GitHub status to UI
+                    let displayStatus = status;
+                    let dotClass = 'progress';
+
+                    if (status === 'completed') {
+                        displayStatus = conclusion.toUpperCase();
+                        dotClass = conclusion === 'success' ? 'success' : 'failure';
+                    } else if (status === 'in_progress' || status === 'queued') {
+                        displayStatus = 'RUNNING';
+                        dotClass = 'progress';
+                    }
+
+                    this.ghStatusText.innerText = displayStatus;
+                    this.ghStatusDot.className = `status-dot ${dotClass}`;
+                } else {
+                    this.ghStatusText.innerText = "获取失败";
+                    this.ghStatusDot.className = "status-dot failure";
+                }
+            }
         } catch (e) {
             console.error('Failed to fetch deployment status:', e);
             this.cfStatusText.innerText = "查询失败";
             this.cfStatusDot.className = "status-dot failure";
+            if (this.ghStatusText) {
+                this.ghStatusText.innerText = "查询失败";
+                this.ghStatusDot.className = "status-dot failure";
+            }
         } finally {
             this.cfStatusBtn.disabled = false;
         }

@@ -1608,7 +1608,7 @@ body {
 }
 
 .cf-status-card {
-    padding: 12px 18px;
+    padding: 10px 18px;
     border-radius: var(--radius);
     background: var(--surface);
     border: 1px solid var(--border-color);
@@ -1616,6 +1616,26 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 16px;
+}
+
+.status-group {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex: 1;
+}
+
+.status-divider {
+    width: 1px;
+    height: 24px;
+    background: var(--border-color);
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    min-width: 0;
 }
 
 .status-info {
@@ -1715,8 +1735,18 @@ body {
 @media screen and (max-width: 767px) {
     .cf-status-card {
         flex-direction: column;
-        align-items: flex-start;
+        align-items: stretch;
         gap: 12px;
+    }
+
+    .status-group {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .status-divider {
+        display: none;
     }
 
     .status-actions {
