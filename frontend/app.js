@@ -1603,7 +1603,7 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
     async initDeploymentStatus() {
         if (!this.cfStatusBtn || !this.cfDeployBtn) return;
 
-        this.cfProxyUrl = "https://hugo-status-proxy.chaoyang34-274.workers.dev";
+        this.cfProxyUrl = "https://status.ccyang.online";
         this.cfDeployHook = "https://api.cloudflare.com/client/v4/pages/webhooks/deploy_hooks/3a05327c-b7d8-4d2f-9c94-e8d520941d29";
 
         this.cfStatusBtn.addEventListener('click', () => this.fetchDeploymentStatus());
