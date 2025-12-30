@@ -123,6 +123,10 @@ class AdminPanel {
             this.checkSystemStatus();
         });
 
+        document.getElementById('testGithubConnection').addEventListener('click', () => {
+            this.testGithubConnection();
+        });
+
         document.getElementById('syncFiles').addEventListener('click', () => {
             this.syncAllFiles();
         });
@@ -651,6 +655,37 @@ class AdminPanel {
             this.hideLoading();
             this.showNotification('缓存已清除', 'success');
         }, 500);
+    }
+
+    async testGithubConnection() {
+        this.showLoading('正在测试 GitHub 连接...');
+
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/api/test-github`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await response.json();
+
+            this.hideLoading();
+
+            if (data.success) {
+                this.showNotification(`✅ GitHub 连接成功！仓库: ${data.repository || data.repo || 'N/A'}`, 'success');
+                // 同时更新系统状态
+                document.getElementById('githubStatus').textContent = '正常';
+                document.getElementById('githubStatus').className = 'status-badge status-ok';
+            } else {
+                this.showNotification(`❌ GitHub 连接失败: ${data.error || '未知错误'}`, 'error');
+                document.getElementById('githubStatus').textContent = '异常';
+                document.getElementById('githubStatus').className = 'status-badge status-error';
+            }
+        } catch (error) {
+            this.hideLoading();
+            console.error('测试 GitHub 连接错误:', error);
+            this.showNotification(`❌ 测试失败: ${error.message}`, 'error');
+            document.getElementById('githubStatus').textContent = '离线';
+            document.getElementById('githubStatus').className = 'status-badge status-error';
+        }
     }
 }
 
