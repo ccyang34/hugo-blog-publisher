@@ -437,10 +437,10 @@ class HugoPublisher {
                     // QStash 异步模式：任务已提交到后台
                     this.showNotification('✅ 内容已提交，剩余流程后台完成，可以离开网页', 'success');
 
-                    // 添加到历史记录（状态为处理中）
+                    // 添加到历史记录（状态为处理中，title 留空让渲染时动态显示）
                     this.addToTaskHistory({
                         id: data.job_id || Date.now().toString(),
-                        title: title || '后台发布任务',
+                        title: title || '', // 留空，让 renderTaskHistory 显示"正在发布文章..."
                         status: 'processing',
                         progress: 50,
                         message: '后台处理中...'
