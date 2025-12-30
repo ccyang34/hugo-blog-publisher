@@ -1322,6 +1322,11 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
             created_at: new Date().toISOString()
         };
 
+        // Don't add if already exists (prevent duplicates from multiple calls)
+        if (this.taskHistory.some(t => t.id === historyItem.id)) {
+            return;
+        }
+
         // Add to the beginning of the array (newest first)
         this.taskHistory.unshift(historyItem);
         this.saveTaskHistory(); // 保存到本地
@@ -1483,13 +1488,13 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
                         // Add new task from server (it might be from another session)
                         this.taskHistory.unshift({
                             id: serverJob.id,
-                            title: serverJob.message || '服务器任务',
+                            title: serverJob.title || serverJob.message || '服务器任务',
                             status: serverJob.status,
                             progress: serverJob.progress,
                             message: serverJob.message,
                             result: serverJob.result,
                             error: serverJob.error,
-                            createdAt: serverJob.created_at || new Date().toISOString()
+                            created_at: serverJob.created_at || new Date().toISOString()
                         });
                     }
                 }

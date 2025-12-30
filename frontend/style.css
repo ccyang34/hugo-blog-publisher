@@ -1259,6 +1259,9 @@ body {
     font-weight: 600;
     color: var(--text-primary);
     margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .task-history-actions {
@@ -1438,9 +1441,9 @@ body {
     }
 
     .task-count {
-        width: 100%;
+        width: auto;
         text-align: center;
-        order: -1;
+        order: 0;
     }
 
     .task-history-item {
