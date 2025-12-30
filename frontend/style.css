@@ -1773,5 +1773,9 @@ body {
     .btn-deploy {
         flex: 1;
         justify-content: center;
+        padding: 8px 4px;
+        /* Reduced side padding */
+        font-size: 0.8rem;
+        /* Slightly smaller font */
     }
 }
