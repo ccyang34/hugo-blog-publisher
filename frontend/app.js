@@ -1662,7 +1662,8 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
                         displayStatus = conclusion.toUpperCase();
                         dotClass = conclusion === 'success' ? 'success' : 'failure';
                     } else if (status === 'in_progress' || status === 'queued') {
-                        displayStatus = 'RUNNING';
+                        const activeCount = ghData.result.active_count || 1;
+                        displayStatus = activeCount > 1 ? `RUNNING (${activeCount})` : 'RUNNING';
                         dotClass = 'progress';
                     }
 

@@ -388,16 +388,16 @@ class GitHubService:
 
     def get_latest_workflow_run(self) -> Dict[str, Any]:
         """
-        获取最近一次 GitHub Actions 运行状态
+        获取最近的 GitHub Actions 运行状态，优先返回正在运行的任务
         
         返回:
             包含运行状态的字典
         """
         try:
-            url = f'{self.base_url}/repos/{self.username}/{self.repo}/actions/runs?per_page=1'
+            # 抓取最近 5 个任务，以便识别是否存在并发运行的情况
+            url = f'{self.base_url}/repos/{self.username}/{self.repo}/actions/runs?per_page=5'
             
             response = requests.get(url, headers=self.headers, timeout=10)
-            
             response.raise_for_status()
             
             data = response.json()
@@ -409,15 +409,21 @@ class GitHubService:
                     'result': None
                 }
             
-            latest_run = runs[0]
+            # 优先寻找正在运行 (in_progress) 或排队中 (queued) 的任务
+            active_run = next((r for r in runs if r.get('status') in ['in_progress', 'queued', 'pending']), None)
+            
+            # 如果有活跃任务，使用活跃任务；否则使用最近的一个任务
+            target_run = active_run if active_run else runs[0]
             
             return {
                 'success': True,
                 'result': {
-                    'status': latest_run.get('status'),
-                    'conclusion': latest_run.get('conclusion'),
-                    'html_url': latest_run.get('html_url'),
-                    'id': latest_run.get('id')
+                    'status': target_run.get('status'),
+                    'conclusion': target_run.get('conclusion'),
+                    'html_url': target_run.get('html_url'),
+                    'id': target_run.get('id'),
+                    'total_count': data.get('total_count', 0),
+                    'active_count': sum(1 for r in runs if r.get('status') in ['in_progress', 'queued', 'pending'])
                 }
             }
         
