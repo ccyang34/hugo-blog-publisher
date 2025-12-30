@@ -1623,13 +1623,18 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
         try {
             const res = await fetch(this.cfProxyUrl);
             const data = await res.json();
-            if (data.success && data.result.length > 0) {
-                const latest = data.result[0];
-                const status = latest.latest_stage.status;
+
+            // 兼容性处理：Proxy 可能返回整个 Cloudflare 响应，也可能只返回 result 部分
+            const result = data.result?.result || data.result || [];
+            const success = data.success || (data.result?.success !== false);
+
+            if (success && Array.isArray(result) && result.length > 0) {
+                const latest = result[0];
+                const status = (latest.latest_stage?.status || latest.status || 'unknown').toLowerCase();
                 this.cfStatusText.innerText = status.toUpperCase();
-                this.cfStatusDot.className = "status-dot " + (status === 'success' ? 'success' : (status === 'failure' ? 'failure' : 'progress'));
+                this.cfStatusDot.className = "status-dot " + (status === 'success' ? 'success' : (status === 'failure' || status === 'error' ? 'failure' : 'progress'));
             } else {
-                this.cfStatusText.innerText = "无数据";
+                this.cfStatusText.innerText = "数据异常";
                 this.cfStatusDot.className = "status-dot";
             }
         } catch (e) {
