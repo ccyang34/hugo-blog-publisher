@@ -1313,7 +1313,7 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
     async addToTaskHistory(job) {
         const historyItem = {
             id: job.id,
-            title: job.title || '未命名文章',
+            title: job.title || '', // 保留空值，让后端更新时填入真实标题
             status: job.status,
             progress: job.progress,
             message: job.message,
