@@ -1434,12 +1434,20 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
         }).join('');
     }
 
-    clearTaskHistory() {
-        if (confirm('确定要清空所有任务历史吗？')) {
+    async clearTaskHistory() {
+        if (confirm('确定要清空所有任务历史吗？这将同时清除服务器和本地的记录。')) {
+            try {
+                // 清除服务器端 Redis 历史
+                await fetch(`${this.apiBaseUrl}/api/task-history`, { method: 'DELETE' });
+            } catch (error) {
+                console.error('Failed to clear server history:', error);
+            }
+
+            // 清除本地
             this.taskHistory = [];
             this.saveTaskHistory();
             this.renderTaskHistory();
-            this.showNotification('任务历史已清空', 'info');
+            this.showNotification('任务历史已清空（本地和服务器）', 'info');
         }
     }
 

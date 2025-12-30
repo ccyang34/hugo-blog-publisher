@@ -441,9 +441,21 @@ def index():
     return render_template('index.html')
 
 
-@app.route('/api/task-history', methods=['GET'])
+@app.route('/api/task-history', methods=['GET', 'DELETE'])
 def api_get_task_history():
-    """获取任务历史记录"""
+    """获取或清除任务历史记录"""
+    if request.method == 'DELETE':
+        # 清除所有历史记录
+        try:
+            if redis_client:
+                redis_client.delete(TASK_HISTORY_KEY)
+                return jsonify({'success': True, 'message': '历史记录已清除'})
+            else:
+                return jsonify({'success': False, 'error': 'Redis 未配置'}), 500
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+    
+    # GET 请求
     try:
         history = get_task_history()
         return jsonify({

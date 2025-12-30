@@ -1452,19 +1452,18 @@ body {
 
     .task-history-item .task-actions {
         width: 100%;
-        justify-content: flex-end;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        gap: 8px;
         padding-top: 8px;
         border-top: 1px dashed var(--border-color);
     }
 
-    /* Force truncation on mobile titles - The Nuclear Option */
-    .item-title,
-    .task-title {
-        max-width: calc(100vw - 100px) !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-        display: block !important;
+    /* Ensure buttons are fully visible */
+    .task-history-item .task-actions button,
+    .task-history-item .task-actions .task-link {
+        flex-shrink: 0;
     }
 }
 
