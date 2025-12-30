@@ -80,7 +80,7 @@ body {
 .main-content {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 24px;
+    gap: 16px;
 }
 
 @media (max-width: 1024px) {
@@ -94,7 +94,7 @@ body {
     background: var(--surface);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
-    padding: 24px;
+    padding: 20px;
     overflow: hidden;
     /* Prevent children from expanding the container */
 }
@@ -1234,8 +1234,8 @@ body {
 .task-history-section {
     background: var(--surface);
     border-radius: var(--radius);
-    padding: 20px;
-    margin-top: 24px;
+    padding: 16px 20px;
+    margin-top: 0;
     box-shadow: var(--shadow);
     grid-column: 1 / -1;
     /* 横跨所有列 */
@@ -1420,7 +1420,7 @@ body {
 /* Mobile responsive for task history */
 @media (max-width: 640px) {
     .task-history-section {
-        margin-top: 5px;
+        margin-top: 0;
         padding: 16px;
     }
 
