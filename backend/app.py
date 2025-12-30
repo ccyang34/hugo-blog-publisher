@@ -121,6 +121,26 @@ def get_task_history():
         return []
 
 
+def update_task_history_title(job_id, title):
+    """更新任务历史中的标题（处理过程中获取到标题后调用）"""
+    if not redis_client or not job_id or not title:
+        return False
+    try:
+        history = redis_client.lrange(TASK_HISTORY_KEY, 0, -1) or []
+        for i, item in enumerate(history):
+            task = json.loads(item) if isinstance(item, str) else item
+            if task.get('id') == job_id:
+                # 找到匹配的任务，更新标题
+                task['title'] = title
+                redis_client.lset(TASK_HISTORY_KEY, i, json.dumps(task))
+                print(f"[Redis] Updated task {job_id} title to: {title[:30]}...")
+                return True
+        return False
+    except Exception as e:
+        print(f"Error updating task history title: {e}")
+        return False
+
+
 # Global job store and queue
 jobs = {}
 task_queue = queue.Queue()
@@ -248,6 +268,9 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
                     'title': title,
                     'content_length': len(content)
                 })
+                # 立即更新任务历史中的标题
+                if title:
+                    update_task_history_title(job_id, title)
             else:
                 add_job_log(job_id, 'URL抓取', 'error', '无法从链接获取内容', {'url': url})
                 raise Exception('无法从链接获取内容，请检查链接是否有效')
@@ -286,6 +309,9 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
                 'category': category,
                 'tags': tags
             })
+            # AI分析完成后，更新任务历史中的标题（对于粘贴文本无标题的情况）
+            if title:
+                update_task_history_title(job_id, title)
                 
         except Exception as e:
             print(f"Warning: AI analysis failed: {e}")
