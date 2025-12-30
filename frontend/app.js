@@ -716,7 +716,7 @@ class HugoPublisher {
                     // 添加到历史记录
                     this.addToTaskHistory({
                         id: data.job_id || Date.now().toString(),
-                        title: title || '后台发布任务',
+                        title: title || '', // 留空，让后端更新真实标题
                         status: 'processing',
                         progress: 50,
                         message: '后台处理中...'
