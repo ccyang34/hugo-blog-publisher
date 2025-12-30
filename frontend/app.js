@@ -1427,14 +1427,14 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
                         <div class="task-meta">
                             <span class="task-time">🕐 ${timeStr}</span>
                             <span class="task-status-badge ${statusClass}">${statusText}</span>
+                            <div class="task-progress">
+                                <div class="task-progress-fill ${progressClass}" style="width: ${task.progress}%"></div>
+                            </div>
+                            <div class="task-actions">
+                                ${actionHtml}
+                            </div>
                         </div>
                         ${errorHtml}
-                    </div>
-                    <div class="task-actions">
-                        <div class="task-progress">
-                            <div class="task-progress-fill ${progressClass}" style="width: ${task.progress}%"></div>
-                        </div>
-                        ${actionHtml}
                     </div>
                 </div>
             `;

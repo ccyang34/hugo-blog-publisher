@@ -1377,7 +1377,7 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
-    flex-shrink: 0;
+    margin-left: auto;
 }
 
 .task-history-item .task-link {
@@ -1400,6 +1400,7 @@ body {
     background: var(--border-color);
     border-radius: 2px;
     overflow: hidden;
+    flex-shrink: 0;
 }
 
 .task-history-item .task-progress-fill {
@@ -1462,13 +1463,13 @@ body {
     }
 
     .task-history-item .task-actions {
-        width: 100%;
+        width: auto;
         display: flex;
-        flex-wrap: wrap;
-        justify-content: flex-start;
+        flex-wrap: nowrap;
+        justify-content: flex-end;
         gap: 8px;
-        padding-top: 8px;
-        border-top: 1px dashed var(--border-color);
+        padding-top: 0;
+        border-top: none;
     }
 
     /* Ensure buttons are fully visible */
