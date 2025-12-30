@@ -385,3 +385,44 @@ class GitHubService:
                 'valid': False,
                 'error': str(e)
             }
+
+    def get_latest_workflow_run(self) -> Dict[str, Any]:
+        """
+        获取最近一次 GitHub Actions 运行状态
+        
+        返回:
+            包含运行状态的字典
+        """
+        try:
+            url = f'{self.base_url}/repos/{self.username}/{self.repo}/actions/runs?per_page=1'
+            
+            response = requests.get(url, headers=self.headers, timeout=10)
+            
+            response.raise_for_status()
+            
+            data = response.json()
+            runs = data.get('workflow_runs', [])
+            
+            if not runs:
+                return {
+                    'success': True,
+                    'result': None
+                }
+            
+            latest_run = runs[0]
+            
+            return {
+                'success': True,
+                'result': {
+                    'status': latest_run.get('status'),
+                    'conclusion': latest_run.get('conclusion'),
+                    'html_url': latest_run.get('html_url'),
+                    'id': latest_run.get('id')
+                }
+            }
+        
+        except requests.exceptions.RequestException as e:
+            return {
+                'success': False,
+                'error': str(e)
+            }

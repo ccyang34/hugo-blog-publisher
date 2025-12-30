@@ -447,6 +447,25 @@ def test_github():
         }), 500
 
 
+@app.route('/api/github-status', methods=['GET'])
+def get_github_status():
+    """获取 GitHub Actions 最新运行状态"""
+    if not github_service:
+        return jsonify({
+            'success': False,
+            'error': 'GitHub 服务未设置'
+        }), 500
+    
+    try:
+        result = github_service.get_latest_workflow_run()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 @app.route('/api/test-qstash', methods=['GET'])
 def test_qstash():
     """测试 QStash 配置状态"""

@@ -1646,7 +1646,7 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
 
             // 2. Fetch GitHub Action Status
             if (this.ghStatusText) {
-                const ghUrl = `${this.cfProxyUrl}?action=github_status`;
+                const ghUrl = `${this.apiBaseUrl}/api/github-status`;
                 const ghRes = await fetch(ghUrl);
                 const ghData = await ghRes.json();
 
