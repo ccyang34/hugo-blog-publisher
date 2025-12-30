@@ -11,6 +11,7 @@ class HugoPublisher {
         this.bindEvents();
         this.checkApiHealth();
         this.loadTaskHistory(); // Load task history from localStorage
+        this.initDeploymentStatus(); // Initialize Cloudflare deployment status
     }
 
     initElements() {
@@ -87,6 +88,12 @@ class HugoPublisher {
                 }
             });
         }
+
+        // Cloudflare Deployment Status Elements
+        this.cfStatusBtn = document.getElementById('check-status-btn');
+        this.cfDeployBtn = document.getElementById('deploy-btn');
+        this.cfStatusText = document.getElementById('status-text');
+        this.cfStatusDot = document.getElementById('status-dot');
     }
 
     bindEvents() {
@@ -1588,6 +1595,70 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
             return data.logs || [];
         } else {
             throw new Error(data.error || '获取日志失败');
+        }
+    }
+
+    // ==================== Cloudflare Deployment Status Methods ====================
+
+    async initDeploymentStatus() {
+        if (!this.cfStatusBtn || !this.cfDeployBtn) return;
+
+        this.cfProxyUrl = "https://hugo-status-proxy.chaoyang34-274.workers.dev";
+        this.cfDeployHook = "https://api.cloudflare.com/client/v4/pages/webhooks/deploy_hooks/3a05327c-b7d8-4d2f-9c94-e8d520941d29";
+
+        this.cfStatusBtn.addEventListener('click', () => this.fetchDeploymentStatus());
+        this.cfDeployBtn.addEventListener('click', () => this.triggerDeployment());
+
+        // Auto fetch status on load
+        this.fetchDeploymentStatus();
+    }
+
+    async fetchDeploymentStatus() {
+        if (!this.cfStatusBtn || !this.cfStatusText || !this.cfStatusDot) return;
+
+        this.cfStatusBtn.disabled = true;
+        this.cfStatusText.innerText = "查询中...";
+        this.cfStatusDot.className = "status-dot progress";
+
+        try {
+            const res = await fetch(this.cfProxyUrl);
+            const data = await res.json();
+            if (data.success && data.result.length > 0) {
+                const latest = data.result[0];
+                const status = latest.latest_stage.status;
+                this.cfStatusText.innerText = status.toUpperCase();
+                this.cfStatusDot.className = "status-dot " + (status === 'success' ? 'success' : (status === 'failure' ? 'failure' : 'progress'));
+            } else {
+                this.cfStatusText.innerText = "无数据";
+                this.cfStatusDot.className = "status-dot";
+            }
+        } catch (e) {
+            console.error('Failed to fetch deployment status:', e);
+            this.cfStatusText.innerText = "查询失败";
+            this.cfStatusDot.className = "status-dot failure";
+        } finally {
+            this.cfStatusBtn.disabled = false;
+        }
+    }
+
+    async triggerDeployment() {
+        if (!this.cfDeployBtn) return;
+        if (!confirm("确定要立即触发 Cloudflare Pages 部署吗？")) return;
+
+        this.cfDeployBtn.disabled = true;
+        try {
+            const res = await fetch(this.cfDeployHook, { method: 'POST' });
+            if (res.ok) {
+                this.showNotification("✅ 部署已触发！", "success");
+                setTimeout(() => this.fetchDeploymentStatus(), 2000);
+            } else {
+                throw new Error('Trigger failed');
+            }
+        } catch (e) {
+            console.error('Failed to trigger deployment:', e);
+            this.showNotification("❌ 触发部署失败", "error");
+        } finally {
+            this.cfDeployBtn.disabled = false;
         }
     }
 }

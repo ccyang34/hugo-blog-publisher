@@ -38,8 +38,8 @@ body {
 }
 
 .header {
-    margin-bottom: 20px;
-    padding: 10px 20px;
+    margin-bottom: 12px;
+    padding: 6px 16px;
     background: var(--surface);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
@@ -52,7 +52,7 @@ body {
 }
 
 .header h1 {
-    font-size: 1.25rem;
+    font-size: 1.1rem;
     font-weight: 700;
     color: var(--text-primary);
 }
@@ -60,9 +60,9 @@ body {
 .admin-link {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    font-size: 0.8125rem;
+    gap: 4px;
+    padding: 4px 10px;
+    font-size: 0.75rem;
     font-weight: 500;
     color: var(--primary-color);
     background: rgba(37, 99, 235, 0.1);
@@ -1599,4 +1599,133 @@ body {
 .task-history-item .task-log-btn:hover {
     background: var(--border-color);
     color: var(--text-primary);
+}
+
+/* Cloudflare Status Card Styles */
+.cf-status-section {
+    grid-column: 1 / -1;
+    margin-top: 5px;
+}
+
+.cf-status-card {
+    padding: 12px 18px;
+    border-radius: var(--radius);
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.status-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #ccc;
+}
+
+.status-dot.success {
+    background: var(--success-color);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+.status-dot.failure {
+    background: var(--danger-color);
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+}
+
+.status-dot.progress {
+    background: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+    animation: cf-pulse 1.5s infinite;
+}
+
+@keyframes cf-pulse {
+
+    0%,
+    100% {
+        transform: scale(0.95);
+        opacity: 0.7;
+    }
+
+    50% {
+        transform: scale(1.05);
+        opacity: 1;
+    }
+}
+
+.status-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+#status-text {
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: 1rem;
+}
+
+.status-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-refresh,
+.btn-deploy {
+    background: #f38020;
+    color: #fff;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.875rem;
+    transition: var(--transition);
+}
+
+.btn-deploy {
+    background: var(--primary-color) !important;
+}
+
+.btn-refresh:hover {
+    background: #e67310;
+}
+
+.btn-deploy:hover {
+    background: var(--primary-hover) !important;
+}
+
+.btn-refresh:disabled,
+.btn-deploy:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* 移动端适配 */
+@media screen and (max-width: 767px) {
+    .cf-status-card {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .status-actions {
+        width: 100%;
+    }
+
+    .btn-refresh,
+    .btn-deploy {
+        flex: 1;
+        justify-content: center;
+    }
 }

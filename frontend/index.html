@@ -182,6 +182,39 @@
                     </div>
                 </div>
             </div>
+            <!-- Cloudflare 部署状态卡片 -->
+            <section class="cf-status-section">
+                <div class="cf-status-card">
+                    <div class="status-info">
+                        <div id="status-dot" class="status-dot"></div>
+                        <div>
+                            <div class="status-label">Cloudflare Pages 部署状态</div>
+                            <div id="status-text">正在初始化...</div>
+                        </div>
+                    </div>
+                    <div class="status-actions">
+                        <button id="deploy-btn" class="btn-deploy">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <line x1="22" y1="2" x2="11" y2="13" />
+                                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                            </svg>
+                            <span>立即部署</span>
+                        </button>
+                        <button id="check-status-btn" class="btn-refresh">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <path d="M23 4v6h-6" />
+                                <path d="M1 20v-6h6" />
+                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                            </svg>
+                            <span>刷新反馈</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
         </main>
 
         <footer class="footer">
