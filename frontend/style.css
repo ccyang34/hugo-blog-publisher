@@ -1435,10 +1435,15 @@ body {
     }
 
     .task-history-actions button {
-        flex: 1;
-        min-width: auto;
-        padding: 8px 12px;
+        flex: 0 0 auto;
+        /* Don't stretch unreasonably */
+        width: auto;
+        min-width: 60px;
+        padding: 6px 10px;
+        /* Reduced padding */
         font-size: 0.8125rem;
+        white-space: nowrap;
+        /* Prevent text wrapping */
     }
 
     .task-count {
@@ -1474,13 +1479,15 @@ body {
 
     /* Ensure buttons are fully visible */
     .task-history-item .task-actions button,
-    .task-history-item .task-actions .task-link {
+    .task-history-item .task-actions .task-link,
+    .task-history-item .task-actions .task-log-btn {
         flex-shrink: 0;
+        white-space: nowrap;
     }
 
     /* Mobile title width constraint */
     .task-history-item .task-title {
-        max-width: calc(100vw - 80px);
+        max-width: 100%;
         width: 100%;
     }
 }
