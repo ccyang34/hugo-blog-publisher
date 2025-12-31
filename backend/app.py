@@ -1044,7 +1044,14 @@ def list_files():
         result = github_service.list_files(path, fetch_metadata=fetch_metadata)
         
         if result['success']:
-            files = [f for f in result.get('files', []) if f['name'].endswith(('.md', '.markdown'))]
+            all_files = result.get('files', [])
+            if 'images' in path.lower():
+                # 图片目录：保留常见图片格式
+                image_exts = ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp')
+                files = [f for f in all_files if f['name'].lower().endswith(image_exts)]
+            else:
+                # 默认（文章目录）：保留 Markdown
+                files = [f for f in all_files if f['name'].lower().endswith(('.md', '.markdown'))]
             return jsonify({
                 'success': True,
                 'path': path,
