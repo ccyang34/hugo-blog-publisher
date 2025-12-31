@@ -1283,7 +1283,7 @@ body {
 .task-history-actions .btn {
     white-space: nowrap;
     flex-shrink: 0;
-    padding: 4px 8px;
+    padding: 4px 6px;
     font-size: 0.7rem;
     min-width: unset;
 }
