@@ -69,16 +69,17 @@ class GitHubService:
         raise Exception(f'获取文件SHA失败（已重试{max_retries}次）：{str(last_exception)}')
     
     def upload_file(self, content: str, filename: str, target_dir: str = 'content/posts',
-                   message: str = 'Update file', branch: str = 'main') -> Dict[str, Any]:
+                   message: str = 'Update file', branch: str = 'main', is_binary: bool = False) -> Dict[str, Any]:
         """
         上传文件到GitHub仓库
         
         参数:
-            content: 文件内容
+            content: 文件内容（文本或base64编码的二进制内容）
             filename: 文件名
             target_dir: 目标目录
             message: 提交信息
             branch: 分支名
+            is_binary: 是否为二进制内容（如果是，则直接使用content，不再进行utf-8编码）
             
         返回:
             包含上传结果的字典
@@ -88,7 +89,12 @@ class GitHubService:
         try:
             sha = self._get_file_sha(path)
             
-            encoded_content = base64.b64encode(content.encode('utf-8')).decode('utf-8')
+            if is_binary:
+                # 已经是 base64 字符串
+                encoded_content = content
+            else:
+                # 文本内容，需要先编码再 base64
+                encoded_content = base64.b64encode(content.encode('utf-8')).decode('utf-8')
             
             payload = {
                 'message': message,

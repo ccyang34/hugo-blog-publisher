@@ -1130,6 +1130,13 @@ def verify_password():
         }), 500
 
 
+@app.route('/images/<filename>')
+def serve_image(filename):
+    """提供图片预览"""
+    from flask import send_from_directory
+    return send_from_directory(os.path.join(app.root_path, 'static/images'), filename)
+
+
 @app.route('/api/upload-image', methods=['POST'])
 def upload_image():
     """

@@ -832,6 +832,7 @@ class HugoPublisher {
             .replace(/\*(.+?)\*/g, '<em>$1</em>')
             .replace(/`(.+?)`/g, '<code>$1</code>')
             .replace(/```(\w+)?\n([\s\S]+?)```/g, '<pre><code class="language-$1">$2</code></pre>')
+            .replace(/!\[(.+?)\]\((.+?)\)/g, '<img src="$2" alt="$1" style="max-width:100%; height:auto; display:block; margin: 10px 0; border-radius: 8px;">')
             .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank">$1</a>')
             .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
             .replace(/^- (.+)$/gm, '<li>$1</li>')
@@ -977,7 +978,7 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
                 });
 
                 this.renderUploadedImages();
-                this.insertImageToContent(data.url, file.name);
+                this.insertImageToContent(data.url, data.filename || file.name);
                 this.showNotification('图片上传成功!', 'success');
             } else {
                 this.progressText.textContent = '上传失败';
