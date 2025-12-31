@@ -1418,79 +1418,7 @@ body {
 }
 
 /* Mobile responsive for task history */
-@media (max-width: 640px) {
-    .task-history-section {
-        margin-top: 0;
-        padding: 16px;
-    }
-
-    .task-history-header {
-        flex-wrap: wrap;
-        gap: 10px;
-    }
-
-    .task-history-actions {
-        flex-wrap: wrap;
-        gap: 8px;
-    }
-
-    .task-history-actions button {
-        flex: 0 0 auto;
-        /* Don't stretch unreasonably */
-        width: auto;
-        min-width: 60px;
-        padding: 6px 10px;
-        /* Reduced padding */
-        font-size: 0.8125rem;
-        white-space: nowrap;
-        /* Prevent text wrapping */
-    }
-
-    .task-count {
-        width: auto;
-        text-align: center;
-        order: 0;
-    }
-
-    .task-history-item {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 12px;
-        min-width: 0;
-        /* 防止 flex item 溢出 */
-    }
-
-    .task-history-item .task-info {
-        width: 100%;
-        /* 确保填满容器 */
-        max-width: 100%;
-        /* 触发文本截断 */
-    }
-
-    .task-history-item .task-actions {
-        width: auto;
-        display: flex;
-        flex-wrap: nowrap;
-        justify-content: flex-end;
-        gap: 8px;
-        padding-top: 0;
-        border-top: none;
-    }
-
-    /* Ensure buttons are fully visible */
-    .task-history-item .task-actions button,
-    .task-history-item .task-actions .task-link,
-    .task-history-item .task-actions .task-log-btn {
-        flex-shrink: 0;
-        white-space: nowrap;
-    }
-
-    /* Mobile title width constraint */
-    .task-history-item .task-title {
-        max-width: 100%;
-        width: 100%;
-    }
-}
+/* Old mobile media query removed */
 
 /* Log Modal Styles */
 .modal-lg {
@@ -1510,9 +1438,11 @@ body {
 }
 
 /* =========================================
-   Task History Styles (Fixed Layout)
+   Task History Styles (Fixed Layout - Override Legacy)
    ========================================= */
 .task-history-item {
+    display: block !important;
+    /* Force block layout */
     background: var(--surface);
     border: 1px solid var(--border-color);
     border-radius: var(--radius);
@@ -1520,6 +1450,8 @@ body {
     margin-bottom: 12px;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
     transition: var(--transition);
+    height: auto !important;
+    /* Ensure height isn't collapsed */
 }
 
 .task-history-item:hover {
@@ -1527,20 +1459,25 @@ body {
     border-color: var(--primary-color);
 }
 
-.task-info {
+.task-history-item .task-info {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    width: 100%;
 }
 
-.task-title {
+.task-history-item .task-title {
     font-size: 0.9375rem;
     font-weight: 600;
     color: var(--text-primary);
     line-height: 1.4;
+    white-space: normal !important;
+    /* Allow wrapping */
+    overflow: visible !important;
+    margin-bottom: 0;
 }
 
-.task-meta {
+.task-history-item .task-meta {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -1549,14 +1486,14 @@ body {
     color: var(--text-secondary);
 }
 
-.task-time {
+.task-history-item .task-time {
     display: flex;
     align-items: center;
     gap: 4px;
     min-width: 100px;
 }
 
-.task-status-badge {
+.task-history-item .task-status-badge {
     padding: 2px 8px;
     border-radius: 12px;
     font-weight: 500;
@@ -1585,7 +1522,7 @@ body {
     color: #4b5563;
 }
 
-.task-progress {
+.task-history-item .task-progress {
     flex: 1;
     height: 4px;
     background: #e5e7eb;
@@ -1595,7 +1532,7 @@ body {
     max-width: 200px;
 }
 
-.task-progress-fill {
+.task-history-item .task-progress-fill {
     height: 100%;
     background: var(--primary-color);
     width: 0%;
@@ -1610,13 +1547,14 @@ body {
     background: var(--danger-color);
 }
 
-.task-actions {
+.task-history-item .task-actions {
     display: flex;
     gap: 8px;
     margin-left: auto;
 }
 
-.task-link {
+.task-history-item .task-link,
+.task-history-item .task-log-btn {
     font-size: 0.75rem;
     color: var(--primary-color);
     text-decoration: none;
@@ -1624,28 +1562,36 @@ body {
     border-radius: 4px;
     background: rgba(37, 99, 235, 0.1);
     transition: var(--transition);
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
-.task-link:hover {
+.task-history-item .task-link:hover,
+.task-history-item .task-log-btn:hover {
     background: var(--primary-color);
     color: white;
 }
 
 /* Mobile adjustments for task history */
 @media (max-width: 640px) {
-    .task-meta {
+    .task-history-item .task-meta {
         gap: 8px;
     }
 
-    .task-progress {
+    .task-history-item .task-progress {
         display: none;
-        /* Hide progress bar on mobile to save space */
+        /* Hide progress bar on mobile */
     }
 
-    .task-actions {
+    .task-history-item .task-actions {
         margin-left: 0;
         width: 100%;
         margin-top: 4px;
+    }
+
+    .task-history-item .task-actions button {
+        flex-shrink: 0;
+        white-space: nowrap;
     }
 }
 
