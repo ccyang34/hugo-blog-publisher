@@ -1282,6 +1282,9 @@ body {
 .task-history-actions .btn {
     white-space: nowrap;
     flex-shrink: 0;
+    padding: 4px 8px;
+    font-size: 0.7rem;
+    min-width: unset;
 }
 
 .task-count {
