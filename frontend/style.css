@@ -1247,9 +1247,10 @@ body {
 
 .task-history-header {
     display: flex;
-    justify-content: flex-start;
+    flex-wrap: wrap;
+    justify-content: space-between;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     margin-bottom: 16px;
     padding-bottom: 12px;
     border-bottom: 1px solid var(--border-color);
@@ -1278,6 +1279,8 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
+    width: 100%;
+    justify-content: flex-end;
 }
 
 .task-history-actions .btn {
