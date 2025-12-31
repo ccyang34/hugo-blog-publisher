@@ -1502,6 +1502,146 @@ body {
     padding: 24px;
 }
 
+/* =========================================
+   Task History Styles (Fixed Layout)
+   ========================================= */
+.task-history-item {
+    background: var(--surface);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    transition: var(--transition);
+}
+
+.task-history-item:hover {
+    box-shadow: var(--shadow);
+    border-color: var(--primary-color);
+}
+
+.task-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.task-title {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.4;
+}
+
+.task-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.task-time {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 100px;
+}
+
+.task-status-badge {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-weight: 500;
+    font-size: 0.7rem;
+    background: #e5e7eb;
+    color: #374151;
+}
+
+.task-status-badge.status-completed {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.task-status-badge.status-processing {
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.task-status-badge.status-failed {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.task-status-badge.status-queued {
+    background: #f3f4f6;
+    color: #4b5563;
+}
+
+.task-progress {
+    flex: 1;
+    height: 4px;
+    background: #e5e7eb;
+    border-radius: 2px;
+    overflow: hidden;
+    min-width: 50px;
+    max-width: 200px;
+}
+
+.task-progress-fill {
+    height: 100%;
+    background: var(--primary-color);
+    width: 0%;
+    transition: width 0.3s ease;
+}
+
+.task-progress-fill.completed {
+    background: var(--success-color);
+}
+
+.task-progress-fill.failed {
+    background: var(--danger-color);
+}
+
+.task-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.task-link {
+    font-size: 0.75rem;
+    color: var(--primary-color);
+    text-decoration: none;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(37, 99, 235, 0.1);
+    transition: var(--transition);
+}
+
+.task-link:hover {
+    background: var(--primary-color);
+    color: white;
+}
+
+/* Mobile adjustments for task history */
+@media (max-width: 640px) {
+    .task-meta {
+        gap: 8px;
+    }
+
+    .task-progress {
+        display: none;
+        /* Hide progress bar on mobile to save space */
+    }
+
+    .task-actions {
+        margin-left: 0;
+        width: 100%;
+        margin-top: 4px;
+    }
+}
+
 .log-item {
     display: flex;
     gap: 12px;
