@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Hugo博客发布器</title>
     <link rel="icon" href="data:,">
-    <link rel="stylesheet" href="style.css?v=20251231_1145">
+    <link rel="stylesheet" href="style.css?v=20251231_1155">
     <link rel="stylesheet" href="mobile-fix.css?v=1">
 </head>
 
@@ -91,11 +91,13 @@
             <!-- 任务历史面板 -->
             <section class="task-history-section">
                 <div class="task-history-header">
-                    <h3>📋 任务历史</h3>
-                    <div class="task-history-actions">
+                    <div class="header-title-group">
+                        <h3>📋 任务历史</h3>
                         <span id="taskHistoryCount" class="task-count">0 个任务</span>
+                    </div>
+                    <div class="task-history-actions">
                         <button id="refreshHistoryBtn" class="btn btn-secondary btn-sm">🔄 刷新</button>
-                        <button id="clearHistoryBtn" class="btn btn-secondary btn-sm">清空历史</button>
+                        <button id="clearHistoryBtn" class="btn btn-secondary btn-sm">清空</button>
                     </div>
                 </div>
                 <div id="taskHistoryList" class="task-history-list">

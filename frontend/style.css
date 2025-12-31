@@ -1254,6 +1254,14 @@ body {
     border-bottom: 1px solid var(--border-color);
 }
 
+/* New header layout styles */
+.header-title-group {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+
 .task-history-header h3 {
     font-size: 1rem;
     font-weight: 600;
@@ -1267,15 +1275,17 @@ body {
 .task-history-actions {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
 }
 
 .task-count {
-    font-size: 0.8125rem;
+    font-size: 0.75rem;
     color: var(--text-secondary);
     background: var(--background);
-    padding: 4px 10px;
+    padding: 2px 8px;
     border-radius: 4px;
+    width: fit-content;
+    /* Ensure it doesn't stretch */
 }
 
 .task-history-list {
@@ -1782,7 +1792,7 @@ body {
     }
 
     .task-history-actions {
-        width: 100%;
-        justify-content: space-between;
+        width: auto;
+        justify-content: flex-end;
     }
 }
