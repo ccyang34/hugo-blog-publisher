@@ -832,7 +832,11 @@ class HugoPublisher {
             .replace(/\*(.+?)\*/g, '<em>$1</em>')
             .replace(/`(.+?)`/g, '<code>$1</code>')
             .replace(/```(\w+)?\n([\s\S]+?)```/g, '<pre><code class="language-$1">$2</code></pre>')
-            .replace(/!\[(.+?)\]\((.+?)\)/g, '<img src="$2" alt="$1" style="max-width:100%; height:auto; display:block; margin: 10px 0; border-radius: 8px;">')
+            .replace(/!\[(.+?)\]\((.+?)\)/g, (match, alt, src) => {
+                // 如果是本地路径且预览失败，尝试回退
+                const fallbackAttr = src.startsWith('/images/') ? `onerror="if(!this.dataset.tried){this.dataset.tried=true; this.src=this.src.replace('/images/', 'https://raw.githubusercontent.com/${window.APP_CONFIG?.githubUser}/${window.APP_CONFIG?.githubRepo}/main/static/images/');}"` : '';
+                return `<img src="${src}" alt="${alt}" ${fallbackAttr} style="max-width:100%; height:auto; display:block; margin: 10px 0; border-radius: 8px;">`;
+            })
             .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank">$1</a>')
             .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
             .replace(/^- (.+)$/gm, '<li>$1</li>')
@@ -1018,7 +1022,7 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
             const item = document.createElement('div');
             item.className = 'uploaded-image-item';
             item.innerHTML = `
-                <img src="${img.url}" alt="${img.filename}" title="${img.filename}">
+                <img src="${img.url}" alt="${img.filename}" title="${img.filename}" onerror="this.src='https://cdn.jsdelivr.net/gh/${window.APP_CONFIG?.githubUser}/${window.APP_CONFIG?.githubRepo}@main/static/images/${img.filename}'">
                 <button class="copy-btn" title="复制链接">📋</button>
                 <button class="delete-btn" title="删除">×</button>
             `;

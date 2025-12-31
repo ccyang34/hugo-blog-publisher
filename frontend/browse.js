@@ -122,7 +122,7 @@ class ArticleBrowser {
             const url = img.url || `${this.apiBaseUrl}/images/${fileName}`;
             return `
                 <div class="image-item" data-path="${img.path}" data-url="${url}">
-                    <img src="${url}" alt="${fileName}" loading="lazy">
+                    <img src="${url}" alt="${fileName}" loading="lazy" onerror="this.src='https://cdn.jsdelivr.net/gh/${window.APP_CONFIG?.githubUser}/${window.APP_CONFIG?.githubRepo}@main/static/images/${fileName}'">
                     <div class="img-name" title="${fileName}">${fileName}</div>
                     <button class="img-delete-btn" data-path="${img.path}" data-name="${fileName}">×</button>
                 </div>
@@ -536,7 +536,10 @@ class ArticleBrowser {
             .replace(/```(\w+)?\n([\s\S]+?)```/g, '<pre><code class="language-$1">$2</code></pre>')
             .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank">$1</a>')
             .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
-            .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1">')
+            .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, src) => {
+                const fallbackAttr = src.startsWith('/images/') ? `onerror="if(!this.dataset.tried){this.dataset.tried=true; this.src=this.src.replace('/images/', 'https://raw.githubusercontent.com/${window.APP_CONFIG?.githubUser}/${window.APP_CONFIG?.githubRepo}/main/static/images/');}"` : '';
+                return `<img src="${src}" alt="${alt}" ${fallbackAttr}>`;
+            })
             .replace(/^- (.+)$/gm, '<li>$1</li>')
             .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
             .replace(/\n\n/g, '</p><p>')

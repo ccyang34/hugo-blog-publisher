@@ -1204,10 +1204,13 @@ def upload_image():
         
         if result['success']:
             image_url = f'/images/{safe_name}'
+            # 增加 GitHub Raw URL 作为回退
+            raw_url = f"https://raw.githubusercontent.com/{github_service.username}/{github_service.repo}/{github_service.branch or 'main'}/static/images/{safe_name}"
             return jsonify({
                 'success': True,
                 'message': '图片上传成功',
                 'url': image_url,
+                'raw_url': raw_url,
                 'filename': safe_name
             })
         else:
