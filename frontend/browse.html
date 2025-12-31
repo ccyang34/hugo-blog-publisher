@@ -25,14 +25,24 @@
         <main class="browse-main">
             <!-- 左侧文章列表 -->
             <aside class="article-list-panel">
-                <div class="list-header">
+                <div class="browse-tabs">
+                    <button class="tab-btn active" data-tab="articles">文章</button>
+                    <button class="tab-btn" data-tab="images">图片</button>
+                </div>
+                <div class="list-header section-articles">
                     <h2>文章列表</h2>
                     <div class="list-actions">
                         <button id="sortBtn" class="btn btn-sm" title="当前按时间排序，点击切换">📅 时间</button>
                         <button id="refreshListBtn" class="btn btn-sm">刷新</button>
                     </div>
                 </div>
-                <div class="list-filters">
+                <div class="list-header section-images hidden">
+                    <h2>图片库</h2>
+                    <div class="list-actions">
+                        <button id="refreshImagesBtn" class="btn btn-sm">刷新</button>
+                    </div>
+                </div>
+                <div class="list-filters section-articles">
                     <input type="text" id="searchInput" class="form-input" placeholder="搜索文章...">
                     <select id="dirFilter" class="form-input">
                         <option value="all">全部目录</option>
@@ -41,7 +51,12 @@
                         <option value="content/drafts">草稿</option>
                     </select>
                 </div>
-                <div id="articleList" class="article-list">
+                <!-- 文章列表容器 -->
+                <div id="articleList" class="article-list section-articles">
+                    <p class="loading-text">加载中...</p>
+                </div>
+                <!-- 图片列表容器 -->
+                <div id="imageList" class="image-list section-images hidden">
                     <p class="loading-text">加载中...</p>
                 </div>
                 <div class="list-footer">

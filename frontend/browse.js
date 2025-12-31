@@ -42,6 +42,13 @@ class ArticleBrowser {
         this.articleListPanel = document.querySelector('.article-list-panel');
         this.articleContentPanel = document.getElementById('articleContentPanel');
         this.backToListBtn = document.getElementById('backToListBtn');
+
+        // New Elements for Image Management
+        this.tabBtns = document.querySelectorAll('.tab-btn');
+        this.sectionArticles = document.querySelectorAll('.section-articles');
+        this.sectionImages = document.querySelectorAll('.section-images');
+        this.imageList = document.getElementById('imageList');
+        this.refreshImagesBtn = document.getElementById('refreshImagesBtn');
     }
 
     bindEvents() {
@@ -55,6 +62,130 @@ class ArticleBrowser {
         if (this.backToListBtn) {
             this.backToListBtn.addEventListener('click', () => this.showListPanel());
         }
+
+        // Tab Switching
+        this.tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => this.switchTab(btn.dataset.tab));
+        });
+
+        // Refresh Images
+        this.refreshImagesBtn?.addEventListener('click', () => this.loadImages());
+
+        // Delegate for content body images (preview)
+        this.articleBody.addEventListener('click', (e) => {
+            if (e.target.tagName === 'IMG') {
+                this.showImagePreview(e.target.src);
+            }
+        });
+    }
+
+    switchTab(tab) {
+        this.tabBtns.forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === tab);
+        });
+
+        if (tab === 'articles') {
+            this.sectionArticles.forEach(el => el.classList.remove('hidden'));
+            this.sectionImages.forEach(el => el.classList.add('hidden'));
+        } else {
+            this.sectionArticles.forEach(el => el.classList.add('hidden'));
+            this.sectionImages.forEach(el => el.classList.remove('hidden'));
+            this.loadImages();
+        }
+    }
+
+    async loadImages() {
+        this.imageList.innerHTML = '<p class="loading-text">加载图片中...</p>';
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/api/files?path=static/images`);
+            const data = await response.json();
+
+            if (data.success && data.files) {
+                this.renderImages(data.files);
+            } else {
+                this.imageList.innerHTML = `<p class="empty-text">加载失败: ${data.error || '原因未知'}</p>`;
+            }
+        } catch (error) {
+            console.error('加载图片错误:', error);
+            this.imageList.innerHTML = '<p class="empty-text">网络错误</p>';
+        }
+    }
+
+    renderImages(images) {
+        if (images.length === 0) {
+            this.imageList.innerHTML = '<p class="empty-text">暂无图片</p>';
+            return;
+        }
+
+        this.imageList.innerHTML = images.map(img => {
+            const fileName = img.name;
+            const url = img.url || `${this.apiBaseUrl}/images/${fileName}`;
+            return `
+                <div class="image-item" data-path="${img.path}" data-url="${url}">
+                    <img src="${url}" alt="${fileName}" loading="lazy">
+                    <div class="img-name" title="${fileName}">${fileName}</div>
+                    <button class="img-delete-btn" data-path="${img.path}" data-name="${fileName}">×</button>
+                </div>
+            `;
+        }).join('');
+
+        // Event for deletion
+        this.imageList.querySelectorAll('.img-delete-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.confirmDeleteImage(btn.dataset.path, btn.dataset.name);
+            });
+        });
+
+        // Event for preview
+        this.imageList.querySelectorAll('.image-item').forEach(item => {
+            item.addEventListener('click', () => {
+                this.showImagePreview(item.dataset.url);
+            });
+        });
+    }
+
+    confirmDeleteImage(path, name) {
+        if (confirm(`确定要永久删除图片 "${name}" 吗？\n\n这可能导致文章中的图片链接失效！`)) {
+            this.deleteImage(path);
+        }
+    }
+
+    async deleteImage(path) {
+        this.showLoading('正在删除图片...');
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/api/file?path=${encodeURIComponent(path)}`, {
+                method: 'DELETE'
+            });
+            const data = await response.json();
+            if (data.success) {
+                this.loadImages();
+            } else {
+                alert(`删除失败: ${data.error}`);
+            }
+        } catch (error) {
+            console.error('删除图片错误:', error);
+            alert('删除图片请求失败');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    showImagePreview(src) {
+        const overlay = document.createElement('div');
+        overlay.className = 'image-preview-overlay';
+        overlay.innerHTML = `<img src="${src}" alt="Preview">`;
+        overlay.onclick = () => overlay.remove();
+        document.body.appendChild(overlay);
+
+        // Escape to close
+        const escHandler = (e) => {
+            if (e.key === 'Escape') {
+                overlay.remove();
+                document.removeEventListener('keydown', escHandler);
+            }
+        };
+        document.addEventListener('keydown', escHandler);
     }
 
     showLoading(message = '加载中...') {
