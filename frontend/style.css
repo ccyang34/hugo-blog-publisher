@@ -1302,120 +1302,7 @@ body {
     padding: 24px;
 }
 
-.task-history-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 12px 14px;
-    background: var(--background);
-    border-radius: var(--radius);
-    border: 1px solid var(--border-color);
-    transition: var(--transition);
-    min-width: 0;
-    max-width: 100%;
-    width: 100%;
-    /* Ensure full width */
-    overflow: hidden;
-    /* Strictly prevent overflow */
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-
-
-.task-history-item:hover {
-    border-color: var(--primary-color);
-}
-
-.task-history-item .task-info {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    /* Required for ellipsis */
-    width: 100%;
-    /* Force width constraints */
-}
-
-.task-history-item .task-title {
-    font-size: 0.875rem;
-    font-weight: 500;
-    color: var(--text-primary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    margin-bottom: 4px;
-    display: block;
-    /* Ensure block display */
-    width: 100%;
-    /* Force width to match parent */
-    max-width: 100%;
-    /* Prevent overflow */
-}
-
-.task-history-item .task-meta {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-}
-
-.task-history-item .task-time {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.task-history-item .task-status-badge {
-    font-size: 0.6875rem;
-    padding: 2px 8px;
-    border-radius: 999px;
-    font-weight: 500;
-}
-
-.task-history-item .task-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-left: auto;
-}
-
-.task-history-item .task-link {
-    font-size: 0.75rem;
-    color: var(--primary-color);
-    text-decoration: none;
-    padding: 4px 8px;
-    border-radius: 4px;
-    background: rgba(37, 99, 235, 0.1);
-    transition: var(--transition);
-}
-
-.task-history-item .task-link:hover {
-    background: rgba(37, 99, 235, 0.2);
-}
-
-.task-history-item .task-progress {
-    width: 60px;
-    height: 4px;
-    background: var(--border-color);
-    border-radius: 2px;
-    overflow: hidden;
-    flex-shrink: 0;
-}
-
-.task-history-item .task-progress-fill {
-    height: 100%;
-    background: var(--primary-color);
-    transition: width 0.3s ease;
-}
-
-.task-history-item .task-progress-fill.completed {
-    background: #16a34a;
-}
-
-.task-history-item .task-progress-fill.failed {
-    background: #dc2626;
-}
+/* Legacy task history styles removed */
 
 /* Mobile responsive for task history */
 /* Old mobile media query removed */
@@ -1440,9 +1327,13 @@ body {
 /* =========================================
    Task History Styles (Fixed Layout - Override Legacy)
    ========================================= */
+/* =========================================
+   Task History Styles (Fixed Layout - Override Legacy)
+   ========================================= */
 .task-history-item {
-    display: block !important;
-    /* Force block layout */
+    display: flex !important;
+    /* Switch back to flex to allow proper content flow */
+    flex-direction: column !important;
     background: var(--surface);
     border: 1px solid var(--border-color);
     border-radius: var(--radius);
@@ -1451,7 +1342,8 @@ body {
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
     transition: var(--transition);
     height: auto !important;
-    /* Ensure height isn't collapsed */
+    min-height: min-content;
+    overflow: visible !important;
 }
 
 .task-history-item:hover {
@@ -1464,17 +1356,21 @@ body {
     flex-direction: column;
     gap: 8px;
     width: 100%;
+    flex: 1 1 auto;
+    /* Allow growth */
 }
 
 .task-history-item .task-title {
     font-size: 0.9375rem;
     font-weight: 600;
     color: var(--text-primary);
-    line-height: 1.4;
+    line-height: 1.5;
+    /* Increased line-height */
     white-space: normal !important;
-    /* Allow wrapping */
     overflow: visible !important;
     margin-bottom: 0;
+    word-break: break-word;
+    /* Ensure long words break */
 }
 
 .task-history-item .task-meta {
@@ -1484,6 +1380,8 @@ body {
     flex-wrap: wrap;
     font-size: 0.75rem;
     color: var(--text-secondary);
+    margin-top: auto;
+    /* Push to bottom if height expands */
 }
 
 .task-history-item .task-time {
@@ -1491,6 +1389,7 @@ body {
     align-items: center;
     gap: 4px;
     min-width: 100px;
+    flex-shrink: 0;
 }
 
 .task-history-item .task-status-badge {
@@ -1500,6 +1399,7 @@ body {
     font-size: 0.7rem;
     background: #e5e7eb;
     color: #374151;
+    flex-shrink: 0;
 }
 
 .task-status-badge.status-completed {
@@ -1529,7 +1429,6 @@ body {
     border-radius: 2px;
     overflow: hidden;
     min-width: 50px;
-    max-width: 200px;
 }
 
 .task-history-item .task-progress-fill {
@@ -1551,6 +1450,8 @@ body {
     display: flex;
     gap: 8px;
     margin-left: auto;
+    flex-wrap: wrap;
+    /* Allow wrapping on very small screens */
 }
 
 .task-history-item .task-link,
@@ -1580,7 +1481,6 @@ body {
 
     .task-history-item .task-progress {
         display: none;
-        /* Hide progress bar on mobile */
     }
 
     .task-history-item .task-actions {
