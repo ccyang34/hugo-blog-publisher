@@ -285,6 +285,17 @@ class HugoPublisher {
         // If all non-empty lines are URLs and there are more than 1
         const isBatchUrl = lines.length > 1 && lines.every(line => urlPattern.test(line));
 
+        // 优先检查页面上的内联密码输入框
+        const inlinePwdInput = document.getElementById('inlinePublishPassword');
+        if (inlinePwdInput && inlinePwdInput.value.trim()) {
+            const isValid = await this.verifyPassword(inlinePwdInput.value.trim());
+            if (!isValid) {
+                this.showNotification('发布密码不正确，请重新输入', 'error');
+                inlinePwdInput.focus();
+                return;
+            }
+        }
+
         if (sessionStorage.getItem('hugo_authenticated') === 'true') {
             if (isBatchUrl) {
                 this.publishBatch(lines);
