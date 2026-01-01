@@ -1806,8 +1806,9 @@ body {
 /* 密码输入框内联样式 */
 .inline-password-container {
     display: flex;
+    flex-wrap: nowrap;
     align-items: center;
-    gap: 24px;
+    gap: 12px;
     margin-bottom: 10px;
 }
 
