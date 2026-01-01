@@ -91,7 +91,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 16px;
+    padding: 8px 12px;
     border-bottom: 1px solid var(--border-color);
 }
 
@@ -103,8 +103,8 @@
 }
 
 .btn-sm {
-    padding: 6px 12px;
-    font-size: 0.75rem;
+    padding: 4px 8px;
+    font-size: 0.7rem;
 }
 
 .list-filters {
@@ -206,9 +206,9 @@
 }
 
 .list-footer {
-    padding: 12px 16px;
+    padding: 6px 12px;
     border-top: 1px solid var(--border-color);
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--text-secondary);
     text-align: center;
 }
@@ -688,6 +688,7 @@
 .mobile-nav {
     display: none;
 }
+
 /* File Browser Styles */
 .file-nav {
     display: flex;
@@ -699,7 +700,8 @@
 }
 
 .current-path {
-    font-size: 0.8rem;
+    flex: 1;
+    font-size: 0.75rem;
     color: var(--text-secondary);
     font-family: monospace;
     overflow: hidden;
@@ -803,28 +805,28 @@
     .file-nav {
         padding: 6px 12px;
     }
-    
+
     .current-path {
         font-size: 0.7rem;
     }
-    
+
     .file-item {
         padding: 8px 10px;
         gap: 8px;
     }
-    
+
     .file-icon {
         font-size: 1rem;
     }
-    
+
     .file-name {
         font-size: 0.8rem;
     }
-    
+
     .file-actions {
         opacity: 1;
     }
-    
+
     .file-action-btn {
         width: 24px;
         height: 24px;
