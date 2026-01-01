@@ -320,8 +320,8 @@ class ArticleBrowser {
     }
 
     setupInfiniteScroll() {
-        // 监听文章列表容器的滚动事件
-        const listContainer = document.querySelector('.article-list-panel');
+        // 监听文章列表容器的滚动事件（#articleList 是实际有滚动条的元素）
+        const listContainer = document.getElementById('articleList');
         if (!listContainer) return;
 
         listContainer.addEventListener('scroll', () => {
