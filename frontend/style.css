@@ -672,7 +672,7 @@ body {
 }
 
 .file-list {
-    max-height: 200px;
+    flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
     /* Prevent horizontal scroll */
@@ -1870,6 +1870,7 @@ body {
         width: 120px;
     }
 }
+
 /* 瀑布流加载提示样式 */
 .load-more-hint {
     font-size: 0.75rem;
