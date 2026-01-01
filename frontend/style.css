@@ -1807,26 +1807,40 @@ body {
 .inline-password-container {
     display: flex;
     align-items: center;
+    gap: 24px;
     margin-bottom: 10px;
 }
 
-.inline-password-container label {
+.inline-password-container>label {
     margin-bottom: 0 !important;
     white-space: nowrap;
 }
 
+.inline-password-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.password-label {
+    white-space: nowrap;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+}
+
 .inline-password-container input {
     width: 156px;
-    height: 28px;
-    padding: 0 8px;
-    border: 1px solid #ff4d4f;
+    height: 32px;
+    padding: 0 10px;
+    border: 1px solid var(--border-color);
     border-radius: 4px;
     outline: none;
     transition: all 0.3s;
-    background: #f0f7ff;
-    font-size: 0.8125rem;
+    background: var(--surface);
+    font-size: 0.875rem;
 }
 
 .inline-password-container input:focus {
-    box-shadow: 0 0 0 2px rgba(255, 77, 79, 0.2);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
 }
