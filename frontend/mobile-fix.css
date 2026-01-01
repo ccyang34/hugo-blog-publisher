@@ -69,3 +69,39 @@
         font-size: 0.8rem !important;
     }
 }
+/* 强制文章内容和发布密码同一行显示 */
+@media screen and (max-width: 767px) {
+    .inline-password-container {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        gap: 12px !important;
+    }
+    
+    .inline-password-container > label {
+        display: inline-block !important;
+        margin-bottom: 0 !important;
+        white-space: nowrap !important;
+        flex-shrink: 0 !important;
+    }
+    
+    .inline-password-group {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        gap: 8px !important;
+        flex-shrink: 0 !important;
+    }
+    
+    .password-label {
+        white-space: nowrap !important;
+        flex-shrink: 0 !important;
+    }
+    
+    .inline-password-container input {
+        width: 100px !important;
+        flex-shrink: 0 !important;
+    }
+}
