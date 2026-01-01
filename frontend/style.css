@@ -1870,3 +1870,9 @@ body {
         width: 120px;
     }
 }
+/* 瀑布流加载提示样式 */
+.load-more-hint {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-left: 12px;
+}

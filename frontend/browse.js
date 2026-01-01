@@ -8,9 +8,12 @@ class ArticleBrowser {
         this.sortMode = 'date'; // 'date' 或 'name'
         this.currentPage = 1;
         this.pageSize = 20;
+        this.isLoadingMore = false;
+        this.hasMoreArticles = true;
 
         this.initElements();
         this.bindEvents();
+        this.setupInfiniteScroll();
 
         // 检查是否有会话授权
         if (sessionStorage.getItem('hugo_authenticated') === 'true') {
@@ -305,38 +308,109 @@ class ArticleBrowser {
     }
 
     renderPagination() {
-        const totalPages = Math.ceil(this.filteredArticles.length / this.pageSize);
-
-        let paginationHtml = '';
-        if (totalPages > 1) {
-            paginationHtml = `
-                <div class="pagination">
-                    <button class="page-btn" ${this.currentPage <= 1 ? 'disabled' : ''} data-page="prev">上一页</button>
-                    <span class="page-info">第 ${this.currentPage} / ${totalPages} 页</span>
-                    <button class="page-btn" ${this.currentPage >= totalPages ? 'disabled' : ''} data-page="next">下一页</button>
-                </div>
-            `;
-        }
-
+        // 瀑布流模式：不显示翻页按钮，只显示文章计数和加载提示
         const footer = document.querySelector('.list-footer');
+        const totalPages = Math.ceil(this.filteredArticles.length / this.pageSize);
+        const loadingHint = this.currentPage < totalPages ? '<span class="load-more-hint">↓ 下滑加载更多</span>' : '<span class="load-more-hint">已加载全部</span>';
         footer.innerHTML = `
             <span id="articleCount">${this.filteredArticles.length} 篇文章</span>
-            ${paginationHtml}
+            ${loadingHint}
         `;
+        this.hasMoreArticles = this.currentPage < totalPages;
+    }
 
-        // 绑定分页按钮事件
-        footer.querySelectorAll('.page-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                if (btn.dataset.page === 'prev' && this.currentPage > 1) {
-                    this.currentPage--;
-                    this.renderCurrentPage();
-                } else if (btn.dataset.page === 'next') {
-                    const totalPages = Math.ceil(this.filteredArticles.length / this.pageSize);
-                    if (this.currentPage < totalPages) {
-                        this.currentPage++;
-                        this.renderCurrentPage();
-                    }
+    setupInfiniteScroll() {
+        // 监听文章列表容器的滚动事件
+        const listContainer = document.querySelector('.article-list-panel');
+        if (!listContainer) return;
+
+        listContainer.addEventListener('scroll', () => {
+            if (this.isLoadingMore || !this.hasMoreArticles) return;
+
+            const scrollTop = listContainer.scrollTop;
+            const scrollHeight = listContainer.scrollHeight;
+            const clientHeight = listContainer.clientHeight;
+
+            // 当滚动到底部 100px 范围内时加载更多
+            if (scrollTop + clientHeight >= scrollHeight - 100) {
+                this.loadMoreArticles();
+            }
+        });
+    }
+
+    loadMoreArticles() {
+        const totalPages = Math.ceil(this.filteredArticles.length / this.pageSize);
+        if (this.currentPage >= totalPages) {
+            this.hasMoreArticles = false;
+            return;
+        }
+
+        this.isLoadingMore = true;
+        this.currentPage++;
+
+        const start = (this.currentPage - 1) * this.pageSize;
+        const end = start + this.pageSize;
+        const moreArticles = this.filteredArticles.slice(start, end);
+
+        // 追加文章到列表
+        this.appendArticles(moreArticles);
+        this.renderPagination();
+
+        this.isLoadingMore = false;
+    }
+
+    appendArticles(articles) {
+        if (articles.length === 0) return;
+
+        const html = articles.map(f => {
+            const isActive = this.currentPath === f.path;
+            return `
+                <div class="article-list-item${isActive ? ' active' : ''}" data-path="${f.path}">
+                    <div class="item-content">
+                        <div class="item-title" title="${f.name}">${f.name.replace('.md', '')}</div>
+                        <div class="item-meta">
+                            <span class="item-dir">${f.dirName}</span>
+                            <span class="item-date" data-path="${f.path}">加载中...</span>
+                        </div>
+                    </div>
+                    <button class="item-delete-btn" data-path="${f.path}" data-name="${f.name}" title="删除">×</button>
+                </div>
+            `;
+        }).join('');
+
+        this.articleList.insertAdjacentHTML('beforeend', html);
+
+        // 更新日期显示
+        articles.forEach(f => {
+            const dateVal = this.articleDates[f.path];
+            const dateSpan = this.articleList.querySelector(`.item-date[data-path="${f.path}"]`);
+            if (dateSpan) {
+                if (dateVal) {
+                    const date = new Date(dateVal);
+                    dateSpan.textContent = date.toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                } else {
+                    dateSpan.textContent = '-';
                 }
+            }
+        });
+
+        // 绑定事件
+        const newItems = this.articleList.querySelectorAll('.article-list-item:not([data-bound])');
+        newItems.forEach(item => {
+            item.setAttribute('data-bound', 'true');
+            item.querySelector('.item-content').addEventListener('click', () => {
+                this.selectArticle(item.dataset.path);
+            });
+            item.querySelector('.item-delete-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.confirmDeleteArticle(item.dataset.path, item.querySelector('.item-delete-btn').dataset.name);
             });
         });
     }
