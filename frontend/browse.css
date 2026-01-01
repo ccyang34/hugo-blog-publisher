@@ -543,10 +543,9 @@
     .article-list-panel {
         width: 100%;
         max-width: none;
-        height: 100%;
+        flex: 1;
         border-right: none;
         border-bottom: none;
-        flex-shrink: 0;
         overflow: hidden;
         display: flex;
         flex-direction: column;
