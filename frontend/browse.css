@@ -862,6 +862,7 @@
         padding: 2px 4px !important;
         font-size: 0.7rem !important;
         flex-shrink: 0 !important;
+        max-width: 20% !important;
     }
 
     .current-path {
