@@ -1112,7 +1112,7 @@ def verify_password():
         data = request.json
         password = data.get('password', '')
         
-        correct_password = os.environ.get('PUBLISH_PASSWORD', 'chen')
+        correct_password = os.environ.get('PUBLISH_PASSWORD', 'c')
         
         # 调试日志：输出比对信息（生产环境建议排查后删除）
         print(f"DEBUG: Comparing passwords.")
