@@ -708,13 +708,8 @@
 
 .file-list {
     flex: 1;
-    min-height: 0;
-    height: 0;
     overflow-y: auto;
     padding: 8px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
 }
 
 .file-item {
@@ -727,6 +722,7 @@
     cursor: pointer;
     transition: var(--transition);
     border: 2px solid transparent;
+    margin-bottom: 4px;
 }
 
 .file-item:hover {
@@ -870,12 +866,11 @@
         min-width: 0 !important;
     }
 
-    /* 文件列表占满剩余空间 - 使用 calc 确保高度正确 */
+    /* 文件列表占满剩余空间 */
     .file-list {
         flex: 1 !important;
-        min-height: 0 !important;
-        height: calc(100vh - 200px) !important;
         overflow-y: auto !important;
+        min-height: 0 !important;
     }
 
     /* 文件浏览模式下隐藏 footer（因为显示的是文章数） */
