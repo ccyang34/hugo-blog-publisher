@@ -46,12 +46,18 @@ class ArticleBrowser {
         this.articleContentPanel = document.getElementById('articleContentPanel');
         this.backToListBtn = document.getElementById('backToListBtn');
 
-        // New Elements for Image Management
+        // Elements for File Browser
         this.tabBtns = document.querySelectorAll('.tab-btn');
         this.sectionArticles = document.querySelectorAll('.section-articles');
-        this.sectionImages = document.querySelectorAll('.section-images');
-        this.imageList = document.getElementById('imageList');
-        this.refreshImagesBtn = document.getElementById('refreshImagesBtn');
+        this.sectionFiles = document.querySelectorAll('.section-files');
+        this.fileList = document.getElementById('fileList');
+        this.refreshFilesBtn = document.getElementById('refreshFilesBtn');
+        this.uploadFileBtn = document.getElementById('uploadFileBtn');
+        this.navUpBtn = document.getElementById('navUpBtn');
+        this.currentPathEl = document.getElementById('currentPath');
+
+        // File browser state
+        this.currentBrowsePath = 'static';
     }
 
     bindEvents() {
@@ -71,8 +77,10 @@ class ArticleBrowser {
             btn.addEventListener('click', () => this.switchTab(btn.dataset.tab));
         });
 
-        // Refresh Images
-        this.refreshImagesBtn?.addEventListener('click', () => this.loadImages());
+        // File Browser Events
+        this.refreshFilesBtn?.addEventListener('click', () => this.loadFiles());
+        this.uploadFileBtn?.addEventListener('click', () => this.showUploadDialog());
+        this.navUpBtn?.addEventListener('click', () => this.navigateUp());
 
         // Delegate for content body images (preview)
         this.articleBody.addEventListener('click', (e) => {
@@ -89,86 +97,225 @@ class ArticleBrowser {
 
         if (tab === 'articles') {
             this.sectionArticles.forEach(el => el.classList.remove('hidden'));
-            this.sectionImages.forEach(el => el.classList.add('hidden'));
+            this.sectionFiles.forEach(el => el.classList.add('hidden'));
         } else {
             this.sectionArticles.forEach(el => el.classList.add('hidden'));
-            this.sectionImages.forEach(el => el.classList.remove('hidden'));
-            this.loadImages();
+            this.sectionFiles.forEach(el => el.classList.remove('hidden'));
+            this.loadFiles();
         }
     }
 
-    async loadImages() {
-        this.imageList.innerHTML = '<p class="loading-text">加载图片中...</p>';
+    async loadFiles() {
+        this.fileList.innerHTML = '<p class="loading-text">加载文件中...</p>';
+        this.currentPathEl.textContent = this.currentBrowsePath + '/';
+
+        // 禁用返回按钮如果在根目录
+        this.navUpBtn.disabled = (this.currentBrowsePath === 'static');
+
         try {
-            const response = await fetch(`${this.apiBaseUrl}/api/files?path=static/images`);
+            const response = await fetch(`${this.apiBaseUrl}/api/files?path=${encodeURIComponent(this.currentBrowsePath)}`);
             const data = await response.json();
 
             if (data.success && data.files) {
-                this.renderImages(data.files);
+                this.renderFiles(data.files);
             } else {
-                this.imageList.innerHTML = `<p class="empty-text">加载失败: ${data.error || '原因未知'}</p>`;
+                this.fileList.innerHTML = `<p class="empty-text">加载失败: ${data.error || '原因未知'}</p>`;
             }
         } catch (error) {
-            console.error('加载图片错误:', error);
-            this.imageList.innerHTML = '<p class="empty-text">网络错误</p>';
+            console.error('加载文件错误:', error);
+            this.fileList.innerHTML = '<p class="empty-text">网络错误</p>';
         }
     }
 
-    renderImages(images) {
-        if (images.length === 0) {
-            this.imageList.innerHTML = '<p class="empty-text">暂无图片</p>';
+    renderFiles(files) {
+        if (files.length === 0) {
+            this.fileList.innerHTML = '<p class="empty-text">暂无文件</p>';
             return;
         }
 
-        this.imageList.innerHTML = images.map(img => {
-            const fileName = img.name;
-            const url = img.url || `${this.apiBaseUrl}/images/${fileName}`;
+        // 排序：文件夹在前，文件在后
+        files.sort((a, b) => {
+            if (a.is_dir && !b.is_dir) return -1;
+            if (!a.is_dir && b.is_dir) return 1;
+            return a.name.localeCompare(b.name, 'zh-CN');
+        });
+
+        this.fileList.innerHTML = files.map(file => {
+            const isImage = /\.(png|jpg|jpeg|gif|webp|svg|bmp|ico)$/i.test(file.name);
+            const isDir = file.is_dir;
+            const icon = isDir ? '📁' : (isImage ? '🖼️' : '📄');
+            const url = file.url || `${this.apiBaseUrl}/${file.path}`;
+
             return `
-                <div class="image-item" data-path="${img.path}" data-url="${url}">
-                    <img src="${url}" alt="${fileName}" loading="lazy" onerror="this.src='https://cdn.jsdelivr.net/gh/${window.APP_CONFIG?.githubUser}/${window.APP_CONFIG?.githubRepo}@main/static/images/${fileName}'">
-                    <div class="img-name" title="${fileName}">${fileName}</div>
-                    <button class="img-delete-btn" data-path="${img.path}" data-name="${fileName}">×</button>
+                <div class="file-item ${isDir ? 'is-folder' : ''}" data-path="${file.path}" data-name="${file.name}" data-is-dir="${isDir}" data-url="${url}">
+                    <div class="file-icon">${icon}</div>
+                    <div class="file-info">
+                        <div class="file-name" title="${file.name}">${file.name}</div>
+                        ${!isDir && file.size ? `<div class="file-size">${this.formatFileSize(file.size)}</div>` : ''}
+                    </div>
+                    <div class="file-actions">
+                        ${!isDir ? `<button class="file-action-btn download-btn" title="下载">⬇️</button>` : ''}
+                        <button class="file-action-btn rename-btn" title="重命名">✏️</button>
+                        <button class="file-action-btn delete-btn" title="删除">🗑️</button>
+                    </div>
                 </div>
             `;
         }).join('');
 
-        // Event for deletion
-        this.imageList.querySelectorAll('.img-delete-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.confirmDeleteImage(btn.dataset.path, btn.dataset.name);
-            });
-        });
+        // 绑定事件
+        this.fileList.querySelectorAll('.file-item').forEach(item => {
+            const path = item.dataset.path;
+            const name = item.dataset.name;
+            const isDir = item.dataset.isDir === 'true';
+            const url = item.dataset.url;
 
-        // Event for preview
-        this.imageList.querySelectorAll('.image-item').forEach(item => {
-            item.addEventListener('click', () => {
-                this.showImagePreview(item.dataset.url);
+            // 点击进入文件夹或预览图片
+            item.addEventListener('click', (e) => {
+                if (e.target.closest('.file-actions')) return;
+                if (isDir) {
+                    this.navigateToFolder(path);
+                } else if (/\.(png|jpg|jpeg|gif|webp|svg|bmp|ico)$/i.test(name)) {
+                    this.showImagePreview(url);
+                }
+            });
+
+            // 删除按钮
+            item.querySelector('.delete-btn')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.confirmDeleteFile(path, name);
+            });
+
+            // 重命名按钮
+            item.querySelector('.rename-btn')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.showRenameDialog(path, name);
+            });
+
+            // 下载按钮
+            item.querySelector('.download-btn')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.downloadFile(url, name);
             });
         });
     }
 
-    confirmDeleteImage(path, name) {
-        if (confirm(`确定要永久删除图片 "${name}" 吗？\n\n这可能导致文章中的图片链接失效！`)) {
-            this.deleteImage(path);
+    formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    navigateToFolder(path) {
+        this.currentBrowsePath = path;
+        this.loadFiles();
+    }
+
+    navigateUp() {
+        if (this.currentBrowsePath === 'static') return;
+        const parts = this.currentBrowsePath.split('/');
+        parts.pop();
+        this.currentBrowsePath = parts.join('/') || 'static';
+        this.loadFiles();
+    }
+
+    confirmDeleteFile(path, name) {
+        if (confirm(`确定要永久删除 "${name}" 吗？\n\n此操作不可撤销！`)) {
+            this.deleteFile(path);
         }
     }
 
-    async deleteImage(path) {
-        this.showLoading('正在删除图片...');
+    async deleteFile(path) {
+        this.showLoading('正在删除...');
         try {
             const response = await fetch(`${this.apiBaseUrl}/api/file?path=${encodeURIComponent(path)}`, {
                 method: 'DELETE'
             });
             const data = await response.json();
             if (data.success) {
-                this.loadImages();
+                this.loadFiles();
             } else {
                 alert(`删除失败: ${data.error}`);
             }
         } catch (error) {
-            console.error('删除图片错误:', error);
-            alert('删除图片请求失败');
+            console.error('删除文件错误:', error);
+            alert('删除请求失败');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    downloadFile(url, name) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = name;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+
+    showRenameDialog(path, oldName) {
+        const newName = prompt('请输入新的文件名：', oldName);
+        if (newName && newName !== oldName) {
+            this.renameFile(path, newName);
+        }
+    }
+
+    async renameFile(oldPath, newName) {
+        this.showLoading('正在重命名...');
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/api/rename`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ old_path: oldPath, new_name: newName })
+            });
+            const data = await response.json();
+            if (data.success) {
+                this.loadFiles();
+            } else {
+                alert(`重命名失败: ${data.error}`);
+            }
+        } catch (error) {
+            console.error('重命名错误:', error);
+            alert('重命名请求失败');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    showUploadDialog() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.multiple = true;
+        input.onchange = async (e) => {
+            const files = e.target.files;
+            if (files.length > 0) {
+                await this.uploadFiles(files);
+            }
+        };
+        input.click();
+    }
+
+    async uploadFiles(files) {
+        this.showLoading(`正在上传 ${files.length} 个文件...`);
+        try {
+            for (const file of files) {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('path', this.currentBrowsePath);
+
+                const response = await fetch(`${this.apiBaseUrl}/api/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                if (!data.success) {
+                    alert(`上传 ${file.name} 失败: ${data.error}`);
+                }
+            }
+            this.loadFiles();
+        } catch (error) {
+            console.error('上传错误:', error);
+            alert('上传请求失败');
         } finally {
             this.hideLoading();
         }

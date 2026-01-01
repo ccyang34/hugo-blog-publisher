@@ -282,10 +282,12 @@ class GitHubService:
             file_list = []
             
             def process_file(f):
+                file_type = f.get('type', '')
                 item = {
                     'name': f.get('name', ''),
                     'path': f.get('path', ''),
-                    'type': f.get('type', ''),
+                    'type': file_type,
+                    'is_dir': file_type == 'dir',
                     'size': f.get('size', 0),
                     'url': f.get('html_url', ''),
                     'updated_at': None # 默认占位

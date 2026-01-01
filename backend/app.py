@@ -1041,11 +1041,16 @@ def list_files():
     try:
         path = request.args.get('path', 'content/posts')
         fetch_metadata = request.args.get('fetch_metadata', 'false').lower() == 'true'
+        browser_mode = request.args.get('browser', 'false').lower() == 'true'
         result = github_service.list_files(path, fetch_metadata=fetch_metadata)
         
         if result['success']:
             all_files = result.get('files', [])
-            if 'images' in path.lower():
+            
+            # 浏览器模式：返回所有文件和文件夹
+            if browser_mode or path.startswith('static'):
+                files = all_files
+            elif 'images' in path.lower():
                 # 图片目录：保留常见图片格式
                 image_exts = ('.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp')
                 files = [f for f in all_files if f['name'].lower().endswith(image_exts)]
@@ -1097,6 +1102,69 @@ def get_file():
             
             result = github_service.get_file_content(path)
             return jsonify(result)
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/rename', methods=['POST'])
+def rename_file():
+    """重命名文件或文件夹"""
+    try:
+        data = request.json
+        old_path = data.get('old_path', '')
+        new_name = data.get('new_name', '')
+        
+        if not old_path or not new_name:
+            return jsonify({
+                'success': False,
+                'error': '缺少必要参数'
+            }), 400
+        
+        # 构造新路径
+        parts = old_path.rsplit('/', 1)
+        if len(parts) == 2:
+            new_path = f"{parts[0]}/{new_name}"
+        else:
+            new_path = new_name
+        
+        # 获取原文件内容
+        original = github_service.get_file_content(old_path)
+        if not original.get('success'):
+            return jsonify({
+                'success': False,
+                'error': '无法获取原文件'
+            }), 400
+        
+        # 创建新文件（使用原文件内容）
+        import base64
+        content_decoded = original.get('content', '')
+        
+        create_result = github_service.create_or_update_file(
+            path=new_path,
+            content=content_decoded,
+            message=f'Rename: {old_path} -> {new_path}'
+        )
+        
+        if not create_result.get('success'):
+            return jsonify({
+                'success': False,
+                'error': '创建新文件失败'
+            }), 500
+        
+        # 删除原文件
+        delete_result = github_service.delete_file(
+            path=old_path,
+            message=f'Delete old file after rename: {old_path}'
+        )
+        
+        return jsonify({
+            'success': True,
+            'new_path': new_path
+        })
     
     except Exception as e:
         return jsonify({
