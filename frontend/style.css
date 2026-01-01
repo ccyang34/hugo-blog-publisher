@@ -1833,14 +1833,14 @@ body {
 
 .inline-password-container input {
     width: 156px;
-    height: 32px;
-    padding: 0 10px;
+    height: 26px;
+    padding: 0 8px;
     border: 1px solid var(--border-color);
     border-radius: 4px;
     outline: none;
     transition: all 0.3s;
     background: var(--surface);
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
 }
 
 .inline-password-container input:focus {
