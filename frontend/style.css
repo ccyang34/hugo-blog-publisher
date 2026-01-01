@@ -42,8 +42,8 @@ body {
 }
 
 .header {
-    margin-bottom: 12px;
-    padding: 6px 16px;
+    margin-bottom: 8px;
+    padding: 4px 12px;
     background: var(--surface);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
@@ -1833,14 +1833,14 @@ body {
 
 .inline-password-container input {
     width: 156px;
-    height: 26px;
-    padding: 0 8px;
+    height: 32px;
+    padding: 0 10px;
     border: 1px solid var(--border-color);
     border-radius: 4px;
     outline: none;
     transition: all 0.3s;
     background: var(--surface);
-    font-size: 0.8125rem;
+    font-size: 0.875rem;
 }
 
 .inline-password-container input:focus {
