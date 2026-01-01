@@ -870,10 +870,11 @@
         min-width: 0 !important;
     }
 
-    /* 文件列表占满剩余空间 */
+    /* 文件列表占满剩余空间 - 使用 calc 确保高度正确 */
     .file-list {
         flex: 1 !important;
         min-height: 0 !important;
+        height: calc(100vh - 200px) !important;
         overflow-y: auto !important;
     }
 
