@@ -1845,3 +1845,25 @@ body {
     border-color: var(--primary-color);
     box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
 }
+/* 移动端强制同行显示 */
+@media (max-width: 640px) {
+    .inline-password-container {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 12px !important;
+    }
+    
+    .inline-password-container > label {
+        flex-shrink: 0;
+    }
+    
+    .inline-password-group {
+        flex-shrink: 0;
+    }
+    
+    .inline-password-container input {
+        width: 120px;
+    }
+}
