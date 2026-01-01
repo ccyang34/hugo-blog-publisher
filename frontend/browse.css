@@ -903,3 +903,9 @@
         font-size: 0.7rem !important;
     }
 }
+/* 图标按钮样式 */
+.btn-icon {
+    padding: 4px 6px !important;
+    min-width: auto !important;
+    flex-shrink: 0 !important;
+}
