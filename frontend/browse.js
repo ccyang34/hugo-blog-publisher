@@ -95,12 +95,17 @@ class ArticleBrowser {
             btn.classList.toggle('active', btn.dataset.tab === tab);
         });
 
+        const listFooter = document.querySelector('.list-footer');
+
         if (tab === 'articles') {
             this.sectionArticles.forEach(el => el.classList.remove('hidden'));
             this.sectionFiles.forEach(el => el.classList.add('hidden'));
+            if (listFooter) listFooter.style.display = '';
         } else {
             this.sectionArticles.forEach(el => el.classList.add('hidden'));
             this.sectionFiles.forEach(el => el.classList.remove('hidden'));
+            // 隐藏 footer 让文件列表占满空间
+            if (listFooter) listFooter.style.display = 'none';
             this.loadFiles();
         }
     }
