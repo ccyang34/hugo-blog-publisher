@@ -833,3 +833,64 @@
         font-size: 0.75rem;
     }
 }
+/* 移动端文件浏览器优化 */
+@media (max-width: 768px) {
+    /* 缩小 header */
+    .section-files.list-header {
+        padding: 4px 8px !important;
+    }
+    
+    .section-files.list-header h2 {
+        font-size: 0.8rem !important;
+    }
+    
+    /* 缩小上传按钮 */
+    .section-files .btn-sm {
+        padding: 3px 6px !important;
+        font-size: 0.65rem !important;
+    }
+    
+    /* 扩大路径显示区域 */
+    .file-nav {
+        padding: 4px 8px !important;
+        gap: 4px !important;
+    }
+    
+    .file-nav .btn-sm {
+        padding: 2px 4px !important;
+        font-size: 0.7rem !important;
+        flex-shrink: 0 !important;
+    }
+    
+    .current-path {
+        flex: 1 !important;
+        font-size: 0.7rem !important;
+        min-width: 0 !important;
+    }
+    
+    /* 缩小 footer */
+    .list-footer {
+        padding: 4px 8px !important;
+        font-size: 0.65rem !important;
+    }
+    
+    /* 文件列表项更紧凑 */
+    .file-item {
+        padding: 6px 8px !important;
+        gap: 6px !important;
+    }
+    
+    .file-icon {
+        font-size: 0.9rem !important;
+    }
+    
+    .file-name {
+        font-size: 0.75rem !important;
+    }
+    
+    .file-action-btn {
+        width: 22px !important;
+        height: 22px !important;
+        font-size: 0.7rem !important;
+    }
+}
