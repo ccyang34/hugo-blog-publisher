@@ -518,7 +518,7 @@
 }
 
 /* Responsive - Mobile */
-@media (max-width: 200px) {
+@media (max-width: 768px) {
     .browse-container {
         height: 100vh;
         width: 100vw;
