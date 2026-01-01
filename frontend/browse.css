@@ -603,15 +603,13 @@
         min-height: 0;
         padding: 12px;
         overflow-y: auto;
-        position: fixed;
-        /* Cover the list on mobile */
+        position: absolute;
         top: 0;
-        /* Will need adjustment based on header height, but JS logic will likely just hide list */
         left: 0;
         z-index: 20;
         background: var(--background);
         display: none;
-        /* Hidden by default on mobile */
+        /* Hidden by default on mobile - use absolute to not affect flex layout */
     }
 
     .article-content-panel.active-mobile {
