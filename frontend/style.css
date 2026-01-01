@@ -1802,16 +1802,17 @@ body {
         /* Slightly smaller font */
     }
 }
+
 /* 密码输入框内联样式 */
-.label-with-password {
+.inline-password-container {
     display: flex;
     align-items: center;
-    gap: 20px;
     margin-bottom: 10px;
 }
 
-.label-with-password label {
+.inline-password-container label {
     margin-bottom: 0 !important;
+    white-space: nowrap;
 }
 
 .inline-password-box {
@@ -1830,6 +1831,8 @@ body {
     border-radius: 4px;
     outline: none;
     transition: all 0.3s;
+    background: #f0f7ff;
+    /* 浅蓝色背景符合截图 */
 }
 
 .inline-password-box input:focus {
