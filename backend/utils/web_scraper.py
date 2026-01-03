@@ -7,17 +7,17 @@ import os
 from markdownify import markdownify as md
 from urllib.parse import urlparse
 
-# 导入小红书 API
+# 导入小红书 API（已复制到同目录）
 try:
-    # 添加 xiaohongshu 目录到路径
-    xiaohongshu_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'xiaohongshu')
-    if xiaohongshu_path not in sys.path:
-        sys.path.insert(0, xiaohongshu_path)
-    from xiaohongshu_api import XiaohongshuScraper
-    print("XiaohongshuScraper imported successfully")
-except ImportError as e:
-    print(f"Warning: Could not import XiaohongshuScraper: {e}")
-    XiaohongshuScraper = None
+    from .xiaohongshu_api import XiaohongshuScraper
+    print("XiaohongshuScraper imported from local module")
+except ImportError:
+    try:
+        from xiaohongshu_api import XiaohongshuScraper
+        print("XiaohongshuScraper imported directly")
+    except ImportError as e:
+        print(f"Warning: Could not import XiaohongshuScraper: {e}")
+        XiaohongshuScraper = None
 
 def fetch_article_content(url):
     """
