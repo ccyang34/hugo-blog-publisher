@@ -157,13 +157,23 @@ def _handle_xiaohongshu(soup, html_text, url=None):
     """
     使用 xiaohongshu_api.py 的高级解析逻辑处理小红书链接
     """
-    if XiaohongshuScraper is None or not url:
+    print(f"[XHS] _handle_xiaohongshu called with url={url}")
+    print(f"[XHS] XiaohongshuScraper available: {XiaohongshuScraper is not None}")
+    
+    if XiaohongshuScraper is None:
+        print("[XHS] XiaohongshuScraper is None, using legacy")
+        return _handle_xiaohongshu_legacy(soup, html_text)
+    
+    if not url:
+        print("[XHS] URL is empty, using legacy")
         return _handle_xiaohongshu_legacy(soup, html_text)
     
     try:
         print(f"[XHS] Using XiaohongshuScraper for URL: {url}")
         scraper = XiaohongshuScraper(use_public_key=True)
         result = scraper.fetch_article(url, use_cache=True)
+        
+        print(f"[XHS] API result success: {result.get('success')}")
         
         if not result.get('success'):
             print(f"[XHS] API failed: {result.get('message')}, falling back to legacy")
