@@ -258,12 +258,20 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
             'draft': draft
         })
 
-        # 1. Check if content is a URL
-        url_pattern = re.compile(r'^https?://\S+$')
-        is_url = url_pattern.match(content.strip())
+        # 1. 识别 URL（支持从文案中提取）
+        url_pattern = re.compile(r'https?://[^\s\u4e00-\u9fa5]+')
+        urls = url_pattern.findall(content.strip())
         
-        if is_url:
-            url = content.strip()
+        is_xiaohongshu = False
+        scraped_data = None
+        
+        if urls:
+            url = urls[0].rstrip('.,!?;:)]}）〉》」』')
+            # 小红书链接特殊处理
+            if 'xiaohongshu.com' in url or 'xhslink.com' in url:
+                is_xiaohongshu = True
+                add_job_log(job_id, '小红书识别', 'info', '识别为小红书链接，启用专用解析')
+            
             jobs[job_id]['message'] = '正在抓取链接内容...'
             add_job_log(job_id, 'URL抓取', 'start', f'检测到URL，开始抓取内容', {'url': url})
             print(f"Detected URL in publish: {url}, fetching content...")
@@ -272,13 +280,14 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
             
             if scraped_data:
                 content = scraped_data['content']
-                if not title and scraped_data['title']:
+                if not title and scraped_data.get('title'):
                     title = scraped_data['title']
                     print(f"Use scraped title: {title}")
                 add_job_log(job_id, 'URL抓取', 'success', '成功获取文章内容', {
                     'url': url,
                     'title': title,
-                    'content_length': len(content)
+                    'content_length': len(content),
+                    'platform': 'xiaohongshu' if is_xiaohongshu else 'generic'
                 })
                 # 立即更新任务历史中的标题
                 if title:
@@ -586,17 +595,19 @@ def format_article():
         tags = data.get('tags', [])
         category = data.get('category', '')
         
-        # Check if content is a URL
-        # Basic regex for URL: starts with http/https, no spaces, seems like a single link
-        url_pattern = re.compile(r'^https?://\S+$')
-        if url_pattern.match(content.strip()):
-            print(f"Detected URL: {content.strip()}, fetching content...")
-            scraped_data = fetch_article_content(content.strip())
+        # 识别 URL（支持从文案中提取）
+        url_pattern = re.compile(r'https?://[^\s\u4e00-\u9fa5]+')
+        urls = url_pattern.findall(content.strip())
+        
+        if urls:
+            url = urls[0].rstrip('.,!?;:)]}）〉》」』')
+            print(f"Detected URL: {url}, fetching content...")
+            scraped_data = fetch_article_content(url)
             
             if scraped_data:
                 content = scraped_data['content']
                 # Only use scraped title if user didn't provide one
-                if not title and scraped_data['title']:
+                if not title and scraped_data.get('title'):
                     title = scraped_data['title']
                     print(f"Use scraped title: {title}")
             else:
@@ -792,18 +803,25 @@ def publish_sync(data):
         target_dir = data.get('target_dir', 'content/posts')
         draft = data.get('draft', False)
 
-        # 1. Check if content is a URL
-        url_pattern = re.compile(r'^https?://\S+$')
-        is_url = url_pattern.match(content.strip())
+        # 1. 识别 URL（支持从文案中提取）
+        url_pattern = re.compile(r'https?://[^\s\u4e00-\u9fa5]+')
+        urls = url_pattern.findall(content.strip())
         
-        if is_url:
-            url = content.strip()
+        is_xiaohongshu = False
+        
+        if urls:
+            url = urls[0].rstrip('.,!?;:)]}）〉》」』')
+            # 小红书链接特殊处理
+            if 'xiaohongshu.com' in url or 'xhslink.com' in url:
+                is_xiaohongshu = True
+                print(f"[Sync] Detected Xiaohongshu URL: {url}")
+            
             print(f"[Sync] Detected URL: {url}, fetching content...")
             scraped_data = fetch_article_content(url)
             
             if scraped_data:
                 content = scraped_data['content']
-                if not title and scraped_data['title']:
+                if not title and scraped_data.get('title'):
                     title = scraped_data['title']
                     print(f"[Sync] Use scraped title: {title}")
             else:

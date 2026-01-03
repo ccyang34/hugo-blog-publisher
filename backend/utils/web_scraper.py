@@ -2,8 +2,22 @@ import requests
 from bs4 import BeautifulSoup
 import re
 import json
+import sys
+import os
 from markdownify import markdownify as md
 from urllib.parse import urlparse
+
+# 导入小红书 API
+try:
+    # 添加 xiaohongshu 目录到路径
+    xiaohongshu_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'xiaohongshu')
+    if xiaohongshu_path not in sys.path:
+        sys.path.insert(0, xiaohongshu_path)
+    from xiaohongshu_api import XiaohongshuScraper
+    print("XiaohongshuScraper imported successfully")
+except ImportError as e:
+    print(f"Warning: Could not import XiaohongshuScraper: {e}")
+    XiaohongshuScraper = None
 
 def fetch_article_content(url):
     """
@@ -18,6 +32,10 @@ def fetch_article_content(url):
             'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8'
         }
         
+        # 检查是否是小红书短链或长链
+        original_url = url
+        is_xiaohongshu = 'xiaohongshu.com' in url or 'xhslink.com' in url
+        
         # Requests with timeout
         response = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
         response.raise_for_status()
@@ -30,12 +48,13 @@ def fetch_article_content(url):
         
         domain = urlparse(url).netloc
         
-        if 'weixin.qq.com' in domain:
+        # 小红书链接（包括短链）优先使用 API
+        if is_xiaohongshu or 'xiaohongshu.com' in domain:
+            return _handle_xiaohongshu(soup, response.text, url=original_url)
+        elif 'weixin.qq.com' in domain:
             return _handle_wechat(soup)
         elif 'toutiao.com' in domain:
             return _handle_toutiao(soup)
-        elif 'xiaohongshu.com' in domain:
-            return _handle_xiaohongshu(soup, response.text)
         elif 'zhihu.com' in domain:
             return _handle_zhihu(soup)
         else:
@@ -103,12 +122,98 @@ def _handle_toutiao(soup):
         'content': text.strip()
     }
 
-def _handle_xiaohongshu(soup, html_text):
-    """Parse Xiaohongshu notes"""
+def _handle_xiaohongshu(soup, html_text, url=None):
+    """
+    使用 xiaohongshu_api.py 的高级解析逻辑处理小红书链接
+    """
+    if XiaohongshuScraper is None or not url:
+        return _handle_xiaohongshu_legacy(soup, html_text)
+    
+    try:
+        print(f"[XHS] Using XiaohongshuScraper for URL: {url}")
+        scraper = XiaohongshuScraper(use_public_key=True)
+        result = scraper.fetch_article(url, use_cache=True)
+        
+        if not result.get('success'):
+            print(f"[XHS] API failed: {result.get('message')}, falling back to legacy")
+            return _handle_xiaohongshu_legacy(soup, html_text)
+        
+        data = result['data']
+        title = data.get('title', '')
+        desc = data.get('desc', '')
+        nickname = data.get('nickname', '')
+        note_id = data.get('noteId', '')
+        user_id = data.get('userId', '')
+        avatar = data.get('avatar', '')
+        
+        # 构建 Markdown 内容
+        md_parts = []
+        
+        # 作者信息
+        if nickname:
+            md_parts.append(f"**作者**: {nickname}\n")
+        if note_id:
+            md_parts.append(f"**原文链接**: https://www.xiaohongshu.com/discovery/item/{note_id}\n")
+        md_parts.append("---\n")
+        
+        # 描述内容
+        if desc:
+            md_parts.append("## 描述\n\n")
+            md_parts.append(f"{desc}\n\n")
+        
+        # 处理图片 - 使用滑动组件
+        images = data.get('data', [])
+        if images:
+            md_parts.append(f"\n## 图片 ({len(images)}张)\n\n")
+            
+            if len(images) > 1:
+                # 多图滑动组件
+                md_parts.append('<div class="xhs-slider" style="display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 10px; padding-bottom: 10px; -webkit-overflow-scrolling: touch;">\n')
+                for i, img in enumerate(images, 1):
+                    img_url = img.get('urlPre') or img.get('urlDefault', '')
+                    if img_url:
+                        # 使用图片代理绕过防盗链
+                        proxy_url = f"https://i0.wp.com/{img_url.replace('https://', '').replace('http://', '')}"
+                        md_parts.append(f'  <div style="flex: 0 0 100%; scroll-snap-align: start;"><img src="{proxy_url}" style="width: 100%; border-radius: 8px;" alt="图片{i}" /></div>\n')
+                md_parts.append('</div>\n\n')
+            else:
+                # 单图
+                img_url = images[0].get('urlPre') or images[0].get('urlDefault', '')
+                if img_url:
+                    proxy_url = f"https://i0.wp.com/{img_url.replace('https://', '').replace('http://', '')}"
+                    md_parts.append(f"![{title or '图片'}]({proxy_url})\n\n")
+        
+        # 处理视频
+        videos = data.get('video', [])
+        if videos:
+            md_parts.append(f"\n## 视频 ({len(videos)}个)\n\n")
+            for i, video in enumerate(videos, 1):
+                video_url = video.get('masterUrl', '')
+                if video_url:
+                    md_parts.append(f'<video src="{video_url}" controls style="width: 100%; border-radius: 8px; margin-top: 10px;"></video>\n\n')
+        
+        # 来源标注
+        md_parts.append("---\n")
+        md_parts.append("*来源: 小红书*\n")
+        
+        content = ''.join(md_parts)
+        
+        return {
+            'title': title,
+            'content': content,
+            'platform': 'xiaohongshu',
+            'raw_data': data
+        }
+    except Exception as e:
+        print(f"[XHS] Error using XiaohongshuScraper: {e}")
+        return _handle_xiaohongshu_legacy(soup, html_text)
+
+
+def _handle_xiaohongshu_legacy(soup, html_text):
+    """原有的简单解析逻辑，作为备选"""
     title = ""
     content = ""
     
-    # Method 1: Meta tags (most reliable for simple scraping without JS execution)
     og_title = soup.find('meta', property='og:title')
     if og_title:
         title = og_title.get('content', '')
@@ -118,29 +223,15 @@ def _handle_xiaohongshu(soup, html_text):
     if og_desc:
         desc = og_desc.get('content', '')
     
-    # Extract images from meta tags if possible, or try to parse JSON state
     image_md = ""
     og_image = soup.find('meta', property='og:image')
     if og_image:
         img_url = og_image.get('content', '')
         image_md = f"![{title}]({img_url})\n\n"
-        
-    if not title and not desc:
-         # Try to find JSON state
-        try:
-            json_pattern = re.search(r'window\.__INITIAL_STATE__=(.*?);', html_text)
-            if json_pattern:
-                data = json.loads(json_pattern.group(1))
-                # This path is hypothetical and needs verification on actual XHS page behavior
-                # But typically note data is deeply nested.
-                pass
-        except:
-            pass
 
     content = f"{image_md}{desc}"
     
     if not content.strip():
-        # Fallback to generic, might find something
         return _handle_generic(soup)
         
     return {
