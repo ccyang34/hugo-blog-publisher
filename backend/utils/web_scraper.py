@@ -171,7 +171,7 @@ def _handle_xiaohongshu(soup, html_text, url=None):
     try:
         print(f"[XHS] Using XiaohongshuScraper for URL: {url}")
         scraper = XiaohongshuScraper(use_public_key=True)
-        result = scraper.fetch_article(url, use_cache=True)
+        result = scraper.fetch_article(url)
         
         print(f"[XHS] API result success: {result.get('success')}")
         

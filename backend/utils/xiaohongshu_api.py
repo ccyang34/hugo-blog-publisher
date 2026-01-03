@@ -31,9 +31,7 @@ class XiaohongshuScraper:
         self,
         developer_id: Optional[str] = None,
         api_key: Optional[str] = None,
-        use_public_key: bool = True,
-        cache_dir: str = '.cache',
-        log_level: int = logging.INFO
+        use_public_key: bool = True
     ):
         """
         初始化抓取工具
@@ -42,49 +40,25 @@ class XiaohongshuScraper:
             developer_id: 开发者ID
             api_key: API密钥
             use_public_key: 是否使用公共密钥
-            cache_dir: 缓存目录
-            log_level: 日志级别
         """
         self.developer_id = developer_id
         self.api_key = api_key
         self.use_public_key = use_public_key
         self.api_info_url = "https://www.apihz.cn/api/caijixiaohongshu.html"
         self.api_endpoints = []
-        self.cache_dir = cache_dir
         self.session = requests.Session()
         
-        self._setup_logging(log_level)
-        self._setup_cache()
+        self._setup_logging()
         self._fetch_api_endpoints()
     
-    def _setup_logging(self, log_level: int):
-        """设置日志"""
-        # 在 Serverless 环境中，文件系统是只读的，只使用控制台输出
-        handlers = [logging.StreamHandler()]
-        
-        # 尝试添加文件处理器，如果失败则忽略
-        try:
-            handlers.append(logging.FileHandler('xiaohongshu_scraper.log', encoding='utf-8'))
-        except (OSError, PermissionError):
-            pass  # 在只读文件系统上忽略文件日志
-        
+    def _setup_logging(self):
+        """设置日志 - 仅控制台输出"""
         logging.basicConfig(
-            level=log_level,
+            level=logging.INFO,
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            handlers=handlers
+            handlers=[logging.StreamHandler()]
         )
         self.logger = logging.getLogger(__name__)
-    
-    def _setup_cache(self):
-        """设置缓存目录"""
-        # 在 Serverless 环境中，文件系统可能是只读的，如果创建失败则禁用缓存
-        try:
-            if not os.path.exists(self.cache_dir):
-                os.makedirs(self.cache_dir)
-            self._cache_enabled = True
-        except (OSError, PermissionError):
-            self.cache_dir = None
-            self._cache_enabled = False
     
     def _fetch_api_endpoints(self):
         """
@@ -118,55 +92,7 @@ class XiaohongshuScraper:
             "http://124.222.204.22/api/caiji/xiaohongshu.php",
             "http://81.68.149.132/api/caiji/xiaohongshu.php"
         ]
-    
-    def _get_cache_key(self, article_url: str) -> str:
-        """生成缓存键"""
-        import hashlib
-        return hashlib.md5(article_url.encode()).hexdigest()
-    
-    def _get_cache_path(self, cache_key: str) -> str:
-        """获取缓存文件路径"""
-        return os.path.join(self.cache_dir, f"{cache_key}.json")
-    
-    def _load_from_cache(self, article_url: str) -> Optional[Dict]:
-        """从缓存加载数据"""
-        if not getattr(self, '_cache_enabled', False) or not self.cache_dir:
-            return None
-            
-        cache_key = self._get_cache_key(article_url)
-        cache_path = self._get_cache_path(cache_key)
-        
-        if os.path.exists(cache_path):
-            try:
-                with open(cache_path, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    cache_time = datetime.fromisoformat(data.get('cache_time', ''))
-                    if (datetime.now() - cache_time).days < 1:
-                        self.logger.info("从缓存加载数据")
-                        return data.get('data')
-            except Exception as e:
-                self.logger.warning(f"加载缓存失败: {str(e)}")
-        
-        return None
-    
-    def _save_to_cache(self, article_url: str, data: Dict):
-        """保存数据到缓存"""
-        if not getattr(self, '_cache_enabled', False) or not self.cache_dir:
-            return
-            
-        cache_key = self._get_cache_key(article_url)
-        cache_path = self._get_cache_path(cache_key)
-        
-        try:
-            cache_data = {
-                'cache_time': datetime.now().isoformat(),
-                'data': data
-            }
-            with open(cache_path, 'w', encoding='utf-8') as f:
-                json.dump(cache_data, f, ensure_ascii=False, indent=2)
-            self.logger.info("数据已缓存")
-        except Exception as e:
-            self.logger.warning(f"保存缓存失败: {str(e)}")
+
     
     def _extract_article_id(self, url: str) -> Optional[str]:
         """
@@ -233,7 +159,6 @@ class XiaohongshuScraper:
     def fetch_article(
         self,
         article_url: str,
-        use_cache: bool = True,
         max_retries: int = 3,
         retry_delay: int = 2
     ) -> Dict:
@@ -242,15 +167,12 @@ class XiaohongshuScraper:
         
         Args:
             article_url: 小红书文章URL
-            use_cache: 是否使用缓存
             max_retries: 最大重试次数
             retry_delay: 重试延迟（秒）
             
         Returns:
             包含文章数据的字典
         """
-        original_url = article_url
-        
         if 'xhslink.com' in article_url:
             full_url = self._resolve_short_link(article_url)
             if full_url:
@@ -269,15 +191,6 @@ class XiaohongshuScraper:
                 'message': '无法从URL中提取文章ID',
                 'code': 400
             }
-        
-        if use_cache:
-            cached_data = self._load_from_cache(original_url)
-            if cached_data:
-                return {
-                    'success': True,
-                    'data': cached_data,
-                    'from_cache': True
-                }
         
         params = {
             'url': article_url
@@ -308,12 +221,10 @@ class XiaohongshuScraper:
                     result = response.json()
 
                     if result.get('code') == 200:
-                        self._save_to_cache(article_url, result)
                         return {
                             'success': True,
                             'data': result,
-                            'endpoint': endpoint,
-                            'from_cache': False
+                            'endpoint': endpoint
                         }
                     elif result.get('code') == 400:
                         error_msg = result.get('msg', '未知错误')
@@ -562,7 +473,6 @@ def scrape_xiaohongshu(
     save_markdown: bool = True,
     download_media: bool = False,
     output_dir: str = 'xiaohongshu_articles',
-    use_cache: bool = True,
     developer_id: Optional[str] = None,
     api_key: Optional[str] = None
 ) -> Dict:
@@ -574,7 +484,6 @@ def scrape_xiaohongshu(
         save_markdown: 是否保存为Markdown
         download_media: 是否下载媒体文件
         output_dir: 输出目录
-        use_cache: 是否使用缓存
         developer_id: 开发者ID
         api_key: API密钥
         
@@ -587,7 +496,7 @@ def scrape_xiaohongshu(
         use_public_key=True
     )
     
-    result = scraper.fetch_article(url, use_cache=use_cache)
+    result = scraper.fetch_article(url)
     
     if result.get('success'):
         if save_markdown:
@@ -608,26 +517,22 @@ if __name__ == '__main__':
         print("使用方法:")
         print("  python3 xiaohongshu_api.py <小红书文章URL>")
         print("  python3 xiaohongshu_api.py <小红书文章URL> --download-media")
-        print("  python3 xiaohongshu_api.py <小红书文章URL> --no-cache")
         sys.exit(1)
     
     url = sys.argv[1]
     download_media = '--download-media' in sys.argv
-    use_cache = '--no-cache' not in sys.argv
     
     print("小红书文章抓取工具")
     print("=" * 60)
     print(f"目标URL: {url}")
     print(f"下载媒体: {'是' if download_media else '否'}")
-    print(f"使用缓存: {'是' if use_cache else '否'}")
     print("=" * 60)
     print()
     
     result = scrape_xiaohongshu(
         url=url,
         save_markdown=True,
-        download_media=download_media,
-        use_cache=use_cache
+        download_media=download_media
     )
     
     if result.get('success'):
