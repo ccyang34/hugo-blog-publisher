@@ -7,17 +7,48 @@ import os
 from markdownify import markdownify as md
 from urllib.parse import urlparse
 
-# 导入小红书 API（已复制到同目录）
+# 导入小红书 API - 多种方式尝试
+XiaohongshuScraper = None
+
+# 方式1：尝试从 backend.utils 包导入
 try:
-    from .xiaohongshu_api import XiaohongshuScraper
-    print("XiaohongshuScraper imported from local module")
+    from backend.utils.xiaohongshu_api import XiaohongshuScraper
+    print("XiaohongshuScraper imported from backend.utils")
 except ImportError:
+    pass
+
+# 方式2：尝试相对导入
+if XiaohongshuScraper is None:
+    try:
+        from .xiaohongshu_api import XiaohongshuScraper
+        print("XiaohongshuScraper imported from relative module")
+    except ImportError:
+        pass
+
+# 方式3：尝试直接导入
+if XiaohongshuScraper is None:
     try:
         from xiaohongshu_api import XiaohongshuScraper
         print("XiaohongshuScraper imported directly")
+    except ImportError:
+        pass
+
+# 方式4：动态添加路径后导入
+if XiaohongshuScraper is None:
+    try:
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        if current_dir not in sys.path:
+            sys.path.insert(0, current_dir)
+        from xiaohongshu_api import XiaohongshuScraper
+        print(f"XiaohongshuScraper imported via path: {current_dir}")
     except ImportError as e:
-        print(f"Warning: Could not import XiaohongshuScraper: {e}")
+        print(f"Warning: All import attempts failed for XiaohongshuScraper: {e}")
         XiaohongshuScraper = None
+
+if XiaohongshuScraper:
+    print("XiaohongshuScraper is ready!")
+else:
+    print("XiaohongshuScraper not available, will use legacy parser")
 
 def fetch_article_content(url):
     """
