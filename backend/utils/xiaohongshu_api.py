@@ -59,20 +59,32 @@ class XiaohongshuScraper:
     
     def _setup_logging(self, log_level: int):
         """设置日志"""
+        # 在 Serverless 环境中，文件系统是只读的，只使用控制台输出
+        handlers = [logging.StreamHandler()]
+        
+        # 尝试添加文件处理器，如果失败则忽略
+        try:
+            handlers.append(logging.FileHandler('xiaohongshu_scraper.log', encoding='utf-8'))
+        except (OSError, PermissionError):
+            pass  # 在只读文件系统上忽略文件日志
+        
         logging.basicConfig(
             level=log_level,
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            handlers=[
-                logging.FileHandler('xiaohongshu_scraper.log', encoding='utf-8'),
-                logging.StreamHandler()
-            ]
+            handlers=handlers
         )
         self.logger = logging.getLogger(__name__)
     
     def _setup_cache(self):
         """设置缓存目录"""
-        if not os.path.exists(self.cache_dir):
-            os.makedirs(self.cache_dir)
+        # 在 Serverless 环境中，文件系统可能是只读的，如果创建失败则禁用缓存
+        try:
+            if not os.path.exists(self.cache_dir):
+                os.makedirs(self.cache_dir)
+            self._cache_enabled = True
+        except (OSError, PermissionError):
+            self.cache_dir = None
+            self._cache_enabled = False
     
     def _fetch_api_endpoints(self):
         """
@@ -118,6 +130,9 @@ class XiaohongshuScraper:
     
     def _load_from_cache(self, article_url: str) -> Optional[Dict]:
         """从缓存加载数据"""
+        if not getattr(self, '_cache_enabled', False) or not self.cache_dir:
+            return None
+            
         cache_key = self._get_cache_key(article_url)
         cache_path = self._get_cache_path(cache_key)
         
@@ -136,6 +151,9 @@ class XiaohongshuScraper:
     
     def _save_to_cache(self, article_url: str, data: Dict):
         """保存数据到缓存"""
+        if not getattr(self, '_cache_enabled', False) or not self.cache_dir:
+            return
+            
         cache_key = self._get_cache_key(article_url)
         cache_path = self._get_cache_path(cache_key)
         
