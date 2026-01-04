@@ -69,6 +69,21 @@ class DeepSeekService:
         返回:
             完整的提示词
         """
+        # 检测是否是小红书内容
+        is_xiaohongshu = 'xhs-slider' in content or '来源: 小红书' in content or '**作者**:' in content
+        
+        platform_rules = ""
+        if is_xiaohongshu:
+            platform_rules = """
+## 小红书内容专属规则（必须严格遵守）
+1. **绝对保留 HTML 图片组件**：文中的 `<div class="xhs-slider">` 及其内部所有 `<img>` 标签必须完整保留，不得删除、修改或转换为其他格式。
+2. **保留作者信息**：`**作者**: xxx` 和 `**原文链接**: xxx` 必须保留。
+3. **保留描述内容**：`## 描述` 下的文字内容必须完整保留，只做格式优化，不要删除或重写。
+4. **保留视频标签**：`<video>` 标签必须完整保留。
+5. **保留来源标注**：`*来源: 小红书*` 必须保留。
+6. **保留 emoji 表情**：原文中的所有 emoji 表情符号必须保留。
+"""
+
         prompt = f"""你是一个专业的博客文章编辑专家，擅长解析和排版静态网站内容。
 请对以下文章内容进行深度分析并重新排版。**注意：输入的内容可能是直接粘贴的文章文本或从网页抓取的 Markdown**。无论哪种，都请严格遵守以下规则。
 
@@ -84,12 +99,14 @@ class DeepSeekService:
    - **严格保留原义**：不要重写、摘要或扩写正文内容，保持原文的完整性。
    - **保留结构**：严格还原原文的层级结构（H2/H3）、列表（有序/无序）、引用、代码块。
    - **严禁删除图片/链接**：**必须**保留原文中所有的图片链接 `![alt](url)` 和超链接，位置不能错乱。
+   - **严禁删除 HTML 标签**：**必须**保留原文中所有的 HTML 标签（如 `<div>`, `<img>`, `<video>` 等）。
    - **优化阅读体验**：仅进行排版层面的优化，如：
      - 修正标点符号（如中英文标点混用）。
      - 优化段落间距。
      - 修正明显的错别字。
    - **Markdown 规范**：确保输出符合标准 Markdown 语法。
    - 严禁输出 YAML Front Matter 或 Markdown 一级标题（H1）。
+{platform_rules}
 3. **输出格式**：
    - 必须以 JSON 格式返回，包含以下字段：
      - `title`: 最终确定的标题
@@ -98,7 +115,6 @@ class DeepSeekService:
      - `content`: 格式化后的正文 Markdown
 
 直接返回 JSON 对象，不要包含解释或代码块标记。"""
-        return prompt
         return prompt
     
     def format_article(self, content: str, title: str = '', tags: List[str] = None, category: str = '') -> Dict[str, Any]:
