@@ -83,13 +83,13 @@ def fetch_article_content(url):
         if is_xiaohongshu or 'xiaohongshu.com' in domain:
             return _handle_xiaohongshu(soup, response.text, url=original_url)
         elif 'weixin.qq.com' in domain:
-            return _handle_wechat(soup)
+            return _handle_wechat(soup, url=url)
         elif 'toutiao.com' in domain:
-            return _handle_toutiao(soup)
+            return _handle_toutiao(soup, url=url)
         elif 'zhihu.com' in domain:
-            return _handle_zhihu(soup)
+            return _handle_zhihu(soup, url=url)
         else:
-            return _handle_generic(soup)
+            return _handle_generic(soup, url=url)
 
     except Exception as e:
         print(f"Error fetching URL {url}: {e}")
@@ -101,12 +101,12 @@ def _clean_soup(soup):
         tag.decompose()
     return soup
 
-def _handle_wechat(soup):
+def _handle_wechat(soup, url=None):
     """Parse WeChat Official Account articles"""
     article = soup.find(id='js_content') or soup.find(class_='rich_media_content')
     
     if not article:
-        return _handle_generic(soup)
+        return _handle_generic(soup, url=url)
 
     # Handle lazy loading images
     for img in article.find_all('img'):
@@ -123,19 +123,27 @@ def _handle_wechat(soup):
     _clean_soup(article)
     text = md(str(article), heading_style="ATX")
     
+    # 添加底部来源链接
+    text = text.strip()
+    text += "\n\n---\n"
+    if url:
+        text += f"*来源: [微信公众号]({url})*\n"
+    else:
+        text += "*来源: 微信公众号*\n"
+    
     return {
         'title': title,
-        'content': text.strip()
+        'content': text
     }
 
-def _handle_toutiao(soup):
+def _handle_toutiao(soup, url=None):
     """Parse Toutiao articles"""
     # Mobile Toutiao usually has 'article-content' or 'tt-article-content'
     article = soup.find(class_='article-content') or soup.find('article') or soup.find(class_='tt-article-content')
     
     if not article:
         # Fallback to generic if specific class not found
-        return _handle_generic(soup)
+        return _handle_generic(soup, url=url)
         
     for img in article.find_all('img'):
         pass
@@ -148,9 +156,17 @@ def _handle_toutiao(soup):
     _clean_soup(article)
     text = md(str(article), heading_style="ATX")
     
+    # 添加底部来源链接
+    text = text.strip()
+    text += "\n\n---\n"
+    if url:
+        text += f"*来源: [今日头条]({url})*\n"
+    else:
+        text += "*来源: 今日头条*\n"
+    
     return {
         'title': title,
-        'content': text.strip()
+        'content': text
     }
 
 def _handle_xiaohongshu(soup, html_text, url=None):
@@ -311,12 +327,12 @@ def _handle_xiaohongshu_legacy(soup, html_text):
         'content': content
     }
 
-def _handle_zhihu(soup):
+def _handle_zhihu(soup, url=None):
     """Parse Zhihu answers/articles"""
     article = soup.find(class_='RichContent-inner') or soup.find(class_='Post-RichText')
     
     if not article:
-        return _handle_generic(soup)
+        return _handle_generic(soup, url=url)
         
     # Lazy load images
     for img in article.find_all('img'):
@@ -336,12 +352,20 @@ def _handle_zhihu(soup):
     _clean_soup(article)
     text = md(str(article), heading_style="ATX")
     
+    # 添加底部来源链接
+    text = text.strip()
+    text += "\n\n---\n"
+    if url:
+        text += f"*来源: [知乎]({url})*\n"
+    else:
+        text += "*来源: 知乎*\n"
+    
     return {
         'title': title,
-        'content': text.strip()
+        'content': text
     }
 
-def _handle_generic(soup):
+def _handle_generic(soup, url=None):
     """Generic fallback parser"""
     _clean_soup(soup)
     
@@ -385,7 +409,13 @@ def _handle_generic(soup):
             
     text = md(str(article), heading_style="ATX", strip=['script', 'style'])
     
+    # 添加底部来源链接
+    text = text.strip()
+    if url:
+        text += "\n\n---\n"
+        text += f"*来源: [原文链接]({url})*\n"
+    
     return {
-        'title': title.strip(),
-        'content': text.strip()
+        'title': title.strip() if title else '',
+        'content': text
     }
