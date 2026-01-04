@@ -83,7 +83,7 @@ def fetch_article_content(url):
         if is_xiaohongshu or 'xiaohongshu.com' in domain:
             return _handle_xiaohongshu(soup, response.text, url=original_url)
         elif 'weixin.qq.com' in domain:
-            return _handle_wechat(soup, url=url)
+            return _handle_wechat(soup)
         elif 'toutiao.com' in domain:
             return _handle_toutiao(soup)
         elif 'zhihu.com' in domain:
@@ -101,12 +101,12 @@ def _clean_soup(soup):
         tag.decompose()
     return soup
 
-def _handle_wechat(soup, url=None):
+def _handle_wechat(soup):
     """Parse WeChat Official Account articles"""
     article = soup.find(id='js_content') or soup.find(class_='rich_media_content')
     
     if not article:
-        return _handle_generic(soup, url)
+        return _handle_generic(soup)
 
     # Handle lazy loading images
     for img in article.find_all('img'):
@@ -123,17 +123,9 @@ def _handle_wechat(soup, url=None):
     _clean_soup(article)
     text = md(str(article), heading_style="ATX")
     
-    # 添加底部来源标注
-    text = text.strip()
-    text += "\n\n---\n"
-    if url:
-        text += f"*来源: [微信公众号]({url})*\n"
-    else:
-        text += "*来源: 微信公众号*\n"
-    
     return {
         'title': title,
-        'content': text
+        'content': text.strip()
     }
 
 def _handle_toutiao(soup):
@@ -231,9 +223,11 @@ def _handle_xiaohongshu(soup, html_text, url=None):
         # 构建 Markdown 内容
         md_parts = []
         
-        # 作者信息（不再放原文链接，移到底部）
+        # 作者信息
         if nickname:
             md_parts.append(f"**作者**: {nickname}\n")
+        if note_id:
+            md_parts.append(f"**原文链接**: https://www.xiaohongshu.com/discovery/item/{note_id}\n")
         md_parts.append("---\n")
         
         # 描述内容
@@ -241,28 +235,18 @@ def _handle_xiaohongshu(soup, html_text, url=None):
             md_parts.append("## 描述\n\n")
             md_parts.append(f"{desc}\n\n")
         
-        # 处理图片 - 使用滑动组件，优先使用原图
+        # 处理图片 - 竖向顺序排列
         images = data.get('data', [])
         if images:
             md_parts.append(f"\n## 图片 ({len(images)}张)\n\n")
             
-            if len(images) > 1:
-                # 多图滑动组件
-                md_parts.append('<div class="xhs-slider" style="display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 10px; padding-bottom: 10px; -webkit-overflow-scrolling: touch;">\n')
-                for i, img in enumerate(images, 1):
-                    # 优先使用原图 urlDefault，不存在则使用预览图 urlPre
-                    img_url = img.get('urlDefault') or img.get('urlPre', '')
-                    if img_url:
-                        # 使用图片代理绕过防盗链
-                        proxy_url = f"https://i0.wp.com/{img_url.replace('https://', '').replace('http://', '')}"
-                        md_parts.append(f'  <div style="flex: 0 0 100%; scroll-snap-align: start;"><img src="{proxy_url}" style="width: 100%; border-radius: 8px;" alt="图片{i}" /></div>\n')
-                md_parts.append('</div>\n\n')
-            else:
-                # 单图 - 优先使用原图
-                img_url = images[0].get('urlDefault') or images[0].get('urlPre', '')
+            for i, img in enumerate(images, 1):
+                # 优先使用原图 urlDefault，不存在则使用预览图 urlPre
+                img_url = img.get('urlDefault') or img.get('urlPre', '')
                 if img_url:
+                    # 使用图片代理绕过防盗链
                     proxy_url = f"https://i0.wp.com/{img_url.replace('https://', '').replace('http://', '')}"
-                    md_parts.append(f"![{title or '图片'}]({proxy_url})\n\n")
+                    md_parts.append(f"![图片{i}]({proxy_url})\n\n")
         
         # 处理视频
         videos = data.get('video', [])
@@ -273,12 +257,9 @@ def _handle_xiaohongshu(soup, html_text, url=None):
                 if video_url:
                     md_parts.append(f'<video src="{video_url}" controls style="width: 100%; border-radius: 8px; margin-top: 10px;"></video>\n\n')
         
-        # 来源标注（包含原文链接）
+        # 来源标注
         md_parts.append("---\n")
-        if note_id:
-            md_parts.append(f"*来源: [小红书](https://www.xiaohongshu.com/discovery/item/{note_id})*\n")
-        else:
-            md_parts.append("*来源: 小红书*\n")
+        md_parts.append("*来源: 小红书*\n")
         
         content = ''.join(md_parts)
         
