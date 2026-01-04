@@ -313,8 +313,8 @@ body {
 .action-buttons {
     display: flex;
     gap: 12px;
-    margin-top: 20px;
-    padding-top: 20px;
+    margin-top: 10px;
+    padding-top: 10px;
     border-top: 1px solid var(--border-color);
 }
 
