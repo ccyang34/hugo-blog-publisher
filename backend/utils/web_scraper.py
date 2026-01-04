@@ -102,7 +102,7 @@ def _clean_soup(soup):
     return soup
 
 def _handle_wechat(soup, url=None):
-    """Parse WeChat Official Account articles"""
+    """Parse WeChat Official Account articles - 视频保留在原位置"""
     article = soup.find(id='js_content') or soup.find(class_='rich_media_content')
     
     if not article:
@@ -113,73 +113,53 @@ def _handle_wechat(soup, url=None):
         if img.get('data-src'):
             img['src'] = img['data-src']
     
-    # 提取并保留视频元素
-    video_elements = []
+    # 在原位置将视频标签转换为可识别的 HTML 格式
+    video_count = 0
     
-    # 1. 处理 iframe 视频（腾讯视频、微信视频号等）
+    # 1. 处理 iframe 视频（腾讯视频、微信视频号等）- 原位保留
     for iframe in article.find_all('iframe'):
         src = iframe.get('data-src') or iframe.get('src', '')
         if src and ('v.qq.com' in src or 'mp.weixin.qq.com' in src or 'channels' in src or 'mpvideo' in src):
-            # 提取视频信息
-            width = iframe.get('width', '100%')
-            height = iframe.get('height', '360')
-            video_elements.append({
-                'type': 'iframe',
-                'src': src,
-                'width': width,
-                'height': height
-            })
+            video_count += 1
+            # 创建新的 iframe 标签并替换原标签
+            new_tag = soup.new_tag('div', attrs={'class': 'video-embed'})
+            new_tag.string = f'[[VIDEO_IFRAME:{src}]]'
+            iframe.replace_with(new_tag)
     
-    # 2. 处理 mpvideo 标签（微信自有视频标签）
+    # 2. 处理 mpvideo 标签（微信自有视频标签）- 原位替换
     for mpvideo in article.find_all('mpvideo'):
         src = mpvideo.get('data-src') or mpvideo.get('src', '')
         cover = mpvideo.get('data-cover') or mpvideo.get('cover', '')
         video_id = mpvideo.get('data-vidtype') or mpvideo.get('data-videoid', '')
-        # 构造可播放链接
         if not src and video_id:
             src = f"https://mp.weixin.qq.com/mp/videoplayer?action=mpvideo&__biz=&vid={video_id}"
         if src or cover:
-            video_elements.append({
-                'type': 'mpvideo',
-                'src': src,
-                'cover': cover
-            })
+            video_count += 1
+            new_tag = soup.new_tag('div', attrs={'class': 'video-embed'})
+            new_tag.string = f'[[VIDEO_MPVIDEO:{src}:{cover}]]'
+            mpvideo.replace_with(new_tag)
     
-    # 3. 处理 wx-video 标签（视频号视频）
+    # 3. 处理 wx-video 标签（视频号视频）- 原位替换
     for wxvideo in article.find_all(['wx-video', 'mp-common-videosnap']):
         src = wxvideo.get('data-src') or wxvideo.get('src', '')
         cover = wxvideo.get('data-poster') or wxvideo.get('data-cover', '')
-        video_elements.append({
-            'type': 'wx-video',
-            'src': src,
-            'cover': cover,
-            'attrs': dict(wxvideo.attrs)  # 保留所有属性
-        })
+        video_count += 1
+        new_tag = soup.new_tag('div', attrs={'class': 'video-embed'})
+        new_tag.string = f'[[VIDEO_WXVIDEO:{src}:{cover}]]'
+        wxvideo.replace_with(new_tag)
     
-    # 4. 处理标准 video 标签
+    # 4. 处理标准 video 标签 - 原位保留
     for video in article.find_all('video'):
         src = video.get('data-src') or video.get('src', '')
         poster = video.get('poster', '')
-        # 检查 source 子标签
         source = video.find('source')
         if source and not src:
             src = source.get('src', '')
         if src or poster:
-            video_elements.append({
-                'type': 'video',
-                'src': src,
-                'poster': poster
-            })
-    
-    # 5. 处理包含视频的链接（video-link 等）
-    for link in article.find_all('a', class_=re.compile(r'video|media', re.I)):
-        href = link.get('href', '')
-        if href and ('v.qq.com' in href or 'mp4' in href or 'video' in href):
-            video_elements.append({
-                'type': 'link',
-                'src': href,
-                'text': link.get_text().strip()
-            })
+            video_count += 1
+            new_tag = soup.new_tag('div', attrs={'class': 'video-embed'})
+            new_tag.string = f'[[VIDEO_STANDARD:{src}:{poster}]]'
+            video.replace_with(new_tag)
             
     title = ""
     if soup.find('h1'):
@@ -187,43 +167,53 @@ def _handle_wechat(soup, url=None):
     elif soup.find(id='activity-name'):
          title = soup.find(id='activity-name').get_text().strip()
     
-    # Clean and convert (但不删除 iframe)
     # 移除不需要的标签，但保留媒体相关的
     for tag in article(["script", "style", "nav", "footer", "noscript", "header", "aside"]):
         tag.decompose()
     
+    # 转换为 Markdown
     text = md(str(article), heading_style="ATX")
     
-    # 在 Markdown 内容后添加视频
-    if video_elements:
-        text = text.strip()
-        text += "\n\n---\n## 视频\n\n"
-        for i, video in enumerate(video_elements, 1):
-            if video['type'] == 'iframe':
-                # 嵌入 iframe 视频
-                text += f'<iframe src="{video["src"]}" width="{video["width"]}" height="{video["height"]}" frameborder="0" allowfullscreen></iframe>\n\n'
-            elif video['type'] == 'mpvideo':
-                # 微信视频 - 使用 iframe 或显示封面图和链接
-                if video.get('src'):
-                    text += f'<iframe src="{video["src"]}" width="100%" height="360" frameborder="0" allowfullscreen></iframe>\n\n'
-                elif video.get('cover'):
-                    text += f'![视频封面]({video["cover"]})\n\n*[点击观看视频]({video.get("src", url)})*\n\n'
-            elif video['type'] == 'wx-video':
-                # 视频号视频 - 显示封面和链接
-                if video.get('cover'):
-                    text += f'![视频号视频封面]({video["cover"]})\n\n'
-                if video.get('src'):
-                    text += f'*[点击观看视频号视频]({video["src"]})*\n\n'
-            elif video['type'] == 'video':
-                # 标准视频标签
-                if video.get('src'):
-                    text += f'<video src="{video["src"]}" controls style="width: 100%; border-radius: 8px;"></video>\n\n'
-                elif video.get('poster'):
-                    text += f'![视频封面]({video["poster"]})\n\n'
-            elif video['type'] == 'link':
-                # 视频链接
-                link_text = video.get('text', '视频链接')
-                text += f'*[{link_text}]({video["src"]})*\n\n'
+    # 将视频占位符还原为正确的嵌入代码
+    def replace_video_placeholder(match):
+        placeholder = match.group(0)
+        if placeholder.startswith('[[VIDEO_IFRAME:'):
+            src = placeholder[15:-2]
+            return f'\n\n<iframe src="{src}" width="100%" height="360" frameborder="0" allowfullscreen></iframe>\n\n'
+        elif placeholder.startswith('[[VIDEO_MPVIDEO:'):
+            parts = placeholder[16:-2].split(':', 1)
+            src = parts[0] if parts else ''
+            cover = parts[1] if len(parts) > 1 else ''
+            if src:
+                return f'\n\n<iframe src="{src}" width="100%" height="360" frameborder="0" allowfullscreen></iframe>\n\n'
+            elif cover:
+                return f'\n\n![视频封面]({cover})\n\n'
+            return ''
+        elif placeholder.startswith('[[VIDEO_WXVIDEO:'):
+            parts = placeholder[16:-2].split(':', 1)
+            src = parts[0] if parts else ''
+            cover = parts[1] if len(parts) > 1 else ''
+            result = ''
+            if cover:
+                result += f'\n\n![视频号视频封面]({cover})\n\n'
+            if src:
+                result += f'*[点击观看视频号视频]({src})*\n\n'
+            return result if result else ''
+        elif placeholder.startswith('[[VIDEO_STANDARD:'):
+            parts = placeholder[17:-2].split(':', 1)
+            src = parts[0] if parts else ''
+            poster = parts[1] if len(parts) > 1 else ''
+            if src:
+                return f'\n\n<video src="{src}" controls style="width: 100%; border-radius: 8px;"></video>\n\n'
+            elif poster:
+                return f'\n\n![视频封面]({poster})\n\n'
+            return ''
+        return placeholder
+    
+    # 使用正则替换所有视频占位符（注意 markdownify 会转义方括号和下划线）
+    # 先还原转义：\_ -> _ 
+    text = text.replace('\\_', '_')
+    text = re.sub(r'\[\[VIDEO_[A-Z]+:[^\]]*\]\]', replace_video_placeholder, text)
     
     # 添加底部来源链接
     text = text.strip()
