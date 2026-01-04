@@ -163,7 +163,6 @@ class XiaohongshuScraper:
     def fetch_article(
         self,
         article_url: str,
-        use_cache: bool = True,
         max_retries: int = 3,
         retry_delay: int = 2
     ) -> Dict:
@@ -172,7 +171,6 @@ class XiaohongshuScraper:
         
         Args:
             article_url: 小红书文章URL
-            use_cache: 是否使用缓存
             max_retries: 最大重试次数
             retry_delay: 重试延迟（秒）
             
@@ -199,15 +197,6 @@ class XiaohongshuScraper:
                 'message': '无法从URL中提取文章ID',
                 'code': 400
             }
-        
-        if use_cache:
-            cached_data = self._load_from_cache(original_url)
-            if cached_data:
-                return {
-                    'success': True,
-                    'data': cached_data,
-                    'from_cache': True
-                }
         
         params = {
             'url': article_url
@@ -238,12 +227,10 @@ class XiaohongshuScraper:
                     result = response.json()
 
                     if result.get('code') == 200:
-                        self._save_to_cache(article_url, result)
                         return {
                             'success': True,
                             'data': result,
-                            'endpoint': endpoint,
-                            'from_cache': False
+                            'endpoint': endpoint
                         }
                     elif result.get('code') == 400:
                         error_msg = result.get('msg', '未知错误')
@@ -448,10 +435,12 @@ class XiaohongshuScraper:
                 height = img.get('height', 0)
                 width = img.get('width', 0)
                 
-                if url_pre:
-                    md_content.append(f'![图片{i}]({url_pre})\n\n')
+                display_url = url_default if url_default else url_pre
+                if display_url:
+                    md_content.append(f'![图片{i}]({display_url})\n\n')
                     md_content.append(f'- **尺寸**: {width}x{height}\n')
-                    md_content.append(f'- **预览链接**: {url_pre}\n')
+                    if url_pre:
+                        md_content.append(f'- **预览链接**: {url_pre}\n')
                     if url_default:
                         md_content.append(f'- **原图链接**: {url_default}\n')
                     md_content.append('\n')
@@ -492,7 +481,6 @@ def scrape_xiaohongshu(
     save_markdown: bool = True,
     download_media: bool = False,
     output_dir: str = 'xiaohongshu_articles',
-    use_cache: bool = True,
     developer_id: Optional[str] = None,
     api_key: Optional[str] = None
 ) -> Dict:
@@ -504,7 +492,6 @@ def scrape_xiaohongshu(
         save_markdown: 是否保存为Markdown
         download_media: 是否下载媒体文件
         output_dir: 输出目录
-        use_cache: 是否使用缓存
         developer_id: 开发者ID
         api_key: API密钥
         
@@ -517,7 +504,7 @@ def scrape_xiaohongshu(
         use_public_key=False
     )
     
-    result = scraper.fetch_article(url, use_cache=use_cache)
+    result = scraper.fetch_article(url)
     
     if result.get('success'):
         if save_markdown:
@@ -538,26 +525,22 @@ if __name__ == '__main__':
         print("使用方法:")
         print("  python3 xiaohongshu_api.py <小红书文章URL>")
         print("  python3 xiaohongshu_api.py <小红书文章URL> --download-media")
-        print("  python3 xiaohongshu_api.py <小红书文章URL> --no-cache")
         sys.exit(1)
     
     url = sys.argv[1]
     download_media = '--download-media' in sys.argv
-    use_cache = '--no-cache' not in sys.argv
     
     print("小红书文章抓取工具")
     print("=" * 60)
     print(f"目标URL: {url}")
     print(f"下载媒体: {'是' if download_media else '否'}")
-    print(f"使用缓存: {'是' if use_cache else '否'}")
     print("=" * 60)
     print()
     
     result = scrape_xiaohongshu(
         url=url,
         save_markdown=True,
-        download_media=download_media,
-        use_cache=use_cache
+        download_media=download_media
     )
     
     if result.get('success'):

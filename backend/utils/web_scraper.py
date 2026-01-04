@@ -235,7 +235,7 @@ def _handle_xiaohongshu(soup, html_text, url=None):
             md_parts.append("## 描述\n\n")
             md_parts.append(f"{desc}\n\n")
         
-        # 处理图片 - 使用滑动组件
+        # 处理图片 - 使用滑动组件，优先使用原图
         images = data.get('data', [])
         if images:
             md_parts.append(f"\n## 图片 ({len(images)}张)\n\n")
@@ -244,15 +244,16 @@ def _handle_xiaohongshu(soup, html_text, url=None):
                 # 多图滑动组件
                 md_parts.append('<div class="xhs-slider" style="display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 10px; padding-bottom: 10px; -webkit-overflow-scrolling: touch;">\n')
                 for i, img in enumerate(images, 1):
-                    img_url = img.get('urlPre') or img.get('urlDefault', '')
+                    # 优先使用原图 urlDefault，不存在则使用预览图 urlPre
+                    img_url = img.get('urlDefault') or img.get('urlPre', '')
                     if img_url:
                         # 使用图片代理绕过防盗链
                         proxy_url = f"https://i0.wp.com/{img_url.replace('https://', '').replace('http://', '')}"
                         md_parts.append(f'  <div style="flex: 0 0 100%; scroll-snap-align: start;"><img src="{proxy_url}" style="width: 100%; border-radius: 8px;" alt="图片{i}" /></div>\n')
                 md_parts.append('</div>\n\n')
             else:
-                # 单图
-                img_url = images[0].get('urlPre') or images[0].get('urlDefault', '')
+                # 单图 - 优先使用原图
+                img_url = images[0].get('urlDefault') or images[0].get('urlPre', '')
                 if img_url:
                     proxy_url = f"https://i0.wp.com/{img_url.replace('https://', '').replace('http://', '')}"
                     md_parts.append(f"![{title or '图片'}]({proxy_url})\n\n")
