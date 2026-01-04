@@ -283,11 +283,14 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
                 if not title and scraped_data.get('title'):
                     title = scraped_data['title']
                     print(f"Use scraped title: {title}")
+                # 检查是否需要跳过 AI 排版（纯图片笔记）
+                skip_ai_format = scraped_data.get('skip_ai_format', False)
                 add_job_log(job_id, 'URL抓取', 'success', '成功获取文章内容', {
                     'url': url,
                     'title': title,
                     'content_length': len(content),
-                    'platform': 'xiaohongshu' if is_xiaohongshu else 'generic'
+                    'platform': 'xiaohongshu' if is_xiaohongshu else 'generic',
+                    'skip_ai_format': skip_ai_format
                 })
                 # 立即更新任务历史中的标题
                 if title:
@@ -297,6 +300,7 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
                 raise Exception('无法从链接获取内容，请检查链接是否有效')
         else:
             add_job_log(job_id, '内容识别', 'info', '内容为纯文本，无需抓取URL')
+            skip_ai_format = False
 
         # 2. Parse Front Matter to avoid duplication
         add_job_log(job_id, 'Front Matter解析', 'start', '开始解析Front Matter')
@@ -304,41 +308,49 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
         content = parsed['content']
         add_job_log(job_id, 'Front Matter解析', 'success', 'Front Matter解析完成')
         
-        # 3. AI Analysis
-        jobs[job_id]['message'] = '正在进行AI优化排版...'
-        jobs[job_id]['progress'] = 30
-        add_job_log(job_id, 'AI分析', 'start', '开始AI优化排版')
-        
-        try:
-            analysis = deepseek_service.format_article(
-                content=content,
-                title=title,
-                tags=tags,
-                category=category
-            )
+        # 3. AI Analysis（纯图片笔记跳过）
+        if skip_ai_format:
+            add_job_log(job_id, 'AI分析', 'info', '纯图片笔记，跳过AI排版')
+            # 保持原始内容，只设置基本分类和标签
+            if not category:
+                category = 'AI绘画' if is_xiaohongshu else '未分类'
+            if not tags:
+                tags = ['小红书', '图集']
+        else:
+            jobs[job_id]['message'] = '正在进行AI优化排版...'
+            jobs[job_id]['progress'] = 30
+            add_job_log(job_id, 'AI分析', 'start', '开始AI优化排版')
             
-            content = analysis.get('content', content)
-            tags = analysis.get('tags', [])
-            category = analysis.get('category', '未分类')
-            
-            if not title:
-                extracted_title = parsed.get('front_matter', {}).get('title')
-                title = extracted_title if extracted_title else analysis.get('title', '未命名文章')
-            
-            add_job_log(job_id, 'AI分析', 'success', 'AI优化排版完成', {
-                'title': title,
-                'category': category,
-                'tags': tags
-            })
-            # AI分析完成后，更新任务历史中的标题（对于粘贴文本无标题的情况）
-            if title:
-                update_task_history_title(job_id, title)
+            try:
+                analysis = deepseek_service.format_article(
+                    content=content,
+                    title=title,
+                    tags=tags,
+                    category=category
+                )
                 
-        except Exception as e:
-            print(f"Warning: AI analysis failed: {e}")
-            add_job_log(job_id, 'AI分析', 'warning', f'AI分析失败，使用默认值: {str(e)}')
-            if not title:
-                title = f"未命名文章_{datetime.now(timezone(timedelta(hours=8))).strftime('%Y%m%d%H%M%S')}"
+                content = analysis.get('content', content)
+                tags = analysis.get('tags', [])
+                category = analysis.get('category', '未分类')
+                
+                if not title:
+                    extracted_title = parsed.get('front_matter', {}).get('title')
+                    title = extracted_title if extracted_title else analysis.get('title', '未命名文章')
+                
+                add_job_log(job_id, 'AI分析', 'success', 'AI优化排版完成', {
+                    'title': title,
+                    'category': category,
+                    'tags': tags
+                })
+                # AI分析完成后，更新任务历史中的标题（对于粘贴文本无标题的情况）
+                if title:
+                    update_task_history_title(job_id, title)
+                    
+            except Exception as e:
+                print(f"Warning: AI analysis failed: {e}")
+                add_job_log(job_id, 'AI分析', 'warning', f'AI分析失败，使用默认值: {str(e)}')
+                if not title:
+                    title = f"未命名文章_{datetime.now(timezone(timedelta(hours=8))).strftime('%Y%m%d%H%M%S')}"
 
         # 4. Generate full content
         jobs[job_id]['message'] = '正在生成文件...'

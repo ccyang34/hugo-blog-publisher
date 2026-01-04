@@ -273,11 +273,17 @@ def _handle_xiaohongshu(soup, html_text, url=None):
         
         content = ''.join(md_parts)
         
+        # 如果没有描述内容（纯图片笔记），跳过 AI 排版
+        skip_ai = not desc or desc.strip() == ''
+        if skip_ai:
+            print("[XHS] No description content, will skip AI formatting")
+        
         return {
             'title': title,
             'content': content,
             'platform': 'xiaohongshu',
-            'raw_data': data
+            'raw_data': data,
+            'skip_ai_format': skip_ai  # 纯图片笔记跳过 AI 排版
         }
     except Exception as e:
         print(f"[XHS] Error using XiaohongshuScraper: {e}")
