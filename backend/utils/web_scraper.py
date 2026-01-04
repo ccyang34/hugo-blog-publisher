@@ -83,7 +83,7 @@ def fetch_article_content(url):
         if is_xiaohongshu or 'xiaohongshu.com' in domain:
             return _handle_xiaohongshu(soup, response.text, url=original_url)
         elif 'weixin.qq.com' in domain:
-            return _handle_wechat(soup)
+            return _handle_wechat(soup, url=url)
         elif 'toutiao.com' in domain:
             return _handle_toutiao(soup)
         elif 'zhihu.com' in domain:
@@ -101,12 +101,12 @@ def _clean_soup(soup):
         tag.decompose()
     return soup
 
-def _handle_wechat(soup):
+def _handle_wechat(soup, url=None):
     """Parse WeChat Official Account articles"""
     article = soup.find(id='js_content') or soup.find(class_='rich_media_content')
     
     if not article:
-        return _handle_generic(soup)
+        return _handle_generic(soup, url)
 
     # Handle lazy loading images
     for img in article.find_all('img'):
@@ -123,9 +123,17 @@ def _handle_wechat(soup):
     _clean_soup(article)
     text = md(str(article), heading_style="ATX")
     
+    # 添加底部来源标注
+    text = text.strip()
+    text += "\n\n---\n"
+    if url:
+        text += f"*来源: [微信公众号]({url})*\n"
+    else:
+        text += "*来源: 微信公众号*\n"
+    
     return {
         'title': title,
-        'content': text.strip()
+        'content': text
     }
 
 def _handle_toutiao(soup):
@@ -223,11 +231,9 @@ def _handle_xiaohongshu(soup, html_text, url=None):
         # 构建 Markdown 内容
         md_parts = []
         
-        # 作者信息
+        # 作者信息（不再放原文链接，移到底部）
         if nickname:
             md_parts.append(f"**作者**: {nickname}\n")
-        if note_id:
-            md_parts.append(f"**原文链接**: https://www.xiaohongshu.com/discovery/item/{note_id}\n")
         md_parts.append("---\n")
         
         # 描述内容
@@ -267,9 +273,12 @@ def _handle_xiaohongshu(soup, html_text, url=None):
                 if video_url:
                     md_parts.append(f'<video src="{video_url}" controls style="width: 100%; border-radius: 8px; margin-top: 10px;"></video>\n\n')
         
-        # 来源标注
+        # 来源标注（包含原文链接）
         md_parts.append("---\n")
-        md_parts.append("*来源: 小红书*\n")
+        if note_id:
+            md_parts.append(f"*来源: [小红书](https://www.xiaohongshu.com/discovery/item/{note_id})*\n")
+        else:
+            md_parts.append("*来源: 小红书*\n")
         
         content = ''.join(md_parts)
         
