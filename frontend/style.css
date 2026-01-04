@@ -140,9 +140,9 @@ body {
     }
 
     .header {
-        padding: 6px 8px;
-        /* Extremely small */
-        margin-bottom: 8px;
+        padding: 4px 8px;
+        /* Minimal padding for mobile */
+        margin-bottom: 4px;
     }
 
     .header-top {
