@@ -223,11 +223,9 @@ def _handle_xiaohongshu(soup, html_text, url=None):
         # 构建 Markdown 内容
         md_parts = []
         
-        # 作者信息
+        # 作者信息（原文链接移到底部）
         if nickname:
             md_parts.append(f"**作者**: {nickname}\n")
-        if note_id:
-            md_parts.append(f"**原文链接**: https://www.xiaohongshu.com/discovery/item/{note_id}\n")
         md_parts.append("---\n")
         
         # 描述内容
@@ -257,9 +255,12 @@ def _handle_xiaohongshu(soup, html_text, url=None):
                 if video_url:
                     md_parts.append(f'<video src="{video_url}" controls style="width: 100%; border-radius: 8px; margin-top: 10px;"></video>\n\n')
         
-        # 来源标注
+        # 来源标注（包含原文链接）
         md_parts.append("---\n")
-        md_parts.append("*来源: 小红书*\n")
+        if note_id:
+            md_parts.append(f"*来源: [小红书](https://www.xiaohongshu.com/discovery/item/{note_id})*\n")
+        else:
+            md_parts.append("*来源: 小红书*\n")
         
         content = ''.join(md_parts)
         
