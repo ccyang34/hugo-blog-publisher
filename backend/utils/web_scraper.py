@@ -156,6 +156,7 @@ def _handle_toutiao(soup):
 def _handle_xiaohongshu(soup, html_text, url=None):
     """
     使用 xiaohongshu_api.py 的高级解析逻辑处理小红书链接
+    如果抓取后 title 为 '小红书'，说明抓取失败，将进行重试
     """
     print(f"[XHS] _handle_xiaohongshu called with url={url}")
     print(f"[XHS] XiaohongshuScraper available: {XiaohongshuScraper is not None}")
@@ -168,18 +169,50 @@ def _handle_xiaohongshu(soup, html_text, url=None):
         print("[XHS] URL is empty, using legacy")
         return _handle_xiaohongshu_legacy(soup, html_text)
     
-    try:
-        print(f"[XHS] Using XiaohongshuScraper for URL: {url}")
-        scraper = XiaohongshuScraper(use_public_key=True)
+    def try_fetch(scraper, url, attempt_name):
+        """尝试抓取并检查结果"""
+        print(f"[XHS] {attempt_name}: Fetching URL: {url}")
         result = scraper.fetch_article(url)
         
-        print(f"[XHS] API result success: {result.get('success')}")
-        
         if not result.get('success'):
-            print(f"[XHS] API failed: {result.get('message')}, falling back to legacy")
-            return _handle_xiaohongshu_legacy(soup, html_text)
+            print(f"[XHS] {attempt_name}: API failed: {result.get('message')}")
+            return None
         
         data = result['data']
+        title = data.get('title', '')
+        
+        # 检查是否抓取失败（title 为 '小红书' 表示未正确获取数据）
+        if title == '小红书' or not title:
+            print(f"[XHS] {attempt_name}: Got invalid title '{title}', treating as failure")
+            return None
+        
+        print(f"[XHS] {attempt_name}: Success! Title: {title}")
+        return data
+    
+    try:
+        # 第一次尝试：使用开发者凭证
+        scraper = XiaohongshuScraper(use_public_key=False)
+        data = try_fetch(scraper, url, "Attempt 1 (Developer Key)")
+        
+        if data is None:
+            # 第二次尝试：强制刷新端点并使用公共凭证
+            print("[XHS] Retrying with public key and refreshed endpoints...")
+            scraper = XiaohongshuScraper(use_public_key=True)
+            data = try_fetch(scraper, url, "Attempt 2 (Public Key)")
+        
+        if data is None:
+            # 第三次尝试：等待60秒后重试
+            print("[XHS] Waiting 60 seconds before final retry...")
+            import time
+            time.sleep(60)
+            scraper = XiaohongshuScraper(use_public_key=False)
+            data = try_fetch(scraper, url, "Attempt 3 (After 60s wait)")
+        
+        if data is None:
+            print("[XHS] All attempts failed, using legacy parser")
+            return _handle_xiaohongshu_legacy(soup, html_text)
+        
+        # 成功获取数据，构建内容
         title = data.get('title', '')
         desc = data.get('desc', '')
         nickname = data.get('nickname', '')

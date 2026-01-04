@@ -24,14 +24,15 @@ class XiaohongshuScraper:
     - 支持图片和视频下载
     - 支持Markdown导出
     - 提供API接口供其他程序调用
-    - 日志记录和缓存机制
+    - 日志记录
     """
     
     def __init__(
         self,
         developer_id: Optional[str] = None,
         api_key: Optional[str] = None,
-        use_public_key: bool = False
+        use_public_key: bool = False,
+        log_level: int = logging.INFO
     ):
         """
         初始化抓取工具
@@ -40,8 +41,8 @@ class XiaohongshuScraper:
             developer_id: 开发者ID
             api_key: API密钥
             use_public_key: 是否使用公共密钥
+            log_level: 日志级别
         """
-        # 使用默认开发者凭证
         self.developer_id = developer_id or '10011690'
         self.api_key = api_key or 'aa4e16c283b736df50d7ad47fdb9b7d7'
         self.use_public_key = use_public_key
@@ -49,15 +50,18 @@ class XiaohongshuScraper:
         self.api_endpoints = []
         self.session = requests.Session()
         
-        self._setup_logging()
+        self._setup_logging(log_level)
         self._fetch_api_endpoints()
     
-    def _setup_logging(self):
-        """设置日志 - 仅控制台输出"""
+    def _setup_logging(self, log_level: int):
+        """设置日志"""
         logging.basicConfig(
-            level=logging.INFO,
+            level=log_level,
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            handlers=[logging.StreamHandler()]
+            handlers=[
+                logging.FileHandler('xiaohongshu_scraper.log', encoding='utf-8'),
+                logging.StreamHandler()
+            ]
         )
         self.logger = logging.getLogger(__name__)
     
@@ -93,7 +97,6 @@ class XiaohongshuScraper:
             "http://124.222.204.22/api/caiji/xiaohongshu.php",
             "http://81.68.149.132/api/caiji/xiaohongshu.php"
         ]
-
     
     def _extract_article_id(self, url: str) -> Optional[str]:
         """
@@ -160,6 +163,7 @@ class XiaohongshuScraper:
     def fetch_article(
         self,
         article_url: str,
+        use_cache: bool = True,
         max_retries: int = 3,
         retry_delay: int = 2
     ) -> Dict:
@@ -168,12 +172,15 @@ class XiaohongshuScraper:
         
         Args:
             article_url: 小红书文章URL
+            use_cache: 是否使用缓存
             max_retries: 最大重试次数
             retry_delay: 重试延迟（秒）
             
         Returns:
             包含文章数据的字典
         """
+        original_url = article_url
+        
         if 'xhslink.com' in article_url:
             full_url = self._resolve_short_link(article_url)
             if full_url:
@@ -192,6 +199,15 @@ class XiaohongshuScraper:
                 'message': '无法从URL中提取文章ID',
                 'code': 400
             }
+        
+        if use_cache:
+            cached_data = self._load_from_cache(original_url)
+            if cached_data:
+                return {
+                    'success': True,
+                    'data': cached_data,
+                    'from_cache': True
+                }
         
         params = {
             'url': article_url
@@ -222,10 +238,12 @@ class XiaohongshuScraper:
                     result = response.json()
 
                     if result.get('code') == 200:
+                        self._save_to_cache(article_url, result)
                         return {
                             'success': True,
                             'data': result,
-                            'endpoint': endpoint
+                            'endpoint': endpoint,
+                            'from_cache': False
                         }
                     elif result.get('code') == 400:
                         error_msg = result.get('msg', '未知错误')
@@ -474,6 +492,7 @@ def scrape_xiaohongshu(
     save_markdown: bool = True,
     download_media: bool = False,
     output_dir: str = 'xiaohongshu_articles',
+    use_cache: bool = True,
     developer_id: Optional[str] = None,
     api_key: Optional[str] = None
 ) -> Dict:
@@ -485,6 +504,7 @@ def scrape_xiaohongshu(
         save_markdown: 是否保存为Markdown
         download_media: 是否下载媒体文件
         output_dir: 输出目录
+        use_cache: 是否使用缓存
         developer_id: 开发者ID
         api_key: API密钥
         
@@ -494,10 +514,10 @@ def scrape_xiaohongshu(
     scraper = XiaohongshuScraper(
         developer_id=developer_id,
         api_key=api_key,
-        use_public_key=True
+        use_public_key=False
     )
     
-    result = scraper.fetch_article(url)
+    result = scraper.fetch_article(url, use_cache=use_cache)
     
     if result.get('success'):
         if save_markdown:
@@ -518,22 +538,26 @@ if __name__ == '__main__':
         print("使用方法:")
         print("  python3 xiaohongshu_api.py <小红书文章URL>")
         print("  python3 xiaohongshu_api.py <小红书文章URL> --download-media")
+        print("  python3 xiaohongshu_api.py <小红书文章URL> --no-cache")
         sys.exit(1)
     
     url = sys.argv[1]
     download_media = '--download-media' in sys.argv
+    use_cache = '--no-cache' not in sys.argv
     
     print("小红书文章抓取工具")
     print("=" * 60)
     print(f"目标URL: {url}")
     print(f"下载媒体: {'是' if download_media else '否'}")
+    print(f"使用缓存: {'是' if use_cache else '否'}")
     print("=" * 60)
     print()
     
     result = scrape_xiaohongshu(
         url=url,
         save_markdown=True,
-        download_media=download_media
+        download_media=download_media,
+        use_cache=use_cache
     )
     
     if result.get('success'):
