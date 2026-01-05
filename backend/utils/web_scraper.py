@@ -5,7 +5,7 @@ import json
 import sys
 import os
 from markdownify import markdownify as md
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
 
 # 导入小红书 API - 多种方式尝试
 XiaohongshuScraper = None
@@ -102,53 +102,59 @@ def _clean_soup(soup):
     return soup
 
 def _handle_wechat(soup, url=None):
-    """Parse WeChat Official Account articles - 视频保留在原位置"""
+    """Parse WeChat Official Account articles - 视频保留在原位置，使用封面图+链接"""
     article = soup.find(id='js_content') or soup.find(class_='rich_media_content')
     
     if not article:
         return _handle_generic(soup, url=url)
 
-    # Handle lazy loading images
+    # Handle lazy loading images - 使用代理绕过防盗链
     for img in article.find_all('img'):
-        if img.get('data-src'):
+        src = img.get('data-src') or img.get('src', '')
+        if src and ('mmbiz.qpic.cn' in src or 'mmbiz.qlogo.cn' in src):
+            # 使用 WordPress 图片代理绕过微信防盗链
+            proxy_url = f"https://i0.wp.com/{src.replace('https://', '').replace('http://', '')}"
+            img['src'] = proxy_url
+        elif img.get('data-src'):
             img['src'] = img['data-src']
     
-    # 在原位置将视频标签转换为可识别的 HTML 格式
+    # 在原位置将视频标签转换为可识别的 HTML 格式，同时提取封面图
     video_count = 0
+    video_covers = {}  # 存储视频封面图
     
-    # 1. 处理 iframe 视频（腾讯视频、微信视频号等）- 原位保留
+    # 1. 处理 iframe 视频（腾讯视频、微信视频号等）
     for iframe in article.find_all('iframe'):
         src = iframe.get('data-src') or iframe.get('src', '')
+        cover = iframe.get('data-cover') or iframe.get('data-poster') or ''
         if src and ('v.qq.com' in src or 'mp.weixin.qq.com' in src or 'channels' in src or 'mpvideo' in src):
             video_count += 1
-            # 创建新的 iframe 标签并替换原标签
+            video_covers[video_count] = cover
             new_tag = soup.new_tag('div', attrs={'class': 'video-embed'})
-            new_tag.string = f'[[VIDEO_IFRAME:{src}]]'
+            new_tag.string = f'[[VIDEO_WECHAT:{video_count}]]'
             iframe.replace_with(new_tag)
     
-    # 2. 处理 mpvideo 标签（微信自有视频标签）- 原位替换
+    # 2. 处理 mpvideo 标签（微信自有视频标签）
     for mpvideo in article.find_all('mpvideo'):
         src = mpvideo.get('data-src') or mpvideo.get('src', '')
-        cover = mpvideo.get('data-cover') or mpvideo.get('cover', '')
+        cover = mpvideo.get('data-cover') or mpvideo.get('cover') or mpvideo.get('data-poster', '')
         video_id = mpvideo.get('data-vidtype') or mpvideo.get('data-videoid', '')
-        if not src and video_id:
-            src = f"https://mp.weixin.qq.com/mp/videoplayer?action=mpvideo&__biz=&vid={video_id}"
-        if src or cover:
+        if src or cover or video_id:
             video_count += 1
+            video_covers[video_count] = cover
             new_tag = soup.new_tag('div', attrs={'class': 'video-embed'})
-            new_tag.string = f'[[VIDEO_MPVIDEO:{src}:{cover}]]'
+            new_tag.string = f'[[VIDEO_WECHAT:{video_count}]]'
             mpvideo.replace_with(new_tag)
     
-    # 3. 处理 wx-video 标签（视频号视频）- 原位替换
+    # 3. 处理 wx-video 标签（视频号视频）
     for wxvideo in article.find_all(['wx-video', 'mp-common-videosnap']):
-        src = wxvideo.get('data-src') or wxvideo.get('src', '')
-        cover = wxvideo.get('data-poster') or wxvideo.get('data-cover', '')
+        cover = wxvideo.get('data-poster') or wxvideo.get('data-cover') or wxvideo.get('data-headimgurl', '')
         video_count += 1
+        video_covers[video_count] = cover
         new_tag = soup.new_tag('div', attrs={'class': 'video-embed'})
-        new_tag.string = f'[[VIDEO_WXVIDEO:{src}:{cover}]]'
+        new_tag.string = f'[[VIDEO_WECHAT:{video_count}]]'
         wxvideo.replace_with(new_tag)
     
-    # 4. 处理标准 video 标签 - 原位保留
+    # 4. 处理标准 video 标签
     for video in article.find_all('video'):
         src = video.get('data-src') or video.get('src', '')
         poster = video.get('poster', '')
@@ -157,8 +163,9 @@ def _handle_wechat(soup, url=None):
             src = source.get('src', '')
         if src or poster:
             video_count += 1
+            video_covers[video_count] = poster
             new_tag = soup.new_tag('div', attrs={'class': 'video-embed'})
-            new_tag.string = f'[[VIDEO_STANDARD:{src}:{poster}]]'
+            new_tag.string = f'[[VIDEO_WECHAT:{video_count}]]'
             video.replace_with(new_tag)
             
     title = ""
@@ -167,53 +174,45 @@ def _handle_wechat(soup, url=None):
     elif soup.find(id='activity-name'):
          title = soup.find(id='activity-name').get_text().strip()
     
-    # 移除不需要的标签，但保留媒体相关的
+    # 移除不需要的标签
     for tag in article(["script", "style", "nav", "footer", "noscript", "header", "aside"]):
         tag.decompose()
     
     # 转换为 Markdown
     text = md(str(article), heading_style="ATX")
     
-    # 将视频占位符还原为正确的嵌入代码
+    # 将视频占位符替换为封面图+链接（类似图片处理方式）
     def replace_video_placeholder(match):
         placeholder = match.group(0)
-        if placeholder.startswith('[[VIDEO_IFRAME:'):
-            src = placeholder[15:-2]
-            return f'\n\n<iframe src="{src}" width="100%" height="360" frameborder="0" allowfullscreen></iframe>\n\n'
-        elif placeholder.startswith('[[VIDEO_MPVIDEO:'):
-            parts = placeholder[16:-2].split(':', 1)
-            src = parts[0] if parts else ''
-            cover = parts[1] if len(parts) > 1 else ''
-            if src:
-                return f'\n\n<iframe src="{src}" width="100%" height="360" frameborder="0" allowfullscreen></iframe>\n\n'
+        if placeholder.startswith('[[VIDEO_WECHAT:'):
+            video_num = int(placeholder[15:-2])
+            cover = video_covers.get(video_num, '')
+            
+            # 如果有封面图，使用代理显示封面（先解码 URL 编码）
+            cover = unquote(cover) if cover else ''
+            if cover and ('mmbiz.qpic.cn' in cover or 'mmbiz.qlogo.cn' in cover):
+                proxy_cover = f"https://i0.wp.com/{cover.replace('https://', '').replace('http://', '')}"
+                if url:
+                    return f'\n\n[![📺 点击观看视频]({proxy_cover})]({url})\n\n'
+                else:
+                    return f'\n\n![📺 视频封面]({proxy_cover})\n\n'
             elif cover:
-                return f'\n\n![视频封面]({cover})\n\n'
-            return ''
-        elif placeholder.startswith('[[VIDEO_WXVIDEO:'):
-            parts = placeholder[16:-2].split(':', 1)
-            src = parts[0] if parts else ''
-            cover = parts[1] if len(parts) > 1 else ''
-            result = ''
-            if cover:
-                result += f'\n\n![视频号视频封面]({cover})\n\n'
-            if src:
-                result += f'*[点击观看视频号视频]({src})*\n\n'
-            return result if result else ''
-        elif placeholder.startswith('[[VIDEO_STANDARD:'):
-            parts = placeholder[17:-2].split(':', 1)
-            src = parts[0] if parts else ''
-            poster = parts[1] if len(parts) > 1 else ''
-            if src:
-                return f'\n\n<video src="{src}" controls style="width: 100%; border-radius: 8px;"></video>\n\n'
-            elif poster:
-                return f'\n\n![视频封面]({poster})\n\n'
-            return ''
+                # 封面不是微信域名，直接使用
+                if url:
+                    return f'\n\n[![📺 点击观看视频]({cover})]({url})\n\n'
+                else:
+                    return f'\n\n![📺 视频封面]({cover})\n\n'
+            else:
+                # 没有封面图，使用文字提示卡片
+                if url:
+                    return f'\n\n> 📺 **视频内容**\n>\n> 由于微信视频限制，请 **[点击查看原文观看视频]({url})**\n\n'
+                else:
+                    return f'\n\n> 📺 **视频内容** - 此处包含视频，请在微信中查看原文\n\n'
         return placeholder
     
-    # 使用正则替换所有视频占位符（注意 markdownify 会转义方括号和下划线）
-    # 先还原转义：\_ -> _ 
+    # 使用正则替换所有视频占位符
     text = text.replace('\\_', '_')
-    text = re.sub(r'\[\[VIDEO_[A-Z]+:[^\]]*\]\]', replace_video_placeholder, text)
+    text = re.sub(r'\[\[VIDEO_WECHAT:\d+\]\]', replace_video_placeholder, text)
     
     # 添加底部来源链接
     text = text.strip()
