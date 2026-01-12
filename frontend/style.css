@@ -513,6 +513,16 @@ body {
     border-top: 1px solid var(--border-color);
 }
 
+.publish-section>.btn {
+    display: flex;
+    width: 100%;
+    margin-top: 12px;
+}
+
+.publish-section>.btn:first-of-type {
+    margin-top: 16px;
+}
+
 .publish-options {
     display: flex;
     align-items: center;
