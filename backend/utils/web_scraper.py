@@ -119,30 +119,48 @@ def _handle_wechat(soup, url=None):
         html_text = str(soup)
         
         # 1. 提取短图文特有的图片列表和描述
-        # 数据通常在 window.picture_page_info_list 或类似变量中
         import json
         
-        # 模拟微信内部的 JsDecode (虽然目前观察到的 cdn_url 通常是明文或带简单编码)
+        # 增强版 JsDecode，处理更多转义字符
         def wechat_js_decode(s):
             if not s: return ""
-            # 去掉可能的外部引号和 JsDecode('') 包装
+            # 去掉可能的外部包装
             s = re.sub(r"^JsDecode\(['\"](.*)['\"]\)$", r"\1", s)
-            return s.replace('\\x26', '&').replace('\\x2f', '/')
+            # 处理常见的转义
+            map_replace = {
+                '\\x26': '&', '\\x2f': '/', '\\x0a': '\n', 
+                '\\x3d': '=', '\\x22': '"', '\\x27': "'",
+                '&amp;': '&', '\\x3c': '<', '\\x3e': '>'
+            }
+            for k, v in map_replace.items():
+                s = s.replace(k, v)
+            return s
 
-        # 尝试从 JS 变量提取图片信息
+        # 核心改进：精确匹配主图 (主图 URL 后面一定会跟着 width: 属性)
         img_list = []
-        # 匹配 picture_page_info_list 中的 cdn_url
-        img_matches = re.findall(r"cdn_url:\s*(?:JsDecode\()?['\"](.*?)['\"]", html_text)
+        img_matches = re.findall(r"cdn_url:\s*(?:JsDecode\()?['\"](.*?)['\"]\)?\s*,\s*width:", html_text)
         for img_url in img_matches:
             decoded_url = wechat_js_decode(img_url)
+            # 过滤非微信图片域名并去重
             if decoded_url and 'mmbiz.qpic.cn' in decoded_url and decoded_url not in img_list:
                 img_list.append(decoded_url)
 
-        # 提取描述文本 (位于 #js_image_desc 或相关变量)
+        # 2. 补全描述文本 - 优先尝试 DOM，失败则从 JS 变量全局搜索
         desc_text = ""
         desc_elem = soup.find(id='js_image_desc') or soup.find(class_='js_underline_content')
         if desc_elem:
             desc_text = desc_elem.get_text(separator='\n').strip()
+        
+        # 如果 DOM 为空，尝试从 JS 变量中抓取可能的长描述
+        if not desc_text:
+            # 搜索 JsDecode 内的长字符串，且不包含 URL
+            potential_texts = re.findall(r"JsDecode\(['\"](.*?)['\"]\)", html_text)
+            for p in potential_texts:
+                decoded = wechat_js_decode(p)
+                # 经验：文章描述通常较长 (>100字符)，且包含换行符或特定关键词
+                if len(decoded) > 100 and 'http' not in decoded[:50]:
+                    if not desc_text or len(decoded) > len(desc_text):
+                        desc_text = decoded
         
         # 如果提取到了图片或描述，则手动构建内容
         if img_list or desc_text:
