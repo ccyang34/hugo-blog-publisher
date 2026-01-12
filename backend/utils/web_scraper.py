@@ -102,12 +102,77 @@ def _clean_soup(soup):
     return soup
 
 def _handle_wechat(soup, url=None):
-    """Parse WeChat Official Account articles - 视频保留在原位置，使用封面图+链接"""
+    """Parse WeChat Official Account articles - 支持标准图文和短图文/图片集模板"""
     article = soup.find(id='js_content') or soup.find(class_='rich_media_content')
     
+    # 获取标题
+    title = ""
+    if soup.find('h1'):
+        title = soup.find('h1').get_text().strip()
+    elif soup.find(id='activity-name'):
+         title = soup.find(id='activity-name').get_text().strip()
+    elif soup.find(class_='rich_media_title'):
+         title = soup.find(class_='rich_media_title').get_text().strip()
+
+    # 如果找不到标准正文容器，尝试处理“短图文/图片集”模板
     if not article:
+        html_text = str(soup)
+        
+        # 1. 提取短图文特有的图片列表和描述
+        # 数据通常在 window.picture_page_info_list 或类似变量中
+        import json
+        
+        # 模拟微信内部的 JsDecode (虽然目前观察到的 cdn_url 通常是明文或带简单编码)
+        def wechat_js_decode(s):
+            if not s: return ""
+            # 去掉可能的外部引号和 JsDecode('') 包装
+            s = re.sub(r"^JsDecode\(['\"](.*)['\"]\)$", r"\1", s)
+            return s.replace('\\x26', '&').replace('\\x2f', '/')
+
+        # 尝试从 JS 变量提取图片信息
+        img_list = []
+        # 匹配 picture_page_info_list 中的 cdn_url
+        img_matches = re.findall(r"cdn_url:\s*(?:JsDecode\()?['\"](.*?)['\"]", html_text)
+        for img_url in img_matches:
+            decoded_url = wechat_js_decode(img_url)
+            if decoded_url and 'mmbiz.qpic.cn' in decoded_url and decoded_url not in img_list:
+                img_list.append(decoded_url)
+
+        # 提取描述文本 (位于 #js_image_desc 或相关变量)
+        desc_text = ""
+        desc_elem = soup.find(id='js_image_desc') or soup.find(class_='js_underline_content')
+        if desc_elem:
+            desc_text = desc_elem.get_text(separator='\n').strip()
+        
+        # 如果提取到了图片或描述，则手动构建内容
+        if img_list or desc_text:
+            md_parts = []
+            if desc_text:
+                md_parts.append(desc_text + "\n\n")
+            
+            for i, img_url in enumerate(img_list, 1):
+                # 使用代理绕过防盗链
+                proxy_url = f"https://i0.wp.com/{img_url.replace('https://', '').replace('http://', '')}"
+                md_parts.append(f"![图片{i}]({proxy_url})\n\n")
+            
+            content = "".join(md_parts).strip()
+            
+            # 补全来源
+            content += "\n\n---\n"
+            if url:
+                content += f"*来源: [微信公众号]({url})*\n"
+            else:
+                content += "*来源: 微信公众号*\n"
+                
+            return {
+                'title': title,
+                'content': content
+            }
+
+        # 如果还是找不到，回退到通用解析
         return _handle_generic(soup, url=url)
 
+    # --- 以下为标准文章处理逻辑 ---
     # Handle lazy loading images - 使用代理绕过防盗链
     for img in article.find_all('img'):
         src = img.get('data-src') or img.get('src', '')
@@ -168,12 +233,6 @@ def _handle_wechat(soup, url=None):
             new_tag.string = f'[[VIDEO_WECHAT:{video_count}]]'
             video.replace_with(new_tag)
             
-    title = ""
-    if soup.find('h1'):
-        title = soup.find('h1').get_text().strip()
-    elif soup.find(id='activity-name'):
-         title = soup.find(id='activity-name').get_text().strip()
-    
     # 移除不需要的标签
     for tag in article(["script", "style", "nav", "footer", "noscript", "header", "aside"]):
         tag.decompose()
