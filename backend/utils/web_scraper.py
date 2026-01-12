@@ -136,22 +136,65 @@ def _handle_wechat(soup, url=None):
                 s = s.replace(k, v)
             return s
 
-        # 核心改进：精确匹配主图 (主图 URL 后面一定会跟着 width: 属性)
-        img_list = []
-        img_matches = re.findall(r"cdn_url:\s*(?:JsDecode\()?['\"](.*?)['\"]\)?\s*,\s*width:", html_text)
-        for img_url in img_matches:
-            decoded_url = wechat_js_decode(img_url)
-            # 过滤非微信图片域名并去重
-            if decoded_url and 'mmbiz.qpic.cn' in decoded_url and decoded_url not in img_list:
-                img_list.append(decoded_url)
-
-        # 2. 补全描述文本 - 优先尝试 DOM，失败则从 JS 变量全局搜索
+        # 2. 补全标题与描述文本 - 优先尝试 DOM，失败则从 JS 变量全局搜索
         desc_text = ""
         desc_elem = soup.find(id='js_image_desc') or soup.find(class_='js_underline_content')
         if desc_elem:
             desc_text = desc_elem.get_text(separator='\n').strip()
+            
+        # 如果标题为空，尝试从 JS 变量抓取
+        if not title:
+            # 简化版 cgiData 匹配，更稳健
+            cgi_title = re.search(r'title:\s*JsDecode\([\'\"](.*?)[\'\"]', html_text)
+            if cgi_title:
+                title = wechat_js_decode(cgi_title.group(1))
+            
+            # 尝试 msg_title
+            if not title:
+                msg_title = re.search(r'var\s+msg_title\s*=\s*[\'\"](.*?)[\'\"]', html_text)
+                if msg_title:
+                    title = wechat_js_decode(msg_title.group(1))
         
-        # 如果 DOM 为空，尝试从 JS 变量中抓取可能的长描述
+        # 提取封面图 URL 以便后续过滤 (去除封面图不要)
+        cover_url = ""
+        # 常见变量名：msg_cdn_url, share_cover
+        cover_match = re.search(r'var\s+msg_cdn_url\s*=\s*["\'](.*?)["\'];', html_text) or \
+                      re.search(r'share_cover:\s*{\s*cdn_url:\s*["\'](.*?)["\']', html_text)
+        if cover_match:
+            cover_url = wechat_js_decode(cover_match.group(1))
+        
+        # 如果通过变量没找到，尝试在 window.cgiData 中找 msg_cdn_url 或 share_cover
+        if not cover_url:
+            cgi_cover = re.search(r'msg_cdn_url:\s*JsDecode\([\'\"](.*?)[\'\"]', html_text) or \
+                        re.search(r'share_cover:\s*{.*?cdn_url:\s*(?:JsDecode\()?[\'\"](.*?)[\'\"]', html_text, re.DOTALL)
+            if cgi_cover:
+                cover_url = wechat_js_decode(cgi_cover.group(1))
+
+        # 核心改进：精确匹配主图 (主图 URL 后面一定会跟着 width: 属性)
+        img_list = []
+        img_matches = re.findall(r"cdn_url:\s*(?:JsDecode\()?['\"](.*?)['\"][\)?]*\s*,\s*width:", html_text)
+        for img_url in img_matches:
+            decoded_url = wechat_js_decode(img_url)
+            # 过滤非微信图片域名
+            if not decoded_url or 'mmbiz.qpic.cn' not in decoded_url:
+                continue
+            
+            # 1. 直接匹配封面变量进行过滤
+            if cover_url and (cover_url in decoded_url or decoded_url in cover_url):
+                print(f"Filtering out cover image (matched cover_url): {decoded_url}")
+                continue
+            
+            # 2. 图片集辅助判断：正文图通常带有 from=appmsg 且不是封面
+            # 如果是 jpeg 且没有 from=appmsg，大概率也是封面或冗余图
+            if 'wx_fmt=jpeg' in decoded_url and 'from=appmsg' not in decoded_url:
+                print(f"Filtering out potential cover image (jpeg without appmsg): {decoded_url}")
+                continue
+            
+            # 去重并加入列表
+            if decoded_url not in img_list:
+                img_list.append(decoded_url)
+
+        # 如果 DOM 描述为空，尝试从 JS 变量中抓取可能的长描述
         if not desc_text:
             # 搜索 JsDecode 内的长字符串，且不包含 URL
             potential_texts = re.findall(r"JsDecode\(['\"](.*?)['\"]\)", html_text)
