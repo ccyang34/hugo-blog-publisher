@@ -643,38 +643,56 @@ class AdminPanel {
         this.renderMediaGrid(filtered);
     }
 
-    async loadDeploymentStatus() {
+    async loadDeploymentStatus(reloadWorkflows = true) {
         const list = document.getElementById('deployStatusList');
-        // Keep existing loading text only if empty
-        if (!list.innerHTML.trim()) {
+        const select = document.getElementById('workflowSelect');
+        let selectedWorkflowId = select ? select.value : '';
+
+        // Keep existing loading text only if empty or showing error
+        if (!list.innerHTML.trim() || list.innerHTML.includes('empty-text')) {
             list.innerHTML = '<p class="loading-text">加载部署记录...</p>';
         }
 
         try {
-            // Load runs
-            const response = await fetch(`${this.apiBaseUrl}/api/github/runs?limit=5`);
+            // 1. Load workflows if needed
+            if (reloadWorkflows) {
+                try {
+                    const wfResponse = await fetch(`${this.apiBaseUrl}/api/github/workflows`);
+                    const wfData = await wfResponse.json();
+
+                    if (wfData.success && wfData.workflows) {
+                        if (select) {
+                            const currentVal = select.value;
+                            select.innerHTML = '<option value="">所有流程</option>' +
+                                wfData.workflows.map(w => `<option value="${w.id}">${w.name}</option>`).join('');
+
+                            // Try to restore selection
+                            if (currentVal) {
+                                select.value = currentVal;
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.error('Fetch workflows error:', err);
+                }
+            }
+
+            // Re-read value in case it was just populated
+            selectedWorkflowId = select ? select.value : '';
+
+            // 2. Load runs
+            let url = `${this.apiBaseUrl}/api/github/runs?limit=5`;
+            if (selectedWorkflowId) {
+                url += `&workflow_id=${selectedWorkflowId}`;
+            }
+
+            const response = await fetch(url);
             const data = await response.json();
 
             if (data.success) {
                 this.renderDeploymentList(data.runs);
             } else {
                 list.innerHTML = '<p class="empty-text">无法获取部署记录</p>';
-            }
-
-            // Load workflows count
-            try {
-                const wfResponse = await fetch(`${this.apiBaseUrl}/api/github/workflows`);
-                const wfData = await wfResponse.json();
-                if (wfData.success && wfData.workflows) {
-                    const badge = document.getElementById('workflowCountBadge');
-                    if (badge) {
-                        badge.textContent = `${wfData.workflows.length} 个流程`;
-                        badge.style.display = 'inline-block';
-                        badge.className = 'deploy-badge success';
-                    }
-                }
-            } catch (err) {
-                console.error('Fetch workflows count error:', err);
             }
 
         } catch (error) {
@@ -737,38 +755,50 @@ class AdminPanel {
         if (!confirm('确定要手动触发部署吗？')) return;
 
         const btn = document.getElementById('triggerDeployBtn');
+        const select = document.getElementById('workflowSelect');
         const originalText = btn.innerHTML;
         btn.disabled = true;
         btn.innerHTML = '<span>⏳</span> 请求中...';
 
         try {
-            // 1. 获取 Workflows 列表，寻找合适的 Workflow
-            const wfResponse = await fetch(`${this.apiBaseUrl}/api/github/workflows`);
-            const wfData = await wfResponse.json();
+            let targetWfId = select ? select.value : '';
+            let targetWfName = 'Selected Workflow';
 
-            if (!wfData.success || !wfData.workflows || wfData.workflows.length === 0) {
-                throw new Error('未找到可用的 Workflows');
+            // If no specific workflow selected, try to find a default one
+            if (!targetWfId) {
+                const wfResponse = await fetch(`${this.apiBaseUrl}/api/github/workflows`);
+                const wfData = await wfResponse.json();
+
+                if (!wfData.success || !wfData.workflows || wfData.workflows.length === 0) {
+                    throw new Error('未找到可用的 Workflows');
+                }
+
+                // Prefer CI/Pages
+                let targetWf = wfData.workflows.find(w => /pages|deploy|build|ci/i.test(w.name));
+                if (!targetWf) targetWf = wfData.workflows[0];
+                targetWfId = targetWf.id;
+                targetWfName = targetWf.name;
+            } else {
+                if (select.options[select.selectedIndex]) {
+                    targetWfName = select.options[select.selectedIndex].text;
+                }
             }
 
-            // 优先找名字包含 CI, Build, Deploy, Pages 的
-            let targetWf = wfData.workflows.find(w => /pages|deploy|build|ci/i.test(w.name));
-            if (!targetWf) targetWf = wfData.workflows[0]; // 默认第一个
-
-            // 2. 触发
+            // 2. Trigger
             const response = await fetch(`${this.apiBaseUrl}/api/github/trigger`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    workflow_id: targetWf.id,
-                    ref: 'main' // 默认分支
+                    workflow_id: targetWfId,
+                    ref: 'main'
                 })
             });
             const data = await response.json();
 
             if (data.success) {
-                this.showNotification(`已触发部署: ${targetWf.name}`, 'success');
-                // 延迟刷新列表
-                setTimeout(() => this.loadDeploymentStatus(), 2000);
+                this.showNotification(`已触发部署: ${targetWfName}`, 'success');
+                // Delay refresh
+                setTimeout(() => this.loadDeploymentStatus(false), 2000);
             } else {
                 throw new Error(data.error || '触发失败');
             }
