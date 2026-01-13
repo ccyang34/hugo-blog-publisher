@@ -5,7 +5,7 @@ function showToast(message, type = 'info') {
     toast.textContent = message;
     toast.className = `toast ${type}`;
     toast.classList.remove('hidden');
-    
+
     setTimeout(() => {
         toast.classList.add('hidden');
     }, 3000);
@@ -258,6 +258,10 @@ async function uploadImage() {
                 <p><strong>图片 URL：</strong><code>${uploadData.url}</code></p>
                 <p><strong>Markdown 引用：</strong><code>![${uploadData.filename}](${uploadData.url})</code></p>
             `, 'success');
+
+            // 自动插入到内容框
+            insertImageToContent(uploadData.url, uploadData.filename);
+
             showToast('图片上传成功', 'success');
         } else {
             showResult('upload-result', `
@@ -278,6 +282,29 @@ async function uploadImage() {
     }
 }
 
+function insertImageToContent(url, filename) {
+    const textarea = document.getElementById('format-content');
+    if (!textarea) return;
+
+    const imageMarkdown = `![${filename}](${url})`;
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+
+    // 如果没有内容，直接添加；如果有内容，确保换行
+    let prefix = '';
+    if (text.length > 0 && start > 0 && text[start - 1] !== '\n') {
+        prefix = '\n';
+    }
+
+    const newText = text.substring(0, start) + prefix + imageMarkdown + text.substring(end);
+    textarea.value = newText;
+
+    const newCursorPos = start + prefix.length + imageMarkdown.length;
+    textarea.selectionStart = textarea.selectionEnd = newCursorPos;
+    textarea.focus();
+}
+
 async function listFiles() {
     const path = document.getElementById('files-path').value;
 
@@ -287,7 +314,7 @@ async function listFiles() {
 
         if (data.success) {
             const filesList = document.getElementById('files-list');
-            
+
             if (data.files.length === 0) {
                 filesList.innerHTML = '<p style="color: #666; padding: 20px;">暂无文件</p>';
             } else {
@@ -301,7 +328,7 @@ async function listFiles() {
                     </div>
                 `).join('');
             }
-            
+
             document.getElementById('files-result').classList.remove('hidden');
             showToast(`找到 ${data.files.length} 个文件`, 'success');
         } else {
