@@ -72,6 +72,7 @@ class MarkdownGenerator:
     def generate_front_matter(self, title: str, date: Optional[str] = None,
                              tags: Optional[List[str]] = None,
                              category: Optional[str] = None,
+                             categories: Optional[List[str]] = None,
                              content: str = '') -> str:
         """
         生成Hugo文章front matter
@@ -80,7 +81,8 @@ class MarkdownGenerator:
             title: 文章标题
             date: 日期
             tags: 标签列表
-            category: 分类
+            category: 分类 (单分类兼容)
+            categories: 分类列表 (优先使用)
             content: 文章内容（可选，用于生成摘要）
             
         返回:
@@ -92,16 +94,23 @@ class MarkdownGenerator:
         if tags is None:
             tags = []
         
-        if not category:
-            category = self.default_category
+        # 处理分类逻辑：优先使用 categories 列表，其次兼容 category 单字段
+        final_categories = []
+        if categories:
+            final_categories = categories
+        elif category:
+            final_categories = [category]
+        elif not categories and not category:
+            final_categories = [self.default_category]
         
         front_matter_lines = ['---']
         front_matter_lines.append(f'title: "{self._escape_yaml_string(title)}"')
         front_matter_lines.append(f'date: {date}')
         front_matter_lines.append(f'lastmod: {date}')
         
-        if category:
-            front_matter_lines.append(f'categories: ["{self._escape_yaml_string(category)}"]')
+        if final_categories:
+            cats_str = ', '.join([f'"{self._escape_yaml_string(c)}"' for c in final_categories])
+            front_matter_lines.append(f'categories: [{cats_str}]')
         
         if tags:
             tags_str = ', '.join([f'"{self._escape_yaml_string(tag)}"' for tag in tags])
@@ -115,6 +124,7 @@ class MarkdownGenerator:
                                date: Optional[str] = None,
                                tags: Optional[List[str]] = None,
                                category: Optional[str] = None,
+                               categories: Optional[List[str]] = None,
                                draft: bool = False,
                                featured_image: str = '',
                                author: str = '') -> str:
@@ -126,7 +136,8 @@ class MarkdownGenerator:
             content: 文章内容（Markdown格式）
             date: 日期
             tags: 标签列表
-            category: 分类
+            category: 分类 (兼容)
+            categories: 分类列表 (优先)
             draft: 是否为草稿
             featured_image: 特色图片
             author: 作者
@@ -140,8 +151,14 @@ class MarkdownGenerator:
         if tags is None:
             tags = []
         
-        if not category:
-            category = self.default_category
+        # 处理分类逻辑
+        final_categories = []
+        if categories:
+            final_categories = categories
+        elif category:
+            final_categories = [category]
+        elif not categories and not category:
+            final_categories = [self.default_category]
         
         lines = ['---']
         lines.append(f'title: "{self._escape_yaml_string(title)}"')
@@ -154,8 +171,9 @@ class MarkdownGenerator:
         if draft:
             lines.append('draft: true')
         
-        if category:
-            lines.append(f'categories: ["{self._escape_yaml_string(category)}"]')
+        if final_categories:
+            cats_str = ', '.join([f'"{self._escape_yaml_string(c)}"' for c in final_categories])
+            lines.append(f'categories: [{cats_str}]')
         
         if tags:
             tags_str = ', '.join([f'"{self._escape_yaml_string(tag)}"' for tag in tags])

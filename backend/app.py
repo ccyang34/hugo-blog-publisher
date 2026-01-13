@@ -248,6 +248,7 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
         date = data.get('date', datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%dT%H:%M:%S+08:00'))
         tags = data.get('tags', [])
         category = data.get('category', '')
+        categories = [] # Initialize categories list
         author = data.get('author', '')
         target_dir = data.get('target_dir', 'content/posts')
         draft = data.get('draft', False)
@@ -337,6 +338,10 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
                 content = analysis.get('content', content)
                 tags = analysis.get('tags', [])
                 category = analysis.get('category', '未分类')
+                categories = analysis.get('categories', [])
+                # 如果没有返回多分类，则使用单分类
+                if not categories and category:
+                    categories = [category]
                 
                 if not title:
                     extracted_title = parsed.get('front_matter', {}).get('title')
@@ -344,7 +349,7 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
                 
                 add_job_log(job_id, 'AI分析', 'success', 'AI优化排版完成', {
                     'title': title,
-                    'category': category,
+                    'categories': categories,
                     'tags': tags
                 })
                 # AI分析完成后，更新任务历史中的标题（对于粘贴文本无标题的情况）
@@ -368,7 +373,8 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
             content=content,
             date=date,
             tags=tags,
-            category=category,
+            category=category, # Legacy compatibility
+            categories=categories, # New multi-category support
             draft=draft,
             author=author
         )

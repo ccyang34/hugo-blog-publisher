@@ -106,8 +106,8 @@ class DeepSeekService:
 
 ## 处理要求
 1. **内容分析**：
-   - 识别文章的核心主题，提取 1 个最合适的分类（Category）。
-     - **分类规范**：基于以下预设分类的“定位”描述，发挥你的泛化能力进行判断，选择最符合的一个：
+   - 识别文章的核心主题，提取 1-3 个最合适的分类（Categories）。
+     - **分类规范**：基于以下预设分类的“定位”描述，判断最符合的分类。允许选择多个（最多3个），但这要求文章确实跨越了多个领域且相关性都很强。
 {chr(10).join([f"        - {k}：{v}" for k, v in self.PRESET_CATEGORIES.items()])}
      - **自主创建规则**：如果文章内容确实不属于上述任何分类，请根据你的理解自主创建一个最能代表文章主题的、简洁的分类（要求 2-4 个汉字）。
    - 提取 5-8 个核心标签（Tags）。
@@ -127,7 +127,7 @@ class DeepSeekService:
 3. **输出格式**：
    - 必须以 JSON 格式返回，包含以下字段：
      - `title`: 最终确定的标题
-     - `category`: 建议的分类
+     - `categories`: 建议的分类数组（List[str]，最多3个）
      - `tags`: 标签数组
      - `content`: 格式化后的正文 Markdown
 
@@ -165,9 +165,19 @@ class DeepSeekService:
                 response = response.replace('```', '', 1).rsplit('```', 1)[0].strip()
             
             result = json.loads(response)
+            
+            # 兼容处理 category 和 categories
+            categories = result.get('categories', [])
+            if not categories and result.get('category'):
+                categories = [result.get('category')]
+            
+            # 确保即使 API 返回单字符串也能转为列表
+            if isinstance(categories, str):
+                categories = [categories]
+                
             return {
                 'title': result.get('title', '').strip(),
-                'category': result.get('category', '').strip(),
+                'categories': categories,
                 'tags': result.get('tags', []),
                 'content': result.get('content', '').strip()
             }
