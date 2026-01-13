@@ -248,6 +248,7 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
         date = data.get('date', datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%dT%H:%M:%S+08:00'))
         tags = data.get('tags', [])
         category = data.get('category', '')
+        author = data.get('author', '')
         target_dir = data.get('target_dir', 'content/posts')
         draft = data.get('draft', False)
         auto_format = data.get('auto_format', True)
@@ -283,6 +284,10 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
                 if not title and scraped_data.get('title'):
                     title = scraped_data['title']
                     print(f"Use scraped title: {title}")
+                
+                if not author and scraped_data.get('author'):
+                    author = scraped_data['author']
+                    print(f"Use scraped author: {author}")
                 # 检查是否需要跳过 AI 排版（纯图片笔记）
                 skip_ai_format = scraped_data.get('skip_ai_format', False)
                 add_job_log(job_id, 'URL抓取', 'success', '成功获取文章内容', {
@@ -364,7 +369,8 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
             date=date,
             tags=tags,
             category=category,
-            draft=draft
+            draft=draft,
+            author=author
         )
         
         add_job_log(job_id, '生成文件', 'success', '文件生成完成', {

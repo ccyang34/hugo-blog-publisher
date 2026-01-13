@@ -342,9 +342,31 @@ def _handle_wechat(soup, url=None):
     else:
         text += "*来源: 微信公众号*\n"
     
+    # 尝试提取作者/公众号名称
+    author = ""
+    # 1. DOM 提取
+    if soup.find(id='js_name'):
+        author = soup.find(id='js_name').get_text().strip()
+    elif soup.find(class_='profile_nickname'):
+        author = soup.find(class_='profile_nickname').get_text().strip()
+    
+    # 2. 如果 DOM 没找到，尝试从 JS 变量提取
+    if not author:
+        # 匹配 var nickname = "..." 
+        nickname_match = re.search(r'var\s+nickname\s*=\s*[\'"](.*?)[\'"]', html_text)
+        if nickname_match:
+            author = nickname_match.group(1)
+        
+        # 匹配 user_name = "..."
+        if not author:
+            user_name_match = re.search(r'item_show_type.*?user_name\s*:\s*[\'"](.*?)[\'"]', html_text, re.DOTALL)
+            if user_name_match:
+                author = user_name_match.group(1)
+
     return {
         'title': title,
-        'content': text
+        'content': text,
+        'author': author
     }
 
 def _handle_toutiao(soup, url=None):

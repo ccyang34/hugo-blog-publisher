@@ -116,7 +116,8 @@ class MarkdownGenerator:
                                tags: Optional[List[str]] = None,
                                category: Optional[str] = None,
                                draft: bool = False,
-                               featured_image: str = '') -> str:
+                               featured_image: str = '',
+                               author: str = '') -> str:
         """
         将文章内容包装为完整的Hugo Markdown格式
         
@@ -128,6 +129,7 @@ class MarkdownGenerator:
             category: 分类
             draft: 是否为草稿
             featured_image: 特色图片
+            author: 作者
             
         返回:
             完整的Hugo文章内容
@@ -146,6 +148,9 @@ class MarkdownGenerator:
         lines.append(f'date: {date}')
         lines.append(f'lastmod: {date}')
         
+        if author:
+            lines.append(f'author: "{self._escape_yaml_string(author)}"')
+            
         if draft:
             lines.append('draft: true')
         
