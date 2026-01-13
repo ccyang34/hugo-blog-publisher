@@ -440,3 +440,46 @@ class GitHubService:
                 'success': False,
                 'error': str(e)
             }
+
+    def list_workflows(self) -> Dict[str, Any]:
+        """
+        列出所有 GitHub Actions Workflows
+        """
+        try:
+            url = f'{self.base_url}/repos/{self.username}/{self.repo}/actions/workflows'
+            response = requests.get(url, headers=self.headers, timeout=10)
+            response.raise_for_status()
+            return {
+                'success': True,
+                'workflows': response.json().get('workflows', [])
+            }
+        except requests.exceptions.RequestException as e:
+            return {'success': False, 'error': str(e)}
+
+    def list_workflow_runs(self, limit: int = 5) -> Dict[str, Any]:
+        """
+        获取最近的 Workflow Runs
+        """
+        try:
+            url = f'{self.base_url}/repos/{self.username}/{self.repo}/actions/runs?per_page={limit}'
+            response = requests.get(url, headers=self.headers, timeout=10)
+            response.raise_for_status()
+            return {
+                'success': True,
+                'runs': response.json().get('workflow_runs', [])
+            }
+        except requests.exceptions.RequestException as e:
+            return {'success': False, 'error': str(e)}
+
+    def trigger_workflow(self, workflow_id: str, ref: str = 'main') -> Dict[str, Any]:
+        """
+        触发指定的 Workflow
+        """
+        try:
+            url = f'{self.base_url}/repos/{self.username}/{self.repo}/actions/workflows/{workflow_id}/dispatches'
+            payload = {'ref': ref}
+            response = requests.post(url, headers=self.headers, json=payload, timeout=10)
+            response.raise_for_status()
+            return {'success': True, 'message': 'Workflow triggered successfully'}
+        except requests.exceptions.RequestException as e:
+            return {'success': False, 'error': str(e)}

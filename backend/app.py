@@ -1390,3 +1390,38 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('DEBUG', 'False').lower() == 'true'
     app.run(host='0.0.0.0', port=port, debug=debug)
+
+@app.route('/api/github/workflows', methods=['GET'])
+def list_github_workflows():
+    """获取所有 Workflows"""
+    result = github_service.list_workflows()
+    if result['success']:
+        return jsonify(result)
+    else:
+        return jsonify(result), 500
+
+@app.route('/api/github/runs', methods=['GET'])
+def list_github_runs():
+    """获取最近 Runs"""
+    limit = request.args.get('limit', 5)
+    result = github_service.list_workflow_runs(limit=limit)
+    if result['success']:
+        return jsonify(result)
+    else:
+        return jsonify(result), 500
+
+@app.route('/api/github/trigger', methods=['POST'])
+def trigger_github_workflow():
+    """触发 Workflow"""
+    data = request.json
+    workflow_id = data.get('workflow_id')
+    ref = data.get('ref', 'main')
+    
+    if not workflow_id:
+        return jsonify({'success': False, 'error': 'Missing workflow_id'}), 400
+        
+    result = github_service.trigger_workflow(workflow_id, ref)
+    if result['success']:
+        return jsonify(result)
+    else:
+        return jsonify(result), 500

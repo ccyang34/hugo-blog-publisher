@@ -48,6 +48,23 @@
                     <p>博客运营数据统计</p>
                 </div>
 
+                <!-- Deployment Status Card -->
+                <div class="dashboard-card full-width" style="margin-bottom: 20px;">
+                    <div class="card-header">
+                        <h3>部署控制</h3>
+                        <div class="header-actions">
+                            <button id="triggerDeployBtn" class="btn btn-primary btn-sm">
+                                <span>🚀</span> 触发部署
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <div id="deployStatusList" class="deploy-status-list">
+                            <p class="loading-text">加载部署记录...</p>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="stats-grid">
                     <div class="stat-card">
                         <div class="stat-icon">📄</div>

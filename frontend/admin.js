@@ -150,6 +150,13 @@ class AdminPanel {
         document.getElementById('mediaSearch').addEventListener('input', (e) => {
             this.filterMedia(e.target.value);
         });
+
+        const triggerDeployBtn = document.getElementById('triggerDeployBtn');
+        if (triggerDeployBtn) {
+            triggerDeployBtn.addEventListener('click', () => {
+                this.triggerDeploy();
+            });
+        }
     }
 
     switchSection(sectionId) {
@@ -210,7 +217,10 @@ class AdminPanel {
 
             this.renderCategoryStats(posts, notes, drafts);
             this.renderTagCloud(posts, notes, drafts);
+            this.renderCategoryStats(posts, notes, drafts);
+            this.renderTagCloud(posts, notes, drafts);
             this.renderRecentUpdates([...posts, ...notes, ...drafts]);
+            this.loadDeploymentStatus();
         } catch (error) {
             console.error('加载仪表盘数据错误:', error);
             this.showNotification('加载数据失败', 'error');
@@ -624,6 +634,126 @@ class AdminPanel {
             f.name.toLowerCase().includes(search.toLowerCase())
         );
         this.renderMediaGrid(filtered);
+    }
+
+    async loadDeploymentStatus() {
+        const list = document.getElementById('deployStatusList');
+        // Keep existing loading text only if empty
+        if (!list.innerHTML.trim()) {
+            list.innerHTML = '<p class="loading-text">加载部署记录...</p>';
+        }
+
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/api/github/runs?limit=5`);
+            const data = await response.json();
+
+            if (data.success) {
+                this.renderDeploymentList(data.runs);
+            } else {
+                list.innerHTML = '<p class="empty-text">无法获取部署记录</p>';
+            }
+        } catch (error) {
+            console.error('加载部署记录错误:', error);
+            list.innerHTML = '<p class="empty-text">加载失败</p>';
+        }
+    }
+
+    renderDeploymentList(runs) {
+        const list = document.getElementById('deployStatusList');
+
+        if (!runs || runs.length === 0) {
+            list.innerHTML = '<p class="empty-text">暂无部署记录</p>';
+            return;
+        }
+
+        const getStatusIcon = (status, conclusion) => {
+            if (status === 'queued' || status === 'in_progress') return '🔄';
+            if (conclusion === 'success') return '✅';
+            if (conclusion === 'failure') return '❌';
+            if (conclusion === 'cancelled') return '🚫';
+            return '❓';
+        };
+
+        const getStatusClass = (status, conclusion) => {
+            if (status === 'queued' || status === 'in_progress') return 'pending';
+            if (conclusion === 'success') return 'success';
+            if (conclusion === 'failure') return 'failure';
+            return 'cancelled';
+        };
+
+        const getStatusText = (status, conclusion) => {
+            if (status === 'queued') return '排队中';
+            if (status === 'in_progress') return '进行中';
+            if (conclusion === 'success') return '成功';
+            if (conclusion === 'failure') return '失败';
+            if (conclusion === 'cancelled') return '取消';
+            return '未知';
+        };
+
+        list.innerHTML = runs.map(run => `
+            <div class="deploy-item">
+                <div class="deploy-info">
+                    <div class="deploy-status-icon">${getStatusIcon(run.status, run.conclusion)}</div>
+                    <div class="deploy-details">
+                        <div class="deploy-name">${run.name} #${run.run_number}</div>
+                        <div class="deploy-meta">
+                            ${new Date(run.created_at).toLocaleString('zh-CN')} · ${run.head_branch}
+                        </div>
+                    </div>
+                </div>
+                <div class="deploy-badge ${getStatusClass(run.status, run.conclusion)}">
+                    ${getStatusText(run.status, run.conclusion)}
+                </div>
+            </div>
+        `).join('');
+    }
+
+    async triggerDeploy() {
+        if (!confirm('确定要手动触发部署吗？')) return;
+
+        const btn = document.getElementById('triggerDeployBtn');
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span>⏳</span> 请求中...';
+
+        try {
+            // 1. 获取 Workflows 列表，寻找合适的 Workflow
+            const wfResponse = await fetch(`${this.apiBaseUrl}/api/github/workflows`);
+            const wfData = await wfResponse.json();
+
+            if (!wfData.success || !wfData.workflows || wfData.workflows.length === 0) {
+                throw new Error('未找到可用的 Workflows');
+            }
+
+            // 优先找名字包含 CI, Build, Deploy, Pages 的
+            let targetWf = wfData.workflows.find(w => /pages|deploy|build|ci/i.test(w.name));
+            if (!targetWf) targetWf = wfData.workflows[0]; // 默认第一个
+
+            // 2. 触发
+            const response = await fetch(`${this.apiBaseUrl}/api/github/trigger`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    workflow_id: targetWf.id,
+                    ref: 'main' // 默认分支
+                })
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                this.showNotification(`已触发部署: ${targetWf.name}`, 'success');
+                // 延迟刷新列表
+                setTimeout(() => this.loadDeploymentStatus(), 2000);
+            } else {
+                throw new Error(data.error || '触发失败');
+            }
+        } catch (error) {
+            console.error('Trigger deployment error:', error);
+            this.showNotification(`部署失败: ${error.message}`, 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+        }
     }
 
     async checkSystemStatus() {
