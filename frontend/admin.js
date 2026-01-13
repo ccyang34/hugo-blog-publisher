@@ -157,6 +157,13 @@ class AdminPanel {
                 this.triggerDeploy();
             });
         }
+
+        const workflowSelect = document.getElementById('workflowSelect');
+        if (workflowSelect) {
+            workflowSelect.addEventListener('change', () => {
+                this.loadDeploymentStatus(false); // Reload runs only
+            });
+        }
     }
 
     switchSection(sectionId) {
@@ -644,6 +651,7 @@ class AdminPanel {
         }
 
         try {
+            // Load runs
             const response = await fetch(`${this.apiBaseUrl}/api/github/runs?limit=5`);
             const data = await response.json();
 
@@ -652,6 +660,23 @@ class AdminPanel {
             } else {
                 list.innerHTML = '<p class="empty-text">无法获取部署记录</p>';
             }
+
+            // Load workflows count
+            try {
+                const wfResponse = await fetch(`${this.apiBaseUrl}/api/github/workflows`);
+                const wfData = await wfResponse.json();
+                if (wfData.success && wfData.workflows) {
+                    const badge = document.getElementById('workflowCountBadge');
+                    if (badge) {
+                        badge.textContent = `${wfData.workflows.length} 个流程`;
+                        badge.style.display = 'inline-block';
+                        badge.className = 'deploy-badge success';
+                    }
+                }
+            } catch (err) {
+                console.error('Fetch workflows count error:', err);
+            }
+
         } catch (error) {
             console.error('加载部署记录错误:', error);
             list.innerHTML = '<p class="empty-text">加载失败</p>';

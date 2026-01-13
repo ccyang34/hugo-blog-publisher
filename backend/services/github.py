@@ -456,12 +456,16 @@ class GitHubService:
         except requests.exceptions.RequestException as e:
             return {'success': False, 'error': str(e)}
 
-    def list_workflow_runs(self, limit: int = 5) -> Dict[str, Any]:
+    def list_workflow_runs(self, limit: int = 5, workflow_id: Optional[str] = None) -> Dict[str, Any]:
         """
         获取最近的 Workflow Runs
         """
         try:
-            url = f'{self.base_url}/repos/{self.username}/{self.repo}/actions/runs?per_page={limit}'
+            if workflow_id:
+                url = f'{self.base_url}/repos/{self.username}/{self.repo}/actions/workflows/{workflow_id}/runs?per_page={limit}'
+            else:
+                url = f'{self.base_url}/repos/{self.username}/{self.repo}/actions/runs?per_page={limit}'
+                
             response = requests.get(url, headers=self.headers, timeout=10)
             response.raise_for_status()
             return {

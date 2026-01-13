@@ -1404,7 +1404,8 @@ def list_github_workflows():
 def list_github_runs():
     """获取最近 Runs"""
     limit = request.args.get('limit', 5)
-    result = github_service.list_workflow_runs(limit=limit)
+    workflow_id = request.args.get('workflow_id')
+    result = github_service.list_workflow_runs(limit=limit, workflow_id=workflow_id)
     if result['success']:
         return jsonify(result)
     else:

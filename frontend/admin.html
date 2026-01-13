@@ -51,7 +51,13 @@
                 <!-- Deployment Status Card -->
                 <div class="dashboard-card full-width" style="margin-bottom: 20px;">
                     <div class="card-header">
-                        <h3>部署控制</h3>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <h3>部署控制</h3>
+                            <select id="workflowSelect"
+                                style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); font-size: 0.8125rem;">
+                                <option value="">所有流程</option>
+                            </select>
+                        </div>
                         <div class="header-actions">
                             <button id="triggerDeployBtn" class="btn btn-primary btn-sm">
                                 <span>🚀</span> 触发部署
