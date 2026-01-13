@@ -64,7 +64,12 @@
                 </div>
 
                 <div class="form-group">
-                    <label>图片上传</label>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <label>图片上传</label>
+                        <span class="form-hint"
+                            style="margin: 0; font-size: 12px; text-align: left;">支持的格式：PNG、JPG、GIF、WebP、SVG、BMP<br>图片将上传到
+                            /images/ 目录</span>
+                    </div>
                     <div class="image-upload-area">
                         <input type="file" id="imageInput" accept="image/*" class="image-input">
                         <label for="imageInput" class="image-upload-label">
@@ -79,7 +84,6 @@
                         </div>
                         <div id="imageList" class="uploaded-images"></div>
                     </div>
-                    <p class="form-hint">支持的格式：PNG、JPG、GIF、WebP、SVG、BMP。图片将上传到 /images/ 目录</p>
                 </div>
 
                 <div class="action-buttons">
@@ -87,6 +91,14 @@
                         <span class="btn-icon">🚀</span>
                         快速发布
                     </button>
+                </div>
+                <!-- 博客主页跳转 -->
+                <div style="margin-top: 10px;">
+                    <a href="https://hugo.ccyang.online/" target="_blank" class="btn btn-secondary"
+                        style="width: 100%; text-decoration: none;">
+                        <span class="btn-icon">🌐</span>
+                        访问博客主页
+                    </a>
                 </div>
             </div>
 

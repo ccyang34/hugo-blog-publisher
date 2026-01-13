@@ -363,6 +363,10 @@ def _handle_wechat(soup, url=None):
             if user_name_match:
                 author = user_name_match.group(1)
 
+    # 将作者信息添加到文章开头
+    if author:
+        text = f"**作者**: {author}\n\n{text}"
+
     return {
         'title': title,
         'content': text,
@@ -397,9 +401,21 @@ def _handle_toutiao(soup, url=None):
     else:
         text += "*来源: 今日头条*\n"
     
+    author = "今日头条作者" # Placeholder or try extract
+    # Try extract author
+    # <div class="article-meta"> or similar
+    # Look for 'author-name' or 'name' common in Toutiao
+    meta_author = soup.find(class_='article-sub') or soup.find(class_='name')
+    if meta_author:
+        author = meta_author.get_text().strip()
+
+    if author and "今日头条作者" not in author:
+         text = f"**作者**: {author}\n\n{text}"
+
     return {
         'title': title,
-        'content': text
+        'content': text,
+        'author': author if "今日头条作者" not in author else "" 
     }
 
 def _handle_xiaohongshu(soup, html_text, url=None):
@@ -523,6 +539,7 @@ def _handle_xiaohongshu(soup, html_text, url=None):
             'content': content,
             'platform': 'xiaohongshu',
             'raw_data': data,
+            'author': nickname,
             'skip_ai_format': skip_ai  # 纯图片笔记跳过 AI 排版
         }
     except Exception as e:
@@ -593,9 +610,21 @@ def _handle_zhihu(soup, url=None):
     else:
         text += "*来源: 知乎*\n"
     
+    author = ""
+    # Zhihu Author
+    # <div class="AuthorInfo-name">...</div>
+    author_elem = soup.find(class_='AuthorInfo-name') or soup.find(class_='UserLink-link')
+    if author_elem:
+        author = author_elem.get_text().strip()
+    
+    # Prepend author
+    if author:
+        text = f"**作者**: {author}\n\n{text}"
+
     return {
         'title': title,
-        'content': text
+        'content': text,
+        'author': author
     }
 
 def _handle_generic(soup, url=None):
@@ -648,7 +677,24 @@ def _handle_generic(soup, url=None):
         text += "\n\n---\n"
         text += f"*来源: [原文链接]({url})*\n"
     
+    author = ""
+    # Try generic author meta
+    # <meta name="author" content="...">
+    meta_author = soup.find('meta', attrs={'name': 'author'}) or soup.find('meta', property='article:author')
+    if meta_author:
+        author = meta_author.get('content', '')
+    
+    if not author:
+        # Try common classes
+        author_elem = soup.find(class_=re.compile(r'author|byline', re.I))
+        if author_elem:
+            author = author_elem.get_text().strip()
+            
+    if author:
+         text = f"**作者**: {author}\n\n{text}"
+
     return {
         'title': title.strip() if title else '',
-        'content': text
+        'content': text,
+        'author': author
     }
