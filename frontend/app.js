@@ -960,9 +960,70 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
         e.target.value = '';
     }
 
+    async compressImage(file, maxWidth = 1920, quality = 0.8) {
+        return new Promise((resolve, reject) => {
+            if (!file.type.match(/image.*/)) {
+                return reject(new Error('Not an image'));
+            }
+
+            const reader = new FileReader();
+            reader.onload = (readerEvent) => {
+                const image = new Image();
+                image.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let width = image.width;
+                    let height = image.height;
+
+                    if (width > maxWidth) {
+                        height *= maxWidth / width;
+                        width = maxWidth;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(image, 0, 0, width, height);
+
+                    canvas.toBlob((blob) => {
+                        if (blob) {
+                            resolve(blob);
+                        } else {
+                            reject(new Error('Canvas to Blob failed'));
+                        }
+                    }, 'image/jpeg', quality);
+                };
+                image.onerror = () => reject(new Error('Image load failed'));
+                image.src = readerEvent.target.result;
+            };
+            reader.onerror = () => reject(new Error('File read failed'));
+            reader.readAsDataURL(file);
+        });
+    }
+
     async uploadImage(file) {
+        // Compress image before upload
+        let fileToUpload = file;
+        const shouldCompress = document.getElementById('compressImage')?.checked ?? true;
+
+        if (shouldCompress) {
+            try {
+                this.showLoading('正在压缩图片...');
+                const compressedBlob = await this.compressImage(file);
+                fileToUpload = new File([compressedBlob], file.name, {
+                    type: 'image/jpeg',
+                    lastModified: Date.now()
+                });
+                this.hideLoading();
+                this.showNotification(`图片压缩完成: ${(file.size / 1024).toFixed(0)}KB -> ${(fileToUpload.size / 1024).toFixed(0)}KB`, 'success');
+            } catch (error) {
+                console.warn('Image compression failed, using original file:', error);
+                this.hideLoading();
+            }
+        }
+
         const maxSize = 10 * 1024 * 1024;
-        if (file.size > maxSize) {
+        if (fileToUpload.size > maxSize) {
             this.showNotification('图片大小不能超过10MB', 'error');
             return;
         }
@@ -973,7 +1034,7 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
 
         try {
             const formData = new FormData();
-            formData.append('file', file);
+            formData.append('file', fileToUpload);
 
             const response = await fetch(`${this.apiBaseUrl}/api/upload-image`, {
                 method: 'POST',
@@ -986,8 +1047,12 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
                 this.progressFill.style.width = '100%';
                 this.progressText.textContent = '上传成功!';
 
+                // Create local preview URL
+                const previewUrl = URL.createObjectURL(fileToUpload);
+
                 this.uploadedImages.push({
                     url: data.url,
+                    previewUrl: previewUrl,
                     filename: data.filename,
                     timestamp: Date.now()
                 });
@@ -1032,27 +1097,63 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
         this.uploadedImages.forEach((img, index) => {
             const item = document.createElement('div');
             item.className = 'uploaded-image-item';
+            const displayUrl = img.previewUrl || img.url;
             item.innerHTML = `
-                <img src="${img.url}" alt="${img.filename}" title="${img.filename}" onerror="this.src='https://cdn.jsdelivr.net/gh/${window.APP_CONFIG?.githubUser}/${window.APP_CONFIG?.githubRepo}@main/static/images/${img.filename}'">
+                <img src="${displayUrl}" alt="${img.filename}" title="${img.filename}" onerror="if(!this.src.includes('jsdelivr')) this.src='https://cdn.jsdelivr.net/gh/${window.APP_CONFIG?.githubUser}/${window.APP_CONFIG?.githubRepo}@main/static/images/${img.filename}'">
                 <button class="copy-btn" title="复制链接">📋</button>
                 <button class="delete-btn" title="删除">×</button>
             `;
 
-            item.querySelector('.copy-btn').addEventListener('click', (e) => {
-                e.stopPropagation();
-                navigator.clipboard.writeText(`![${img.filename}](${img.url})`);
-                this.showNotification('已复制图片链接!', 'success');
-            });
+            // Bind events
+            const copyBtn = item.querySelector('.copy-btn');
+            copyBtn.onclick = () => {
+                const markdown = `![${img.filename}](${img.url})`;
+                navigator.clipboard.writeText(markdown).then(() => {
+                    this.showNotification('Markdown链接已复制', 'success');
+                });
+            };
 
-            item.querySelector('.delete-btn').addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.uploadedImages.splice(index, 1);
-                this.renderUploadedImages();
-                this.removeImageFromContent(img.url);
-            });
+            const deleteBtn = item.querySelector('.delete-btn');
+            deleteBtn.onclick = () => this.deleteImage(img.filename);
 
             this.imageList.appendChild(item);
         });
+    }
+
+    async deleteImage(filename) {
+        if (!confirm(`确定要删除图片 "${filename}" 吗？\n这就将从服务器上永久删除该文件。`)) {
+            return;
+        }
+
+        try {
+            this.showLoading('正在删除图片...');
+            const response = await fetch(`${this.apiBaseUrl}/api/delete-image`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ filename })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Remove from local list
+                const deletedImage = this.uploadedImages.find(img => img.filename === filename);
+                if (deletedImage) {
+                    this.removeImageFromContent(deletedImage.url);
+                }
+                this.uploadedImages = this.uploadedImages.filter(img => img.filename !== filename);
+                this.renderUploadedImages();
+                this.showNotification('图片已删除', 'success');
+            } else {
+                this.showNotification(`删除失败: ${data.error}`, 'error');
+            }
+        } catch (error) {
+            this.showNotification(`网络错误: ${error.message}`, 'error');
+        } finally {
+            this.hideLoading();
+        }
     }
 
     removeImageFromContent(url) {

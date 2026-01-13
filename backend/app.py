@@ -1315,7 +1315,8 @@ def upload_image():
         if result['success']:
             image_url = f'/images/{safe_name}'
             # 增加 GitHub Raw URL 作为回退
-            raw_url = f"https://raw.githubusercontent.com/{github_service.username}/{github_service.repo}/main/static/images/{safe_name}"
+            # switch to jsdelivr cdn
+            raw_url = f"https://cdn.jsdelivr.net/gh/{github_service.username}/{github_service.repo}@main/static/images/{safe_name}"
             return jsonify({
                 'success': True,
                 'message': '图片上传成功',
@@ -1329,6 +1330,55 @@ def upload_image():
                 'error': result.get('error', '上传失败')
             }), 500
     
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/delete-image', methods=['POST'])
+def delete_image():
+    """
+    删除已上传的图片
+    
+    请求参数 (JSON):
+        - filename: 图片文件名
+    """
+    try:
+        data = request.json
+        filename = data.get('filename')
+        
+        if not filename:
+            return jsonify({
+                'success': False,
+                'error': '未提供文件名'
+            }), 400
+            
+        # 安全检查：防止目录遍历
+        if '..' in filename or '/' in filename or '\\' in filename:
+            return jsonify({
+                'success': False,
+                'error': '非法的文件名'
+            }), 400
+            
+        target_path = f'static/images/{filename}'
+        
+        result = github_service.delete_file(
+            path=target_path,
+            message=f'Delete image: {filename}'
+        )
+        
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'message': '图片删除成功'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.get('error', '删除失败')
+            }), 500
+            
     except Exception as e:
         return jsonify({
             'success': False,

@@ -1,0 +1,49 @@
+
+@app.route('/api/delete-image', methods=['POST'])
+def delete_image():
+    """
+    删除已上传的图片
+    
+    请求参数 (JSON):
+        - filename: 图片文件名
+    """
+    try:
+        data = request.json
+        filename = data.get('filename')
+        
+        if not filename:
+            return jsonify({
+                'success': False,
+                'error': '未提供文件名'
+            }), 400
+            
+        # 安全检查：防止目录遍历
+        if '..' in filename or '/' in filename or '\\' in filename:
+            return jsonify({
+                'success': False,
+                'error': '非法的文件名'
+            }), 400
+            
+        target_path = f'static/images/{filename}'
+        
+        result = github_service.delete_file(
+            path=target_path,
+            message=f'Delete image: {filename}'
+        )
+        
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'message': '图片删除成功'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': result.get('error', '删除失败')
+            }), 500
+            
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500

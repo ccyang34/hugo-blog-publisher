@@ -200,6 +200,49 @@ async function publishArticle() {
         btn.innerHTML = '🚀 发布到 GitHub';
     }
 }
+function compressImage(file, maxWidth = 1920, quality = 0.8) {
+    return new Promise((resolve, reject) => {
+        if (!file.type.match(/image.*/)) {
+            return reject(new Error('Not an image'));
+        }
+
+        const reader = new FileReader();
+        reader.onload = (readerEvent) => {
+            const image = new Image();
+            image.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = image.width;
+                let height = image.height;
+
+                if (width > maxWidth) {
+                    height *= maxWidth / width;
+                    width = maxWidth;
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(image, 0, 0, width, height);
+
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        resolve(new File([blob], file.name, {
+                            type: 'image/jpeg',
+                            lastModified: Date.now()
+                        }));
+                    } else {
+                        reject(new Error('Canvas to Blob failed'));
+                    }
+                }, 'image/jpeg', quality);
+            };
+            image.onerror = () => reject(new Error('Image load failed'));
+            image.src = readerEvent.target.result;
+        };
+        reader.onerror = () => reject(new Error('File read failed'));
+        reader.readAsDataURL(file);
+    });
+}
 
 async function uploadImage() {
     const fileInput = document.getElementById('upload-file');
@@ -238,8 +281,27 @@ async function uploadImage() {
             return;
         }
 
+        // Compress image before upload
+        let fileToUpload = fileInput.files[0];
+        const shouldCompress = document.getElementById('compress-image')?.checked ?? true;
+
+        if (shouldCompress) {
+            try {
+                const btn = document.querySelector('#upload-result').nextElementSibling || event.target;
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<span class="loading"></span> 压缩中...';
+
+                fileToUpload = await compressImage(fileToUpload);
+
+                btn.innerHTML = originalText;
+                showToast(`图片压缩完成: ${(fileInput.files[0].size / 1024).toFixed(0)}KB -> ${(fileToUpload.size / 1024).toFixed(0)}KB`, 'success');
+            } catch (error) {
+                console.warn('Image compression failed, using original file:', error);
+            }
+        }
+
         const formData = new FormData();
-        formData.append('file', fileInput.files[0]);
+        formData.append('file', fileToUpload);
         if (customName.trim()) {
             formData.append('custom_name', customName);
         }

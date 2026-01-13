@@ -64,25 +64,35 @@
                 </div>
 
                 <div class="form-group">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <label style="white-space: nowrap; min-width: 70px;">图片上传</label>
-                        <span class="form-hint"
-                            style="margin: 0; font-size: 12px; text-align: left;">支持的格式：PNG、JPG、GIF、WebP、SVG、BMP<br>图片将上传到
-                            /images/ 目录</span>
+                    <div
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <label style="margin-bottom: 0;">图片上传</label>
                     </div>
-                    <div class="image-upload-area">
-                        <input type="file" id="imageInput" accept="image/*" class="image-input">
-                        <label for="imageInput" class="image-upload-label">
-                            <span class="upload-icon">📷</span>
-                            <span>点击选择图片或拖拽到此处</span>
-                        </label>
+
+                    <div class="image-upload-container">
+                        <!-- Control Bar: Upload Button + Compression Toggle -->
+                        <div class="image-upload-controls">
+                            <input type="file" id="imageInput" accept="image/*" class="hidden-file-input">
+                            <label for="imageInput" class="compact-upload-btn">
+                                <span class="btn-icon">📷</span> 选择图片
+                            </label>
+
+                            <label class="compact-checkbox-label" title="自动压缩 (WebP/JPEG, max 1920px)">
+                                <input type="checkbox" id="compressImage" checked>
+                                <span>压缩图片</span>
+                            </label>
+                        </div>
+
+                        <!-- Progress Bar -->
                         <div id="imageUploadProgress" class="upload-progress hidden">
                             <div class="progress-bar">
                                 <div class="progress-fill" style="width: 0%"></div>
                             </div>
                             <span class="progress-text">上传中...</span>
                         </div>
-                        <div id="imageList" class="uploaded-images"></div>
+
+                        <!-- Image Grid -->
+                        <div id="imageList" class="uploaded-images-grid"></div>
                     </div>
                 </div>
 
