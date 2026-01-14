@@ -48,21 +48,31 @@
                     <p>博客运营数据统计</p>
                 </div>
 
-                <!-- Deployment Status Card -->
+                <!-- Deployment Control Card -->
                 <div class="dashboard-card full-width" style="margin-bottom: 20px;">
                     <div class="card-header">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <h3>部署控制</h3>
-                            <select id="workflowSelect"
-                                style="padding: 4px 8px; border-radius: 4px; border: 1px solid var(--border-color); font-size: 0.8125rem;">
-                                <option value="">所有流程</option>
-                            </select>
-                        </div>
-                        <div class="header-actions">
-                            <button id="triggerDeployBtn" class="btn btn-primary btn-sm">
+                        <h3>部署控制</h3>
+                        <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                            <button id="refreshDeployBtn" class="btn btn-secondary btn-sm" style="white-space: nowrap;">
+                                <span>🔄</span> 刷新
+                            </button>
+                            <button id="triggerDeployBtn" class="btn btn-primary btn-sm" style="white-space: nowrap;">
                                 <span>🚀</span> 触发部署
                             </button>
                         </div>
+                    </div>
+                    <div style="padding: 0 16px 12px;">
+                        <select id="workflowSelect"
+                            style="padding: 6px 12px; border-radius: 4px; border: 1px solid var(--border-color); font-size: 0.875rem; min-width: 150px;">
+                            <option value="">所有流程</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Deployment Status List Card -->
+                <div class="dashboard-card full-width" style="margin-bottom: 20px;">
+                    <div class="card-header">
+                        <h3>部署记录</h3>
                     </div>
                     <div class="card-content">
                         <div id="deployStatusList" class="deploy-status-list">

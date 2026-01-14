@@ -164,6 +164,13 @@ class AdminPanel {
                 this.loadDeploymentStatus(false); // Reload runs only
             });
         }
+
+        const refreshDeployBtn = document.getElementById('refreshDeployBtn');
+        if (refreshDeployBtn) {
+            refreshDeployBtn.addEventListener('click', () => {
+                this.loadDeploymentStatus(true); // Reload workflows and runs
+            });
+        }
     }
 
     switchSection(sectionId) {
