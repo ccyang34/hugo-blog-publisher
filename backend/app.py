@@ -1084,7 +1084,13 @@ def list_files():
         path = request.args.get('path', 'content/posts')
         fetch_metadata = request.args.get('fetch_metadata', 'false').lower() == 'true'
         browser_mode = request.args.get('browser', 'false').lower() == 'true'
-        result = github_service.list_files(path, fetch_metadata=fetch_metadata)
+        recursive = request.args.get('recursive', 'false').lower() == 'true'
+        
+        # 图片目录默认递归
+        if 'images' in path.lower() and not browser_mode:
+            recursive = True
+            
+        result = github_service.list_files(path, fetch_metadata=fetch_metadata, recursive=recursive)
         
         if result['success']:
             all_files = result.get('files', [])

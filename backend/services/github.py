@@ -253,13 +253,14 @@ class GitHubService:
                 'error': str(e)
             }
     
-    def list_files(self, path: str = '', fetch_metadata: bool = False) -> Dict[str, Any]:
+    def list_files(self, path: str = '', fetch_metadata: bool = False, recursive: bool = False) -> Dict[str, Any]:
         """
         列出仓库目录中的文件
         
         参数:
             path: 目录路径
             fetch_metadata: 是否获取每个文件的元数据 (如 front matter 中的 date)
+            recursive: 是否递归获取子文件夹中的文件
             
         返回:
             包含文件列表的字典
@@ -280,6 +281,7 @@ class GitHubService:
                 files = files.get('children', [])
             
             file_list = []
+            subdirs = []
             
             def process_file(f):
                 file_type = f.get('type', '')
@@ -313,6 +315,14 @@ class GitHubService:
             else:
                 for f in files:
                     file_list.append(process_file(f))
+            
+            # 如果启用递归，处理子目录
+            if recursive:
+                subdirs = [f for f in file_list if f['is_dir']]
+                for subdir in subdirs:
+                    subdir_result = self.list_files(subdir['path'], fetch_metadata=fetch_metadata, recursive=True)
+                    if subdir_result['success']:
+                        file_list.extend(subdir_result['files'])
             
             return {
                 'success': True,
