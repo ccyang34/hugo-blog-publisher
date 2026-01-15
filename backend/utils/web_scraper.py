@@ -303,6 +303,11 @@ def _handle_wechat(soup, url=None):
                     video_url = url_match.group(1)
                     # 简单处理转义
                     video_url = video_url.replace(r'\x26', '&').replace('&amp;', '&')
+                    
+                    # 强制转换为 HTTPS 以避免 Mixed Content 问题
+                    if video_url.startswith('http://'):
+                        video_url = video_url.replace('http://', 'https://')
+                        
                     if vid not in vid_url_map:
                         vid_url_map[vid] = video_url
                         print(f"Found URL for VID {vid}: {video_url[:50]}...")
@@ -404,33 +409,44 @@ def _handle_wechat(soup, url=None):
             cover = video_covers.get(video_num, '')
             vid = video_ids.get(video_num, '')
             
+            # 处理封面图（使用代理绕过防盗链）
+            cover_url = ""
+            cover = safe_unquote(cover)
+            if cover and ('mmbiz.qpic.cn' in cover or 'mmbiz.qlogo.cn' in cover):
+                # 使用 i0.wp.com 代理
+                cover_url = f"https://i0.wp.com/{cover.replace('https://', '').replace('http://', '')}"
+            elif cover:
+                cover_url = cover 
+            
             # 1. 尝试从预提取的映射中获取 URL
             mp4_url = vid_url_map.get(vid)
             
             # 如果映射中没有，且是 wxv_ 开头，尝试 API（作为备选，虽然目前已知大概率失败）
             if not mp4_url and vid and vid.startswith('wxv_'):
                  try:
-                    print(f"VID {vid} not in map, trying API fallback...")
-                    # mp4_url = _get_wechat_video_url(vid, url) # API 调用暂禁用或保留？可以保留。
+                    # print(f"VID {vid} not in map, trying API fallback...")
+                    # mp4_url = _get_wechat_video_url(vid, url) # API 调用暂禁用
                     pass 
                  except: pass
 
             if mp4_url:
+                # 强制转换为 HTTPS 以避免 Mixed Content 问题
+                if mp4_url.startswith('http://'):
+                    mp4_url = mp4_url.replace('http://', 'https://')
+                    
                 # 直接使用远程 MP4 地址
-                return f'\n\n<video src="{mp4_url}" controls preload="metadata" width="100%" referrerpolicy="no-referrer" style="border-radius: 8px; margin: 10px 0; max-height: 600px;"></video>\n\n'
+                # 添加 poster 属性
+                poster_attr = f'poster="{cover_url}"' if cover_url else ''
+                return f'\n\n<video src="{mp4_url}" {poster_attr} controls preload="metadata" width="100%" referrerpolicy="no-referrer" style="border-radius: 8px; margin: 10px 0; max-height: 600px;"></video>\n\n'
             
             # 2. 如果获取失败，回退到封面图逻辑
-            
-            # 如果有封面图，使用代理显示封面
-            cover = safe_unquote(cover)
-            if cover and ('mmbiz.qpic.cn' in cover or 'mmbiz.qlogo.cn' in cover):
-                proxy_cover = f"https://i0.wp.com/{cover.replace('https://', '').replace('http://', '')}"
+            if cover_url:
                 if url:
-                    return f'\n\n[![📺 点击观看视频]({proxy_cover})]({url})\n\n'
+                    return f'\n\n[![📺 点击观看视频]({cover_url})]({url})\n\n'
                 else:
-                    return f'\n\n![📺 视频封面]({proxy_cover})\n\n'
-            elif cover:
-                # 封面不是微信域名，直接使用
+                    return f'\n\n![📺 视频封面]({cover_url})\n\n'
+            else:
+                # 没有封面图，使用文字提示卡片
                 if url:
                     return f'\n\n[![📺 点击观看视频]({cover})]({url})\n\n'
                 else:
