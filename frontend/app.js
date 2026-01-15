@@ -1728,6 +1728,10 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
         this.cfStatusBtn.addEventListener('click', () => this.fetchDeploymentStatus());
         this.cfDeployBtn.addEventListener('click', () => this.triggerDeployment());
 
+        // Initialize API Status elements
+        this.apiStatusText = document.getElementById('api-status-text');
+        this.apiStatusDot = document.getElementById('api-status-dot');
+
         // Auto fetch status on load
         this.fetchDeploymentStatus();
     }
@@ -1741,6 +1745,10 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
         if (this.ghStatusText) {
             this.ghStatusText.innerText = "查询中...";
             this.ghStatusDot.className = "status-dot progress";
+        }
+        if (this.apiStatusText) {
+            this.apiStatusText.innerText = "Checking...";
+            this.apiStatusDot.className = "status-dot progress";
         }
 
         try {
@@ -1791,6 +1799,32 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
                     this.ghStatusDot.className = "status-dot failure";
                 }
             }
+
+            // 3. Fetch Backend API Status
+            if (this.apiStatusText) {
+                try {
+                    const apiRes = await fetch(`${this.apiBaseUrl}/api/health`, { method: 'GET' });
+                    // Explicitly handle 520 errors which are common with Cloudflare when backend is down
+                    if (apiRes.ok) {
+                        this.apiStatusText.innerText = "NORMAL";
+                        this.apiStatusDot.className = "status-dot success";
+                    } else {
+                        // Try to parse error text if possible
+                        try {
+                            const errData = await apiRes.json();
+                            console.warn('API Health Check failed:', errData);
+                        } catch (e) {
+                            // ignore parse error
+                        }
+                        this.apiStatusText.innerText = "ERROR";
+                        this.apiStatusDot.className = "status-dot failure";
+                    }
+                } catch (e) {
+                    console.error('Failed to check API status:', e);
+                    this.apiStatusText.innerText = "OFFLINE";
+                    this.apiStatusDot.className = "status-dot failure";
+                }
+            }
         } catch (e) {
             console.error('Failed to fetch deployment status:', e);
             this.cfStatusText.innerText = "查询失败";
@@ -1798,6 +1832,10 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
             if (this.ghStatusText) {
                 this.ghStatusText.innerText = "查询失败";
                 this.ghStatusDot.className = "status-dot failure";
+            }
+            if (this.apiStatusText) {
+                this.apiStatusText.innerText = "查询失败";
+                this.apiStatusDot.className = "status-dot failure";
             }
         } finally {
             this.cfStatusBtn.disabled = false;

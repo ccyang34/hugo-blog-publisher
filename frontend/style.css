@@ -1777,15 +1777,20 @@ body {
 
     .status-group {
         flex-direction: row;
+        flex-wrap: nowrap;
+        /* Force single line */
         align-items: center;
-        gap: 12px;
+        gap: 2px;
+        /* Minimal gap */
         flex: 1;
         justify-content: space-between;
+        width: 100%;
     }
 
     #status-text,
-    #github-status-text {
-        font-size: 0.85rem;
+    #github-status-text,
+    #api-status-text {
+        font-size: 0.8rem;
     }
 
     .status-label {
@@ -1794,12 +1799,15 @@ body {
 
     .status-divider {
         display: block;
-        height: 30px;
-        margin: 0 4px;
+        height: 24px;
+        margin: 0 2px;
+        background: var(--border-color);
+        width: 1px;
     }
 
     .status-actions {
         width: 100%;
+        margin-top: 10px;
     }
 
     .btn-refresh,
@@ -1887,6 +1895,7 @@ body {
     color: var(--text-secondary);
     margin-left: 12px;
 }
+
 /* Image Upload Redesign */
 .hidden-file-input {
     display: none;
@@ -1944,12 +1953,14 @@ body {
     grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
     gap: 10px;
     margin-top: 10px;
-    min-height: 10px; /* Ensure some height if empty to avoid layout flop */
+    min-height: 10px;
+    /* Ensure some height if empty to avoid layout flop */
 }
 
 .uploaded-image-item {
     position: relative;
-    aspect-ratio: 1; /* Square thumbnails */
+    aspect-ratio: 1;
+    /* Square thumbnails */
     border-radius: 6px;
     overflow: hidden;
     border: 1px solid var(--border-color);
@@ -2017,12 +2028,12 @@ body {
     .image-upload-controls {
         gap: 10px;
     }
-    
+
     .compact-upload-btn {
         padding: 6px 10px;
         font-size: 0.8rem;
     }
-    
+
     .compact-checkbox-label {
         font-size: 0.8rem;
     }

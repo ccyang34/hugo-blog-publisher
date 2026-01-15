@@ -152,121 +152,128 @@
                                 </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="status-actions">
-                        <button id="deploy-btn" class="btn-deploy">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round">
-                                <line x1="22" y1="2" x2="11" y2="13" />
-                                <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                            </svg>
-                            <span>CF手动部署</span>
-                        </button>
-                        <button id="check-status-btn" class="btn-refresh">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round">
-                                <path d="M23 4v6h-6" />
-                                <path d="M1 20v-6h6" />
-                                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-                            </svg>
-                            <span>刷新</span>
-                        </button>
-                    </div>
-                </div>
-            </section>
-
-            <div class="result-section">
-                <div class="section-header">
-                    <h2>格式化结果</h2>
-                    <div class="header-actions">
-                        <button id="refreshFilesBtn" class="btn btn-secondary btn-sm">📂 刷新列表</button>
-                        <span id="wordCount" class="word-count">0 字</span>
-                        <span id="readingTime" class="reading-time">约 0 分钟</span>
-                    </div>
-                </div>
-
-                <div class="file-list-section">
-                    <div class="file-list-header">
-                        <h3>已发布文章</h3>
-                        <select id="fileDirSelect" class="form-input file-dir-select">
-                            <option value="content/posts">文章</option>
-                            <option value="content/notes">笔记</option>
-                            <option value="content/drafts">草稿</option>
-                        </select>
-                    </div>
-                    <div id="fileList" class="file-list">
-                        <p class="loading-text">点击"刷新文件列表"加载文章...</p>
-                    </div>
-                </div>
-
-                <div class="tabs">
-                    <button class="tab active" data-tab="preview">预览</button>
-                    <button class="tab" data-tab="markdown">Markdown</button>
-                    <button class="tab" data-tab="front-matter">Front Matter</button>
-                </div>
-
-                <div id="previewTab" class="tab-content active">
-                    <div id="previewContent" class="preview-content markdown-body">
-                        <p class="placeholder-text">格式化后的文章预览将显示在这里...</p>
-                    </div>
-                </div>
-
-                <div id="markdownTab" class="tab-content">
-                    <textarea id="markdownContent" class="form-textarea code-area"
-                        placeholder="Markdown代码..."></textarea>
-                </div>
-
-                <div id="frontMatterTab" class="tab-content">
-                    <textarea id="frontMatterContent" class="form-textarea code-area"
-                        placeholder="Front Matter..."></textarea>
-                </div>
-
-                <div class="publish-section">
-                    <div class="publish-options">
-                        <div class="form-group inline">
-                            <label for="targetDir">发布目录</label>
-                            <select id="targetDir" class="form-input">
-                                <option value="content/posts">content/posts (文章)</option>
-                                <option value="content/notes">content/notes (笔记)</option>
-                                <option value="content/drafts">content/drafts (草稿)</option>
-                            </select>
+                        <div class="status-divider"></div>
+                        <div class="status-item">
+                            <div class="status-info">
+                                <div id="api-status-dot" class="status-dot"></div>
+                                <div>
+                                    <div class="status-label">Backend API</div>
+                                    <div id="api-status-text">初始化...</div>
+                                </div>
+                            </div>
                         </div>
-                        <label class="checkbox-label">
-                            <input type="checkbox" id="isDraft">
-                            <span>设为草稿</span>
-                        </label>
-                    </div>
-
-                    <button id="formatBtn" class="btn btn-primary">
-                        <span class="btn-icon">✨</span>
-                        优化并预览
-                    </button>
-                    <button id="publishBtn" class="btn btn-success">
-                        <span class="btn-icon">🚀</span>
-                        发布到GitHub
-                    </button>
-                </div>
-
-                <div id="publishResult" class="publish-result hidden">
-                    <div class="result-success hidden">
-                        <h3>✅ 发布成功!</h3>
-                        <p id="successMessage"></p>
-                        <a id="viewLink" href="#" target="_blank" class="view-link">查看文章 →</a>
-                    </div>
-                    <div class="result-error hidden">
-                        <h3>❌ 发布失败</h3>
-                        <p id="errorMessage"></p>
                     </div>
                 </div>
+                <div class="status-actions">
+                    <button id="deploy-btn" class="btn-deploy">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="22" y1="2" x2="11" y2="13" />
+                            <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                        </svg>
+                        <span>CF手动部署</span>
+                    </button>
+                    <button id="check-status-btn" class="btn-refresh">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M23 4v6h-6" />
+                            <path d="M1 20v-6h6" />
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                        </svg>
+                        <span>刷新</span>
+                    </button>
+                </div>
+    </div>
+    </section>
+
+    <div class="result-section">
+        <div class="section-header">
+            <h2>格式化结果</h2>
+            <div class="header-actions">
+                <button id="refreshFilesBtn" class="btn btn-secondary btn-sm">📂 刷新列表</button>
+                <span id="wordCount" class="word-count">0 字</span>
+                <span id="readingTime" class="reading-time">约 0 分钟</span>
+            </div>
+        </div>
+
+        <div class="file-list-section">
+            <div class="file-list-header">
+                <h3>已发布文章</h3>
+                <select id="fileDirSelect" class="form-input file-dir-select">
+                    <option value="content/posts">文章</option>
+                    <option value="content/notes">笔记</option>
+                    <option value="content/drafts">草稿</option>
+                </select>
+            </div>
+            <div id="fileList" class="file-list">
+                <p class="loading-text">点击"刷新文件列表"加载文章...</p>
+            </div>
+        </div>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="preview">预览</button>
+            <button class="tab" data-tab="markdown">Markdown</button>
+            <button class="tab" data-tab="front-matter">Front Matter</button>
+        </div>
+
+        <div id="previewTab" class="tab-content active">
+            <div id="previewContent" class="preview-content markdown-body">
+                <p class="placeholder-text">格式化后的文章预览将显示在这里...</p>
+            </div>
+        </div>
+
+        <div id="markdownTab" class="tab-content">
+            <textarea id="markdownContent" class="form-textarea code-area" placeholder="Markdown代码..."></textarea>
+        </div>
+
+        <div id="frontMatterTab" class="tab-content">
+            <textarea id="frontMatterContent" class="form-textarea code-area" placeholder="Front Matter..."></textarea>
+        </div>
+
+        <div class="publish-section">
+            <div class="publish-options">
+                <div class="form-group inline">
+                    <label for="targetDir">发布目录</label>
+                    <select id="targetDir" class="form-input">
+                        <option value="content/posts">content/posts (文章)</option>
+                        <option value="content/notes">content/notes (笔记)</option>
+                        <option value="content/drafts">content/drafts (草稿)</option>
+                    </select>
+                </div>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="isDraft">
+                    <span>设为草稿</span>
+                </label>
             </div>
 
-        </main>
+            <button id="formatBtn" class="btn btn-primary">
+                <span class="btn-icon">✨</span>
+                优化并预览
+            </button>
+            <button id="publishBtn" class="btn btn-success">
+                <span class="btn-icon">🚀</span>
+                发布到GitHub
+            </button>
+        </div>
 
-        <footer class="footer">
-            <p>Powered by DeepSeek AI | Hosted on Cloudflare Pages</p>
-        </footer>
+        <div id="publishResult" class="publish-result hidden">
+            <div class="result-success hidden">
+                <h3>✅ 发布成功!</h3>
+                <p id="successMessage"></p>
+                <a id="viewLink" href="#" target="_blank" class="view-link">查看文章 →</a>
+            </div>
+            <div class="result-error hidden">
+                <h3>❌ 发布失败</h3>
+                <p id="errorMessage"></p>
+            </div>
+        </div>
+    </div>
+
+    </main>
+
+    <footer class="footer">
+        <p>Powered by DeepSeek AI | Hosted on Cloudflare Pages</p>
+    </footer>
     </div>
 
     <div id="publishModal" class="modal hidden">
