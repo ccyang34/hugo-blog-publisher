@@ -1022,9 +1022,9 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
             }
         }
 
-        const maxSize = 10 * 1024 * 1024;
+        const maxSize = 18 * 1024 * 1024;
         if (fileToUpload.size > maxSize) {
-            this.showNotification('图片大小不能超过10MB', 'error');
+            this.showNotification('图片大小不能超过18MB', 'error');
             return;
         }
 
