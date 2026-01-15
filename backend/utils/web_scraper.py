@@ -95,6 +95,39 @@ def fetch_article_content(url):
         print(f"Error fetching URL {url}: {e}")
         return None
 
+def _get_wechat_video_url(vid, article_url=None):
+    """
+    通过 VID 获取微信视频的真实 MP4 地址
+    """
+    url = f"https://mp.weixin.qq.com/mp/videoplayer?action=get_mp_video_play_url&preview=0&vid={vid}"
+    
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': article_url if article_url else 'https://mp.weixin.qq.com/',
+        'Origin': 'https://mp.weixin.qq.com'
+    }
+    
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        # 即使状态码是 200，也可能返回错误 JSON，但通常 raise_for_status 够了
+        if response.status_code != 200:
+            print(f"Failed to get video URL for {vid}, status: {response.status_code}")
+            return None
+            
+        data = response.json()
+        
+        if 'url_info' in data and data['url_info']:
+            # 通常会有多个分辨率，取第一个或质量最好的
+            video_info = data['url_info'][0]
+            return video_info.get('url')
+            
+        return None
+        
+    except Exception as e:
+        print(f"Error fetching video URL for {vid}: {e}")
+        return None
+
+
 def _clean_soup(soup):
     """Remove unwanted tags"""
     for tag in soup(["script", "style", "nav", "footer", "iframe", "noscript", "header", "aside"]):
@@ -244,52 +277,83 @@ def _handle_wechat(soup, url=None):
         elif img.get('data-src'):
             img['src'] = img['data-src']
     
-    # 在原位置将视频标签转换为可识别的 HTML 格式，同时提取封面图
+    # 在原位置将视频标签转换为可识别的 HTML 格式，同时提取封面图和 VID
     video_count = 0
     video_covers = {}  # 存储视频封面图
+    video_ids = {}     # 存储视频 VID
     
+    # helper: 解码 URL
+    def safe_unquote(u):
+        if not u: return ""
+        if '&amp;' in u:
+            u = u.replace('&amp;', '&')
+        return unquote(u)
+
     # 1. 处理 iframe 视频（腾讯视频、微信视频号等）
     for iframe in article.find_all('iframe'):
-        src = iframe.get('data-src') or iframe.get('src', '')
-        cover = iframe.get('data-cover') or iframe.get('data-poster') or ''
+        src = safe_unquote(iframe.get('data-src') or iframe.get('src', ''))
+        cover = safe_unquote(iframe.get('data-cover') or iframe.get('data-poster') or '')
+        
+        # 尝试从 src 提取 VID
+        vid = ''
+        if src:
+            vid_match = re.search(r'vid=(wxv_\w+|TX\w+)', src)
+            if vid_match:
+                vid = vid_match.group(1)
+                
         if src and ('v.qq.com' in src or 'mp.weixin.qq.com' in src or 'channels' in src or 'mpvideo' in src):
             video_count += 1
             video_covers[video_count] = cover
+            video_ids[video_count] = vid
             new_tag = soup.new_tag('div', attrs={'class': 'video-embed'})
             new_tag.string = f'[[VIDEO_WECHAT:{video_count}]]'
             iframe.replace_with(new_tag)
     
     # 2. 处理 mpvideo 标签（微信自有视频标签）
     for mpvideo in article.find_all('mpvideo'):
-        src = mpvideo.get('data-src') or mpvideo.get('src', '')
-        cover = mpvideo.get('data-cover') or mpvideo.get('cover') or mpvideo.get('data-poster', '')
-        video_id = mpvideo.get('data-vidtype') or mpvideo.get('data-videoid', '')
+        src = safe_unquote(mpvideo.get('data-src') or mpvideo.get('src', ''))
+        cover = safe_unquote(mpvideo.get('data-cover') or mpvideo.get('cover') or mpvideo.get('data-poster', ''))
+        video_id = mpvideo.get('data-vidtype') or mpvideo.get('data-videoid') or mpvideo.get('data-mpvid', '')
+        
         if src or cover or video_id:
             video_count += 1
             video_covers[video_count] = cover
+            video_ids[video_count] = video_id
             new_tag = soup.new_tag('div', attrs={'class': 'video-embed'})
             new_tag.string = f'[[VIDEO_WECHAT:{video_count}]]'
             mpvideo.replace_with(new_tag)
     
     # 3. 处理 wx-video 标签（视频号视频）
     for wxvideo in article.find_all(['wx-video', 'mp-common-videosnap']):
-        cover = wxvideo.get('data-poster') or wxvideo.get('data-cover') or wxvideo.get('data-headimgurl', '')
+        cover = safe_unquote(wxvideo.get('data-poster') or wxvideo.get('data-cover') or wxvideo.get('data-headimgurl', ''))
+        video_id = wxvideo.get('data-id') or wxvideo.get('id', '')
+        
         video_count += 1
         video_covers[video_count] = cover
+        video_ids[video_count] = video_id
         new_tag = soup.new_tag('div', attrs={'class': 'video-embed'})
         new_tag.string = f'[[VIDEO_WECHAT:{video_count}]]'
         wxvideo.replace_with(new_tag)
     
     # 4. 处理标准 video 标签
     for video in article.find_all('video'):
-        src = video.get('data-src') or video.get('src', '')
-        poster = video.get('poster', '')
+        src = safe_unquote(video.get('data-src') or video.get('src', ''))
+        poster = safe_unquote(video.get('poster', ''))
         source = video.find('source')
         if source and not src:
-            src = source.get('src', '')
+            src = safe_unquote(source.get('src', ''))
+            
+        # 尝试从 src 提取 VID
+        vid = ''
+        if src:
+            vid_match = re.search(r'vid=(wxv_\w+|TX\w+)', src)
+            if vid_match:
+                vid = vid_match.group(1)
+                
         if src or poster:
             video_count += 1
             video_covers[video_count] = poster
+            video_ids[video_count] = vid
             new_tag = soup.new_tag('div', attrs={'class': 'video-embed'})
             new_tag.string = f'[[VIDEO_WECHAT:{video_count}]]'
             video.replace_with(new_tag)
@@ -298,18 +362,32 @@ def _handle_wechat(soup, url=None):
     for tag in article(["script", "style", "nav", "footer", "noscript", "header", "aside"]):
         tag.decompose()
     
-    # 转换为 Markdown
-    text = md(str(article), heading_style="ATX")
-    
     # 将视频占位符替换为封面图+链接（类似图片处理方式）
+    text = md(str(article), heading_style="ATX")
+
     def replace_video_placeholder(match):
         placeholder = match.group(0)
         if placeholder.startswith('[[VIDEO_WECHAT:'):
             video_num = int(placeholder[15:-2])
             cover = video_covers.get(video_num, '')
+            vid = video_ids.get(video_num, '')
             
-            # 如果有封面图，使用代理显示封面（先解码 URL 编码）
-            cover = unquote(cover) if cover else ''
+            # 1. 尝试获取视频地址并直接播放（不下载）
+            if vid and vid.startswith('wxv_'):
+                print(f"Attempting to process video {video_num} with VID: {vid}")
+                try:
+                    mp4_url = _get_wechat_video_url(vid, url)
+                    if mp4_url:
+                        # 直接使用远程 MP4 地址
+                        # 添加 referrerpolicy="no-referrer" 尝试规避防盗链
+                        return f'\n\n<video src="{mp4_url}" controls preload="metadata" width="100%" referrerpolicy="no-referrer" style="border-radius: 8px; margin: 10px 0; max-height: 600px;"></video>\n\n'
+                except Exception as e:
+                    print(f"Error getting video URL: {e}")
+            
+            # 2. 如果获取失败，回退到封面图逻辑
+            
+            # 如果有封面图，使用代理显示封面
+            cover = safe_unquote(cover)
             if cover and ('mmbiz.qpic.cn' in cover or 'mmbiz.qlogo.cn' in cover):
                 proxy_cover = f"https://i0.wp.com/{cover.replace('https://', '').replace('http://', '')}"
                 if url:
@@ -331,6 +409,7 @@ def _handle_wechat(soup, url=None):
         return placeholder
     
     # 使用正则替换所有视频占位符
+    text = md(str(article), heading_style="ATX")
     text = text.replace('\\_', '_')
     text = re.sub(r'\[\[VIDEO_WECHAT:\d+\]\]', replace_video_placeholder, text)
     
