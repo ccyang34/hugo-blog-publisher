@@ -277,6 +277,38 @@ def _handle_wechat(soup, url=None):
         elif img.get('data-src'):
             img['src'] = img['data-src']
     
+    # 在清理标签前，先扫描 script 标签提取视频 URL 映射
+    vid_url_map = {}
+    try:
+        scripts = soup.find_all('script')
+        for script in scripts:
+            if not script.string: continue
+            script_content = script.string
+            
+            # 查找所有 VID 定义位置
+            # video_id: 'wxv_...'
+            matches = re.finditer(r'video_id:\s*[\'"](wxv_\w+|TX\w+)[\'"]', script_content)
+            for m in matches:
+                vid = m.group(1)
+                # 向后搜索 5000 字符内的 URL
+                start = m.end()
+                end = min(len(script_content), m.end() + 5000)
+                context = script_content[start:end]
+                
+                # 匹配 mpvideo.qpic.cn 的链接
+                # url: ('http://mpvideo.qpic.cn/...?').replace(...)
+                # 或者直接 url: '...'
+                url_match = re.search(r'(https?://mpvideo\.qpic\.cn/[^\s"\'<>]*)', context)
+                if url_match:
+                    video_url = url_match.group(1)
+                    # 简单处理转义
+                    video_url = video_url.replace(r'\x26', '&').replace('&amp;', '&')
+                    if vid not in vid_url_map:
+                        vid_url_map[vid] = video_url
+                        print(f"Found URL for VID {vid}: {video_url[:50]}...")
+    except Exception as e:
+        print(f"Error extracting video URLs from scripts: {e}")
+
     # 在原位置将视频标签转换为可识别的 HTML 格式，同时提取封面图和 VID
     video_count = 0
     video_covers = {}  # 存储视频封面图
@@ -372,17 +404,20 @@ def _handle_wechat(soup, url=None):
             cover = video_covers.get(video_num, '')
             vid = video_ids.get(video_num, '')
             
-            # 1. 尝试获取视频地址并直接播放（不下载）
-            if vid and vid.startswith('wxv_'):
-                print(f"Attempting to process video {video_num} with VID: {vid}")
-                try:
-                    mp4_url = _get_wechat_video_url(vid, url)
-                    if mp4_url:
-                        # 直接使用远程 MP4 地址
-                        # 添加 referrerpolicy="no-referrer" 尝试规避防盗链
-                        return f'\n\n<video src="{mp4_url}" controls preload="metadata" width="100%" referrerpolicy="no-referrer" style="border-radius: 8px; margin: 10px 0; max-height: 600px;"></video>\n\n'
-                except Exception as e:
-                    print(f"Error getting video URL: {e}")
+            # 1. 尝试从预提取的映射中获取 URL
+            mp4_url = vid_url_map.get(vid)
+            
+            # 如果映射中没有，且是 wxv_ 开头，尝试 API（作为备选，虽然目前已知大概率失败）
+            if not mp4_url and vid and vid.startswith('wxv_'):
+                 try:
+                    print(f"VID {vid} not in map, trying API fallback...")
+                    # mp4_url = _get_wechat_video_url(vid, url) # API 调用暂禁用或保留？可以保留。
+                    pass 
+                 except: pass
+
+            if mp4_url:
+                # 直接使用远程 MP4 地址
+                return f'\n\n<video src="{mp4_url}" controls preload="metadata" width="100%" referrerpolicy="no-referrer" style="border-radius: 8px; margin: 10px 0; max-height: 600px;"></video>\n\n'
             
             # 2. 如果获取失败，回退到封面图逻辑
             
@@ -403,7 +438,7 @@ def _handle_wechat(soup, url=None):
             else:
                 # 没有封面图，使用文字提示卡片
                 if url:
-                    return f'\n\n> 📺 **视频内容**\n>\n> 由于微信视频限制，请 **[点击查看原文观看视频]({url})**\n\n'
+                    return f'\n\n> 📺 **视频内容**\n>\n> 由于微信视频限制，且无法获取直接播放地址，请 **[点击查看原文观看视频]({url})**\n\n'
                 else:
                     return f'\n\n> 📺 **视频内容** - 此处包含视频，请在微信中查看原文\n\n'
         return placeholder
