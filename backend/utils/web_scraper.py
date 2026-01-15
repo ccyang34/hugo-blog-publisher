@@ -136,6 +136,8 @@ def _clean_soup(soup):
 
 def _handle_wechat(soup, url=None):
     """Parse WeChat Official Account articles - 支持标准图文和短图文/图片集模板"""
+    # Get HTML text for regex operations
+    html_text = str(soup)
     article = soup.find(id='js_content') or soup.find(class_='rich_media_content')
     
     # 获取标题
@@ -445,12 +447,6 @@ def _handle_wechat(soup, url=None):
                     return f'\n\n[![📺 点击观看视频]({cover_url})]({url})\n\n'
                 else:
                     return f'\n\n![📺 视频封面]({cover_url})\n\n'
-            else:
-                # 没有封面图，使用文字提示卡片
-                if url:
-                    return f'\n\n[![📺 点击观看视频]({cover})]({url})\n\n'
-                else:
-                    return f'\n\n![📺 视频封面]({cover})\n\n'
             else:
                 # 没有封面图，使用文字提示卡片
                 if url:
