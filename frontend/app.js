@@ -1732,8 +1732,8 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
         this.apiStatusText = document.getElementById('api-status-text');
         this.apiStatusDot = document.getElementById('api-status-dot');
 
-        // Auto fetch status on load
-        this.fetchDeploymentStatus();
+        // Auto fetch status on load - DISABLED (改为手动触发)
+        // this.fetchDeploymentStatus();
     }
 
     async fetchDeploymentStatus() {
