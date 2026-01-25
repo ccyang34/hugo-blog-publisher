@@ -50,22 +50,83 @@ if XiaohongshuScraper:
 else:
     print("XiaohongshuScraper not available, will use legacy parser")
 
+# 导入今日头条 API - 多种方式尝试
+ToutiaoScraper = None
+
+# 方式1：尝试从 backend.utils 包导入
+try:
+    from backend.utils.toutiao_api import ToutiaoScraper
+    print("ToutiaoScraper imported from backend.utils")
+except ImportError:
+    pass
+
+# 方式2：尝试相对导入
+if ToutiaoScraper is None:
+    try:
+        from .toutiao_api import ToutiaoScraper
+        print("ToutiaoScraper imported from relative module")
+    except ImportError:
+        pass
+
+# 方式3：尝试直接导入
+if ToutiaoScraper is None:
+    try:
+        from toutiao_api import ToutiaoScraper
+        print("ToutiaoScraper imported directly")
+    except ImportError:
+        pass
+
+# 方式4：动态添加路径后导入
+if ToutiaoScraper is None:
+    try:
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        if current_dir not in sys.path:
+            sys.path.insert(0, current_dir)
+        from toutiao_api import ToutiaoScraper
+        print(f"ToutiaoScraper imported via path: {current_dir}")
+    except ImportError as e:
+        print(f"Warning: All import attempts failed for ToutiaoScraper: {e}")
+        ToutiaoScraper = None
+
+if ToutiaoScraper:
+    print("ToutiaoScraper is ready!")
+else:
+    print("ToutiaoScraper not available, will use legacy parser")
+
 def fetch_article_content(url):
     """
     Fetch and extract main content from a URL.
     Returns a dictionary with 'title' and 'content', or None on failure.
     """
     try:
-        # Common headers to look like a real browser
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8'
-        }
-        
         # 检查是否是小红书短链或长链
         original_url = url
         is_xiaohongshu = 'xiaohongshu.com' in url or 'xhslink.com' in url
+        is_zhihu = 'zhihu.com' in url
+        
+        # 根据不同平台设置不同的请求头
+        if is_zhihu:
+            # 知乎需要更真实的浏览器请求头
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+                'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+                'Accept-Encoding': 'gzip, deflate, br',
+                'Connection': 'keep-alive',
+                'Upgrade-Insecure-Requests': '1',
+                'Sec-Fetch-Dest': 'document',
+                'Sec-Fetch-Mode': 'navigate',
+                'Sec-Fetch-Site': 'none',
+                'Sec-Fetch-User': '?1',
+                'Cache-Control': 'max-age=0'
+            }
+        else:
+            # 其他平台使用移动端 User-Agent
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8'
+            }
         
         # Requests with timeout
         response = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
@@ -443,8 +504,121 @@ def _handle_wechat(soup, url=None):
         'author': author
     }
 
+
+
 def _handle_toutiao(soup, url=None):
-    """Parse Toutiao articles"""
+    """
+    使用 toutiao_api.py 的高级解析逻辑处理今日头条链接
+    如果抓取失败,将使用传统DOM解析方式
+    """
+    print(f"[Toutiao] _handle_toutiao called with url={url}")
+    print(f"[Toutiao] ToutiaoScraper available: {ToutiaoScraper is not None}")
+    
+    if ToutiaoScraper is None:
+        print("[Toutiao] ToutiaoScraper is None, using legacy")
+        return _handle_toutiao_legacy(soup, url=url)
+    
+    if not url:
+        print("[Toutiao] URL is empty, using legacy")
+        return _handle_toutiao_legacy(soup, url=url)
+    
+    def try_fetch(scraper, url, attempt_name):
+        """尝试抓取并检查结果"""
+        print(f"[Toutiao] {attempt_name}: Fetching URL: {url}")
+        result = scraper.fetch_article(url)
+        
+        if not result.get('success'):
+            print(f"[Toutiao] {attempt_name}: API failed: {result.get('message')}")
+            return None
+        
+        data = result['data']
+        title = data.get('title', '')
+        
+        # 检查是否抓取失败
+        if not title:
+            print(f"[Toutiao] {attempt_name}: Got empty title, treating as failure")
+            return None
+        
+        print(f"[Toutiao] {attempt_name}: Success! Title: {title}")
+        return data
+    
+    try:
+        # 第一次尝试：使用开发者凭证
+        scraper = ToutiaoScraper(use_public_key=False)
+        data = try_fetch(scraper, url, "Attempt 1 (Developer Key)")
+        
+        if data is None:
+            # 第二次尝试：使用公共凭证
+            print("[Toutiao] Retrying with public key...")
+            scraper = ToutiaoScraper(use_public_key=True)
+            data = try_fetch(scraper, url, "Attempt 2 (Public Key)")
+        
+        if data is None:
+            print("[Toutiao] All attempts failed, using legacy parser")
+            return _handle_toutiao_legacy(soup, url=url)
+        
+        # 成功获取数据，构建内容
+        title = data.get('title', '')
+        abstract = data.get('abstract', '')
+        source = data.get('source', '') or data.get('name', '')
+        publish_time = data.get('publishTime', '')
+        
+        # 构建 Markdown 内容
+        md_parts = []
+        
+        # 作者信息
+        if source:
+            md_parts.append(f"**作者**: {source}\n")
+        
+        # 发布时间
+        if publish_time:
+            md_parts.append(f"**发布时间**: {publish_time}\n")
+        
+        md_parts.append("---\n")
+        
+        # 摘要
+        if abstract:
+            md_parts.append(f"**摘要**: {abstract}\n\n")
+        
+        # 正文内容 - 优先使用纯文本版本
+        content = data.get('content2', '') or data.get('content', '')
+        if content:
+            md_parts.append(f"{content}\n\n")
+        
+        # 处理图片 - 竖向顺序排列
+        images = data.get('imageList', [])
+        if images:
+            md_parts.append(f"\n## 图片 ({len(images)}张)\n\n")
+            
+            for i, img_url in enumerate(images, 1):
+                if img_url:
+                    # 使用图片代理绕过防盗链
+                    proxy_url = f"https://i0.wp.com/{img_url.replace('https://', '').replace('http://', '')}"
+                    md_parts.append(f"![图片{i}]({proxy_url})\n\n")
+        
+        # 来源标注（包含原文链接）
+        md_parts.append("---\n")
+        if url:
+            md_parts.append(f"*来源: [今日头条]({url})*\n")
+        else:
+            md_parts.append("*来源: 今日头条*\n")
+        
+        content = ''.join(md_parts)
+        
+        return {
+            'title': title,
+            'content': content,
+            'platform': 'toutiao',
+            'raw_data': data,
+            'author': source
+        }
+    except Exception as e:
+        print(f"[Toutiao] Error using ToutiaoScraper: {e}")
+        return _handle_toutiao_legacy(soup, url=url)
+
+
+def _handle_toutiao_legacy(soup, url=None):
+    """原有的简单解析逻辑，作为备选"""
     # Mobile Toutiao usually has 'article-content' or 'tt-article-content'
     article = soup.find(class_='article-content') or soup.find('article') or soup.find(class_='tt-article-content')
     
@@ -487,6 +661,7 @@ def _handle_toutiao(soup, url=None):
         'content': text,
         'author': author if "今日头条作者" not in author else "" 
     }
+
 
 def _handle_xiaohongshu(soup, html_text, url=None):
     """
