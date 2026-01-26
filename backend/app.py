@@ -1432,3 +1432,107 @@ def trigger_github_workflow():
         return jsonify(result)
     else:
         return jsonify(result), 500
+
+
+# ============ 视频解析 API ============
+
+@app.route('/api/video/parse', methods=['POST'])
+def parse_video():
+    """
+    解析今日头条视频链接
+    
+    请求参数:
+    {
+        "url": "https://m.toutiao.com/is/xxx/"
+    }
+    
+    返回:
+    {
+        "success": true,
+        "data": {
+            "video_id": "视频ID",
+            "title": "视频标题",
+            "cover": "封面图URL",
+            "author": "作者",
+            "videos": [
+                {"quality": "720p", "url": "视频地址"},
+                {"quality": "480p", "url": "视频地址"}
+            ]
+        }
+    }
+    """
+    try:
+        from .utils.toutiao_video_api import ToutiaoVideoParser
+        
+        data = request.json
+        
+        if not data or 'url' not in data:
+            return jsonify({
+                'success': False,
+                'error': '缺少视频URL参数'
+            }), 400
+        
+        url = data['url'].strip()
+        
+        if not url:
+            return jsonify({
+                'success': False,
+                'error': '视频URL不能为空'
+            }), 400
+        
+        parser = ToutiaoVideoParser()
+        
+        # 检查是否为支持的链接
+        if not parser.is_supported_url(url):
+            return jsonify({
+                'success': False,
+                'error': '不支持的视频链接，目前仅支持今日头条和西瓜视频'
+            }), 400
+        
+        result = parser.parse_video(url)
+        
+        if result.get('success'):
+            return jsonify(result)
+        else:
+            return jsonify(result), 400
+            
+    except ImportError as e:
+        return jsonify({
+            'success': False,
+            'error': f'视频解析模块未安装: {str(e)}'
+        }), 500
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'视频解析失败: {str(e)}'
+        }), 500
+
+
+@app.route('/api/video/info', methods=['GET'])
+def get_video_info():
+    """
+    获取视频信息（GET 方式，方便测试）
+    
+    参数: ?url=https://m.toutiao.com/is/xxx/
+    """
+    try:
+        from .utils.toutiao_video_api import ToutiaoVideoParser
+        
+        url = request.args.get('url', '').strip()
+        
+        if not url:
+            return jsonify({
+                'success': False,
+                'error': '缺少url参数'
+            }), 400
+        
+        parser = ToutiaoVideoParser()
+        result = parser.parse_video(url)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
