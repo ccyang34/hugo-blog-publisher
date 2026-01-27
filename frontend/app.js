@@ -25,6 +25,7 @@ class HugoPublisher {
         this.publishBtn = document.getElementById('publishBtn');
         this.publishBtnLeft = document.getElementById('publishBtnLeft');
         this.clearBtn = document.getElementById('clearBtn');
+        this.pasteBtn = document.getElementById('pasteBtn');
         this.sampleBtn = document.getElementById('sampleBtn');
         this.toggleMetadataBtn = document.getElementById('toggleMetadataBtn');
         this.metadataSection = document.getElementById('metadataSection');
@@ -106,6 +107,9 @@ class HugoPublisher {
             this.publishBtnLeft.addEventListener('click', () => this.handlePublishWithPassword());
         }
         this.clearBtn.addEventListener('click', () => this.clearForm());
+        if (this.pasteBtn) {
+            this.pasteBtn.addEventListener('click', () => this.handlePasteButton());
+        }
         this.sampleBtn.addEventListener('click', () => this.loadSample());
 
         if (this.toggleMetadataBtn) {
@@ -949,6 +953,52 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
                 await this.uploadImage(file);
                 break;
             }
+        }
+    }
+
+    async handlePasteButton() {
+        try {
+            // 尝试读取剪贴板内容
+            const clipboardItems = await navigator.clipboard.read();
+
+            for (const item of clipboardItems) {
+                // 检查是否有图片
+                if (item.types.includes('image/png') || item.types.includes('image/jpeg')) {
+                    const imageType = item.types.find(t => t.startsWith('image/'));
+                    const blob = await item.getType(imageType);
+                    const file = new File([blob], `paste_${Date.now()}.${imageType.split('/')[1]}`, { type: imageType });
+                    await this.uploadImage(file);
+                    this.showNotification('已粘贴图片', 'success');
+                    return;
+                }
+
+                // 检查是否有文本
+                if (item.types.includes('text/plain')) {
+                    const blob = await item.getType('text/plain');
+                    const text = await blob.text();
+                    if (text.trim()) {
+                        // 在当前光标位置插入文本，或替换已有内容
+                        const textarea = this.contentTextarea;
+                        const start = textarea.selectionStart;
+                        const end = textarea.selectionEnd;
+                        const currentValue = textarea.value;
+
+                        textarea.value = currentValue.substring(0, start) + text + currentValue.substring(end);
+                        textarea.selectionStart = textarea.selectionEnd = start + text.length;
+                        textarea.focus();
+
+                        this.updateStats();
+                        this.showNotification('已粘贴文本', 'success');
+                        return;
+                    }
+                }
+            }
+
+            this.showNotification('剪贴板为空', 'info');
+        } catch (error) {
+            // 如果 Clipboard API 不可用，提示用户使用快捷键
+            console.error('剪贴板读取失败:', error);
+            this.showNotification('请使用 Ctrl+V 粘贴或授权剪贴板权限', 'error');
         }
     }
 
