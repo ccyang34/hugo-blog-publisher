@@ -3,8 +3,8 @@ title: "OpenClaw(clawdbot)是什么"
 date: 2026-02-02T09:51:07+08:00
 lastmod: 2026-02-02T09:51:07+08:00
 author: "小白debug"
-categories: ["未分类"]
-tags: ["小红书"]
+categories: ["AI与技术"]
+tags: ["OpenClaw", "AI Agent", "Skills", "MCP", "RAG", "小红书"]
 ---
 
 **作者**: 小白debug
