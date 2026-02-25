@@ -974,6 +974,15 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
 
                         this.updateStats();
                         this.showNotification('已粘贴文本', 'success');
+
+                        // 自动分析逻辑：如果标题为空且内容长度超过100，自动触发格式化分析
+                        if (!this.titleInput.value.trim() && text.length > 100) {
+                            setTimeout(() => {
+                                if (!this.titleInput.value.trim()) {
+                                    this.formatArticle();
+                                }
+                            }, 500);
+                        }
                         return;
                     }
                 } catch (e) {
