@@ -33,6 +33,15 @@ except ValueError:
     class MockDeepSeekService:
         def format_markdown(self, content):
             return content + "\n\n<!-- 由于DeepSeek API密钥未设置，未进行格式优化 -->"
+        
+        def format_article(self, content, title='', tags=None, category=''):
+            """模拟格式化接口，返回原始数据附件简单的降级信息"""
+            return {
+                'title': title or f"未命名文章_{datetime.now(timezone(timedelta(hours=8))).strftime('%m%d%H%M')}",
+                'categories': [category] if category else ["未分类"],
+                'tags': tags or ["待分类"],
+                'content': content + "\n\n<!-- Mock Mode: DeepSeek API Key not set -->"
+            }
     
     deepseek_service = MockDeepSeekService()
     print("Warning: DeepSeek API key not set, using mock service")
@@ -434,6 +443,52 @@ def health_check():
         'status': 'ok',
         'timestamp': beijing_time.isoformat()
     })
+
+
+@app.route('/api/test-deepseek', methods=['GET'])
+def test_deepseek():
+    """测试 DeepSeek API 连接状态"""
+    beijing_time = datetime.now(timezone(timedelta(hours=8)))
+    
+    # 检查是否是真实的 DeepSeekService 而不是 MockDeepSeekService
+    is_mock = not hasattr(deepseek_service, '_call_api')
+    api_key_set = bool(os.environ.get('DEEPSEEK_API_KEY', ''))
+    
+    if is_mock:
+        return jsonify({
+            'success': False,
+            'error': 'DeepSeek API Key 未配置，当前使用 Mock 服务',
+            'api_key_set': api_key_set,
+            'mode': 'mock',
+            'timestamp': beijing_time.isoformat()
+        }), 500
+    
+    try:
+        # 直接调用一次简单的 DeepSeek API
+        messages = [
+            {'role': 'system', 'content': '你是一个助手，请用JSON格式回答。'},
+            {'role': 'user', 'content': '请返回这个JSON：{"status": "ok", "message": "DeepSeek API 连接正常"}'}
+        ]
+        raw_response = deepseek_service._call_api(messages, temperature=0.1)
+        
+        return jsonify({
+            'success': True,
+            'message': 'DeepSeek API 连接正常',
+            'api_key_set': True,
+            'mode': 'real',
+            'model': deepseek_service.model,
+            'raw_response': raw_response[:200],
+            'timestamp': beijing_time.isoformat()
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'api_key_set': api_key_set,
+            'mode': 'real',
+            'model': getattr(deepseek_service, 'model', 'unknown'),
+            'timestamp': beijing_time.isoformat()
+        }), 500
 
 
 @app.route('/api/test-github', methods=['GET'])
@@ -878,7 +933,11 @@ def publish_sync(data):
         except Exception as e:
             print(f"[Sync] Warning: AI analysis failed: {e}")
             if not title:
-                title = f"未命名文章_{datetime.now(timezone(timedelta(hours=8))).strftime('%Y%m%d%H%M%S')}"
+                # 尝试从 front matter 获取，如果没有则生成带时间戳的标题
+                extracted_title = parsed.get('front_matter', {}).get('title')
+                title = extracted_title if extracted_title else f"未命名文章_{datetime.now(timezone(timedelta(hours=8))).strftime('%Y%m%d%H%M%S')}"
+            if not category: category = "未分类"
+            if not tags: tags = ["未分类"]
 
         # 4. Generate full content
         filename = markdown_generator.generate_filename(title)
