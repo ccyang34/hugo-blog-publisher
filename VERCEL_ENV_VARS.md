@@ -4,16 +4,22 @@
 
 ## 环境变量列表
 
-| 变量名 | 状态 | 适用环境 | 说明 |
+这是项目中涉及到的所有环境变量汇总（包含您截图/复制中提到的变量，以及系统和业务所需的其他完整变量）：
+
+| 变量名 | 状态 / 默认值 | 适用环境 | 说明 |
 | --- | --- | --- | --- |
 | `QSTASH_TOKEN` | Needs Attention | All Environments | Upstash QStash 服务的鉴权 Token，用于执行定时任务或异步队列调用。 |
 | `QSTASH_CURRENT_SIGNING_KEY` | Needs Attention | All Environments | Upstash QStash 服务的当前签名密钥，用于验证请求确实来自 QStash，防止伪造请求。 |
-| `DEBUG` | Active | All Environments | 是否开启调试模式。在生产环境中应设置为 `false`，以避免泄漏敏感错误信息。 |
-| `GITHUB_TOKEN` | Needs Attention | All Environments | GitHub Personal Access Token。用于授权后端通过 API 向您的 Hugo 博客仓库（如提交 Markdown 和图片）进行推送。需要勾选 `repo` 权限。 |
+| `DEBUG` | Active (建议 `false`) | All Environments | 是否开启调试模式。在生产环境中应设置为 `false`，以避免泄漏敏感错误信息。 |
+| `GITHUB_TOKEN` | Needs Attention | All Environments | GitHub Personal Access Token。用于授权后端通过 API 向您的 Hugo 博客仓库进行推送。需要勾选 `repo` 权限。 |
 | `GITHUB_USERNAME` | Active | All Environments | 您的 GitHub 用户名（非邮箱），指定上述 Token 操作所对应的用户身份。 |
 | `GITHUB_REPO` | Active | All Environments | 您的 Hugo 博客所在的 GitHub 仓库名称（例如：`hugo-blog`）。 |
 | `SECRET_KEY` | Needs Attention | All Environments | 后端应用的安全密钥（用于 Session 等安全签名），建议配置为一个复杂的随机字符串（如 32 位以上）。 |
-| `FRONTEND_URL` | Active | All Environments | 允许跨域（CORS）访问的前端地址。可以配置为具体的 Cloudflare Pages URL（例如 `https://hugo-blog-publisher.pages.dev`），或暂时填 `*` 允许所有。 |
+| `FRONTEND_URL` | Active (例如 `*`) | All Environments | 允许跨域（CORS）访问的前端地址。可以配置为具体的 Cloudflare Pages URL，或暂时填 `*` 允许所有。 |
+| `DEEPSEEK_API_KEY` | Needs Attention | All Environments | DeepSeek 开放平台的 API 密钥，用于调用大模型进行文章排版和分析。 |
+| `DEEPSEEK_MODEL` | 默认 `deepseek-v4-flash` | All Environments | 指定所使用的 DeepSeek 模型。如果不填，系统会默认使用 `deepseek-v4-flash`。 |
+| `PUBLISH_PASSWORD` | Needs Attention | All Environments | 前端发布文章时需要的验证密码，防止未授权人员调用您的后端 API 发布文章。 |
+| `PYTHON_VERSION` | `3.9` (Vercel专用) | All Environments | 指定 Vercel 构建环境使用的 Python 版本。推荐填写 `3.9` 以保持依赖兼容性。 |
 
 ---
 
