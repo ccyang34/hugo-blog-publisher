@@ -16,7 +16,7 @@ class DeepSeekService:
     def __init__(self):
         self.api_key = os.environ.get('DEEPSEEK_API_KEY', '')
         self.base_url = 'https://api.deepseek.com'
-        self.model = os.environ.get('DEEPSEEK_MODEL', 'deepseek-chat')
+        self.model = os.environ.get('DEEPSEEK_MODEL', 'deepseek-v4-flash')
         
         # 预设分类及其定位描述
         self.PRESET_CATEGORIES = {
