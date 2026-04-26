@@ -19,7 +19,7 @@ You can parse an article by invoking the `article_parser_cli.py` script provided
 Run the following command in the terminal:
 
 ```bash
-python3 backend/utils/article_parser_cli.py "<URL>"
+python3 backend/utils/article-parser-skill/article_parser_cli.py "<URL>"
 ```
 
 ### Options
@@ -30,17 +30,17 @@ python3 backend/utils/article_parser_cli.py "<URL>"
 
 **Example 1: Print parsed Markdown directly to terminal**
 ```bash
-python3 backend/utils/article_parser_cli.py "https://mp.weixin.qq.com/s/xxxxxx"
+python3 backend/utils/article-parser-skill/article_parser_cli.py "https://mp.weixin.qq.com/s/xxxxxx"
 ```
 
 **Example 2: Output as JSON**
 ```bash
-python3 backend/utils/article_parser_cli.py "https://www.xiaohongshu.com/explore/xxxxxx" --json
+python3 backend/utils/article-parser-skill/article_parser_cli.py "https://www.xiaohongshu.com/explore/xxxxxx" --json
 ```
 
 **Example 3: Save parsed result to a Markdown file**
 ```bash
-python3 backend/utils/article_parser_cli.py "https://www.toutiao.com/article/xxxxxx/" -o output.md
+python3 backend/utils/article-parser-skill/article_parser_cli.py "https://www.toutiao.com/article/xxxxxx/" -o output.md
 ```
 
 ## Supported Platforms
