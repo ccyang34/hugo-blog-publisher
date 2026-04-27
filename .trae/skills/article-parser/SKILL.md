@@ -19,7 +19,7 @@ description: "将微信、头条、小红书等平台的文章解析为 Markdown
 在终端中运行以下命令：
 
 ```bash
-python3 backend/utils/article-parser-skill/article_parser_cli.py "<URL>"
+python3 src/article_parser_cli.py "<URL>"
 ```
 
 ### 选项 (Options)
@@ -30,17 +30,17 @@ python3 backend/utils/article-parser-skill/article_parser_cli.py "<URL>"
 
 **示例 1：将解析后的 Markdown 直接打印到终端**
 ```bash
-python3 backend/utils/article-parser-skill/article_parser_cli.py "https://mp.weixin.qq.com/s/xxxxxx"
+python3 src/article_parser_cli.py "https://mp.weixin.qq.com/s/xxxxxx"
 ```
 
 **示例 2：输出为 JSON 格式**
 ```bash
-python3 backend/utils/article-parser-skill/article_parser_cli.py "https://www.xiaohongshu.com/explore/xxxxxx" --json
+python3 src/article_parser_cli.py "https://www.xiaohongshu.com/explore/xxxxxx" --json
 ```
 
 **示例 3：将解析结果保存到 Markdown 文件**
 ```bash
-python3 backend/utils/article-parser-skill/article_parser_cli.py "https://www.toutiao.com/article/xxxxxx/" -o output.md
+python3 src/article_parser_cli.py "https://www.toutiao.com/article/xxxxxx/" -o output.md
 ```
 
 ## 支持的平台 (Supported Platforms)
