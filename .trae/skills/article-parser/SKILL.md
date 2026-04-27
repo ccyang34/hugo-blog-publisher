@@ -1,51 +1,51 @@
 ---
 name: "article-parser"
-description: "Parses articles from WeChat, Toutiao, Xiaohongshu, etc. into Markdown. Invoke when user asks to parse/extract content from an article URL."
+description: "将微信、头条、小红书等平台的文章解析为 Markdown 格式。当用户要求从文章 URL 中解析/提取内容时调用此技能。"
 ---
 
-# Article Parser
+# 文章解析器 (Article Parser)
 
-This skill allows you to independently extract and parse content from supported platforms (WeChat Official Accounts, Toutiao, Xiaohongshu, Zhihu, etc.) and convert them into clean Markdown format.
+此技能允许你独立提取并解析支持平台（微信公众号、今日头条、小红书、知乎等）的文章内容，并将其转换为干净的 Markdown 格式。
 
-## When to use
+## 何时使用
 
-- The user provides an article URL and asks you to "extract", "parse", "read", or "convert" it.
-- The user wants to test the scraper logic on a specific link (e.g., "Parse this WeChat article for me").
+- 当用户提供文章 URL 并要求你“提取”、“解析”、“读取”或“转换”它时。
+- 当用户希望在特定链接上测试抓取逻辑时（例如，“帮我解析这篇微信文章”）。
 
-## How to use
+## 如何使用
 
-You can parse an article by invoking the `article_parser_cli.py` script provided in the backend codebase.
+你可以通过调用后端代码库中提供的 `article_parser_cli.py` 脚本来解析文章。
 
-Run the following command in the terminal:
+在终端中运行以下命令：
 
 ```bash
 python3 backend/utils/article-parser-skill/article_parser_cli.py "<URL>"
 ```
 
-### Options
-- `--json`: Output the complete parsed result (title, content, author, etc.) in JSON format instead of plain Markdown.
-- `--output <file>` or `-o <file>`: Save the output directly to a file.
+### 选项 (Options)
+- `--json`：以 JSON 格式输出完整的解析结果（标题、内容、作者等），而不是纯 Markdown。
+- `--output <file>` 或 `-o <file>`：将输出结果直接保存到文件中。
 
-### Examples
+### 示例 (Examples)
 
-**Example 1: Print parsed Markdown directly to terminal**
+**示例 1：将解析后的 Markdown 直接打印到终端**
 ```bash
 python3 backend/utils/article-parser-skill/article_parser_cli.py "https://mp.weixin.qq.com/s/xxxxxx"
 ```
 
-**Example 2: Output as JSON**
+**示例 2：输出为 JSON 格式**
 ```bash
 python3 backend/utils/article-parser-skill/article_parser_cli.py "https://www.xiaohongshu.com/explore/xxxxxx" --json
 ```
 
-**Example 3: Save parsed result to a Markdown file**
+**示例 3：将解析结果保存到 Markdown 文件**
 ```bash
 python3 backend/utils/article-parser-skill/article_parser_cli.py "https://www.toutiao.com/article/xxxxxx/" -o output.md
 ```
 
-## Supported Platforms
-- **WeChat Official Accounts (微信公众号)**: Extracts text, images, and embedded video sources.
-- **Toutiao (今日头条)**: Extracts standard articles and article metadata.
-- **Xiaohongshu (小红书)**: Extracts title, description, tags, and images (bypasses some basic anti-scraping).
-- **Zhihu (知乎)**: Extracts answers/articles with lazy-loaded images fixed.
-- **Generic**: Fallback logic for generic blog posts or web articles.
+## 支持的平台 (Supported Platforms)
+- **微信公众号 (WeChat Official Accounts)**: 提取文本、图片和嵌入的视频源。
+- **今日头条 (Toutiao)**: 提取标准文章及文章元数据。
+- **小红书 (Xiaohongshu)**: 提取标题、描述、标签和图片（绕过部分基础防爬限制）。
+- **知乎 (Zhihu)**: 提取回答/文章内容，并修复图片懒加载。
+- **通用 (Generic)**: 用于普通博客文章或网页文章的后备解析逻辑。
