@@ -838,41 +838,41 @@ def favicon():
 def format_article():
     """
     调用DeepSeek API进行文章排版
-    
+
     请求参数:
     {
         "content": "原始文章内容",
         "title": "文章标题（可选）",
         "tags": ["标签1", "标签2"]（可选）,
-        "category": "分类"（可选）
+        "category": "分类"（可选）,
+        "enable_ocr": true/false（可选，默认false）
     }
     """
     try:
         data = request.json
-        
+
         if not data or 'content' not in data:
             return jsonify({
                 'success': False,
                 'error': '缺少文章内容'
             }), 400
-        
+
         content = data['content']
         title = data.get('title', '')
         tags = data.get('tags', [])
         category = data.get('category', '')
-        
-        # 识别 URL（支持从文案中提取）
+        enable_ocr = data.get('enable_ocr', False)
+
         url_pattern = re.compile(r'https?://[^\s\u4e00-\u9fa5]+')
         urls = url_pattern.findall(content.strip())
-        
+
         if urls:
             url = urls[0].rstrip('.,!?;:)]}）〉》」』')
             print(f"Detected URL: {url}, fetching content...")
             scraped_data = fetch_article_content(url)
-            
+
             if scraped_data:
                 content = scraped_data['content']
-                # Only use scraped title if user didn't provide one
                 if not title and scraped_data.get('title'):
                     title = scraped_data['title']
                     print(f"Use scraped title: {title}")
@@ -881,20 +881,39 @@ def format_article():
                     'success': False,
                     'error': '无法从链接获取内容，请检查链接是否有效'
                 }), 400
-        
+
         analysis = deepseek_service.format_article(
             content=content,
             title=title,
             tags=tags,
             category=category
         )
-        
-        # 整合分析结果
+
         formatted_content = analysis.get('content', '')
+
+        if enable_ocr and multimodal_service:
+            print(f"[OCR] Enabled, extracting images from content...")
+            image_urls = extract_image_urls_from_markdown(formatted_content)
+            if image_urls:
+                print(f"[OCR] Found {len(image_urls)} images, performing OCR...")
+                ocr_results = []
+                for i, img_url in enumerate(image_urls[:10], 1):
+                    try:
+                        print(f"[OCR] Processing image {i}/{len(image_urls[:10])}: {img_url[:50]}...")
+                        ocr_text = multimodal_service.ocr_image(image_url=img_url)
+                        if ocr_text:
+                            ocr_results.append(f"### 图片 {i} OCR 识别结果\n\n{ocr_text}")
+                    except Exception as e:
+                        print(f"[OCR] Failed to OCR image {i}: {e}")
+
+                if ocr_results:
+                    formatted_content = formatted_content.strip() + "\n\n" + "\n\n".join(ocr_results)
+                    print(f"[OCR] Added {len(ocr_results)} OCR results to content")
+
         suggested_title = analysis.get('title', title) if not title else title
         suggested_category = analysis.get('category', category)
         suggested_tags = analysis.get('tags', tags)
-        
+
         return jsonify({
             'success': True,
             'formatted_content': formatted_content,
@@ -902,12 +921,20 @@ def format_article():
             'suggested_category': suggested_category,
             'suggested_tags': suggested_tags
         })
-    
+
     except Exception as e:
         return jsonify({
             'success': False,
             'error': str(e)
         }), 500
+
+
+def extract_image_urls_from_markdown(markdown_content):
+    """从 Markdown 内容中提取所有图片 URL"""
+    import re
+    pattern = r'!\[([^\]]*)\]\(([^)]+)\)'
+    matches = re.findall(pattern, markdown_content)
+    return [url for _, url in matches]
 
 
 @app.route('/api/preview', methods=['POST'])
