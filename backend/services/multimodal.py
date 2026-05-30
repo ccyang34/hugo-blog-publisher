@@ -88,7 +88,7 @@ class MultimodalService:
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": f"请识别这张图片中的所有文字内容，{task}。请直接输出识别结果，不要添加解释。"},
+                    {"type": "text", "text": "请仔细识别这张图片中的所有文字内容，包括标题、正文、标签、注释等所有文字。请直接输出识别结果，保持原文格式，如果图片中没有文字请说明。"},
                     {"type": "image_url", "image_url": {"url": image_url}}
                 ]
             }

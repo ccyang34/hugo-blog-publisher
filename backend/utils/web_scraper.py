@@ -776,10 +776,11 @@ def _handle_xiaohongshu(soup, html_text, url=None):
 
         extracted_image_urls = []
         images = data.get('data', [])
-        for img in images:
+        for i, img in enumerate(images, 1):
             img_url = img.get('urlDefault') or img.get('urlPre', '')
             if img_url:
-                extracted_image_urls.append(img_url)
+                proxy_url = f"https://i0.wp.com/{img_url.replace('https://', '').replace('http://', '')}"
+                extracted_image_urls.append(proxy_url)
 
         if not desc:
             desc = ''
