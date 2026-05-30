@@ -837,7 +837,9 @@ def favicon():
 @app.route('/api/format', methods=['POST'])
 def format_article():
     """
-    调用DeepSeek API进行文章排版
+    调用大模型进行文章排版
+    - enable_ocr=False: 使用 DeepSeek API 进行排版
+    - enable_ocr=True: 使用多模态大模型（stepfun-ai/step-3.7-flash）进行排版，能识别图片内容
 
     请求参数:
     {
@@ -865,6 +867,7 @@ def format_article():
 
         url_pattern = re.compile(r'https?://[^\s\u4e00-\u9fa5]+')
         urls = url_pattern.findall(content.strip())
+        image_urls = []
 
         if urls:
             url = urls[0].rstrip('.,!?;:)]}）〉》」』')
@@ -876,40 +879,30 @@ def format_article():
                 if not title and scraped_data.get('title'):
                     title = scraped_data['title']
                     print(f"Use scraped title: {title}")
-            else:
-                return jsonify({
-                    'success': False,
-                    'error': '无法从链接获取内容，请检查链接是否有效'
-                }), 400
 
-        analysis = deepseek_service.format_article(
-            content=content,
-            title=title,
-            tags=tags,
-            category=category
-        )
-
-        formatted_content = analysis.get('content', '')
+                if enable_ocr and scraped_data.get('platform') == 'xiaohongshu':
+                    image_urls = scraped_data.get('image_urls', [])
 
         if enable_ocr and multimodal_service:
-            print(f"[OCR] Enabled, extracting images from content...")
-            image_urls = extract_image_urls_from_markdown(formatted_content)
-            if image_urls:
-                print(f"[OCR] Found {len(image_urls)} images, performing OCR...")
-                ocr_results = []
-                for i, img_url in enumerate(image_urls[:10], 1):
-                    try:
-                        print(f"[OCR] Processing image {i}/{len(image_urls[:10])}: {img_url[:50]}...")
-                        ocr_text = multimodal_service.ocr_image(image_url=img_url)
-                        if ocr_text:
-                            ocr_results.append(f"### 图片 {i} OCR 识别结果\n\n{ocr_text}")
-                    except Exception as e:
-                        print(f"[OCR] Failed to OCR image {i}: {e}")
+            print(f"[Multimodal] Using stepfun model for article formatting with {len(image_urls)} images...")
+            analysis = multimodal_service.format_article(
+                content=content,
+                title=title,
+                tags=tags,
+                category=category,
+                image_urls=image_urls
+            )
+            print(f"[Multimodal] Formatting complete")
+        else:
+            print(f"[DeepSeek] Using DeepSeek for article formatting...")
+            analysis = deepseek_service.format_article(
+                content=content,
+                title=title,
+                tags=tags,
+                category=category
+            )
 
-                if ocr_results:
-                    formatted_content = formatted_content.strip() + "\n\n" + "\n\n".join(ocr_results)
-                    print(f"[OCR] Added {len(ocr_results)} OCR results to content")
-
+        formatted_content = analysis.get('content', '')
         suggested_title = analysis.get('title', title) if not title else title
         suggested_category = analysis.get('category', category)
         suggested_tags = analysis.get('tags', tags)
@@ -927,14 +920,6 @@ def format_article():
             'success': False,
             'error': str(e)
         }), 500
-
-
-def extract_image_urls_from_markdown(markdown_content):
-    """从 Markdown 内容中提取所有图片 URL"""
-    import re
-    pattern = r'!\[([^\]]*)\]\(([^)]+)\)'
-    matches = re.findall(pattern, markdown_content)
-    return [url for _, url in matches]
 
 
 @app.route('/api/preview', methods=['POST'])

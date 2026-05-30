@@ -773,19 +773,30 @@ def _handle_xiaohongshu(soup, html_text, url=None):
             md_parts.append("*来源: 小红书*\n")
         
         content = ''.join(md_parts)
-        
-        # 如果没有描述内容（纯图片笔记），跳过 AI 排版
-        skip_ai = not desc or desc.strip() == ''
-        if skip_ai:
+
+        extracted_image_urls = []
+        images = data.get('data', [])
+        for img in images:
+            img_url = img.get('urlDefault') or img.get('urlPre', '')
+            if img_url:
+                extracted_image_urls.append(img_url)
+
+        if not desc:
+            desc = ''
+        if not title:
+            title = ''
+
+        if not desc or desc.strip() == '':
             print("[XHS] No description content, will skip AI formatting")
-        
+
         return {
             'title': title,
             'content': content,
             'platform': 'xiaohongshu',
             'raw_data': data,
             'author': nickname,
-            'skip_ai_format': skip_ai  # 纯图片笔记跳过 AI 排版
+            'skip_ai_format': not desc or desc.strip() == '',
+            'image_urls': extracted_image_urls
         }
     except Exception as e:
         print(f"[XHS] Error using XiaohongshuScraper: {e}")
