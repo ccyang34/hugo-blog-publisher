@@ -363,11 +363,11 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
                             print(f"[OCR] Failed image {idx}: {e}")
                             return idx, img_url, None, str(e)
 
-                    images_to_process = [(i, url) for i, url in enumerate(image_urls[:5], 1)]
+                    images_to_process = [(i, url) for i, url in enumerate(image_urls[:15], 1)]
                     jobs[job_id]['message'] = f'正在并行OCR识别 {len(images_to_process)} 张图片...'
                     add_job_log(job_id, 'OCR识别', 'start', f'并行识别 {len(images_to_process)} 张图片')
 
-                    with ThreadPoolExecutor(max_workers=5) as executor:
+                    with ThreadPoolExecutor(max_workers=15) as executor:
                         futures = {executor.submit(process_single_image, args): args for args in images_to_process}
                         for future in as_completed(futures):
                             idx, img_url, ocr_text, error = future.result()
@@ -397,7 +397,7 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
                             category=category
                         ).get('content', '')
 
-                        images_markdown = "\n\n".join([f"![图片{i+1}]({url})" for i, url in enumerate(image_urls[:5])])
+                        images_markdown = "\n\n".join([f"![图片{i+1}]({url})" for i, url in enumerate(image_urls[:15])])
 
                         content = f"{formatted_content}\n\n---\n\n## 图片文字识别\n\n{formatted_ocr}\n\n---\n\n## 原始图片\n\n{images_markdown}"
                         add_job_log(job_id, '多模态分析', 'success', f'OCR完成，识别了{len(ocr_texts)}张图片')
@@ -958,8 +958,8 @@ def format_article():
                     print(f"[OCR] Failed image {idx}: {e}")
                     return idx, None, str(e)
 
-            images_to_process = [(i, url) for i, url in enumerate(image_urls[:5], 1)]
-            with ThreadPoolExecutor(max_workers=5) as executor:
+            images_to_process = [(i, url) for i, url in enumerate(image_urls[:15], 1)]
+            with ThreadPoolExecutor(max_workers=15) as executor:
                 futures = [executor.submit(process_single_image, args) for args in images_to_process]
                 for future in as_completed(futures):
                     idx, ocr_text, error = future.result()
@@ -989,10 +989,10 @@ def format_article():
                     category=category
                 ).get('content', '')
 
-                images_markdown = "\n\n".join([f"![图片{i+1}]({url})" for i, url in enumerate(image_urls[:5])])
+                images_markdown = "\n\n".join([f"![图片{i+1}]({url})" for i, url in enumerate(image_urls[:15])])
 
                 formatted_content = f"{formatted_content}\n\n---\n\n## 图片文字识别\n\n{formatted_ocr}\n\n---\n\n## 原始图片\n\n{images_markdown}"
-                print(f"[Multimodal] Combined {len(ocr_texts)} OCR results with {len(image_urls[:5])} images")
+                print(f"[Multimodal] Combined {len(ocr_texts)} OCR results with {len(image_urls[:15])} images")
 
                 analysis = {
                     'content': formatted_content,
@@ -1245,8 +1245,8 @@ def publish_sync(data):
                             print(f"[OCR] Failed image {idx}: {e}")
                             return idx, None, str(e)
 
-                    images_to_process = [(i, url) for i, url in enumerate(image_urls[:5], 1)]
-                    with ThreadPoolExecutor(max_workers=5) as executor:
+                    images_to_process = [(i, url) for i, url in enumerate(image_urls[:15], 1)]
+                    with ThreadPoolExecutor(max_workers=15) as executor:
                         futures = [executor.submit(process_single_image, args) for args in images_to_process]
                         for future in as_completed(futures):
                             idx, ocr_text, error = future.result()
@@ -1274,7 +1274,7 @@ def publish_sync(data):
                             category=category
                         ).get('content', '')
 
-                        images_markdown = "\n\n".join([f"![图片{i+1}]({url})" for i, url in enumerate(image_urls[:5])])
+                        images_markdown = "\n\n".join([f"![图片{i+1}]({url})" for i, url in enumerate(image_urls[:15])])
 
                         content = f"{formatted_content}\n\n---\n\n## 图片文字识别\n\n{formatted_ocr}\n\n---\n\n## 原始图片\n\n{images_markdown}"
                         print(f"[Sync] OCR completed with {len(ocr_texts)} results")
