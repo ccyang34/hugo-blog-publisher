@@ -383,7 +383,6 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
                         ocr_combined = "\n\n".join(ocr_texts)
                         add_job_log(job_id, '多模态排版', 'start', '正在对原文和OCR结果分别排版')
 
-                        import re
                         content_without_images = re.sub(r'!\[[^\]]*\]\([^)]+\)', '', content)
                         content_without_images = re.sub(r'\n\n+', '\n\n', content_without_images).strip()
 
@@ -979,7 +978,6 @@ def format_article():
                 ocr_combined = "\n\n".join(ocr_texts)
                 print(f"[Multimodal] Formatting original content...")
 
-                import re
                 content_without_images = re.sub(r'!\[[^\]]*\]\([^)]+\)', '', content)
                 content_without_images = re.sub(r'\n\n+', '\n\n', content_without_images).strip()
 
@@ -1270,7 +1268,6 @@ def publish_sync(data):
                     if ocr_texts:
                         ocr_combined = "\n\n".join(ocr_texts)
 
-                        import re
                         content_without_images = re.sub(r'!\[[^\]]*\]\([^)]+\)', '', content)
                         content_without_images = re.sub(r'\n\n+', '\n\n', content_without_images).strip()
 
