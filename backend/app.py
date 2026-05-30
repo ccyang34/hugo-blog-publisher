@@ -381,14 +381,7 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
 
                     if ocr_texts:
                         ocr_combined = "\n\n".join(ocr_texts)
-                        add_job_log(job_id, '多模态排版', 'start', '正在对原文和OCR结果分别排版')
-
-                        formatted_content = multimodal_service.format_article(
-                            content=content,
-                            title=title,
-                            tags=tags,
-                            category=category
-                        ).get('content', '')
+                        add_job_log(job_id, '多模态排版', 'start', '正在对OCR结果排版')
 
                         formatted_ocr = multimodal_service.format_article(
                             content=ocr_combined,
@@ -399,7 +392,7 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
 
                         images_markdown = "\n\n".join([f"![图片{i+1}]({url})" for i, url in enumerate(image_urls[:15])])
 
-                        content = f"{formatted_content}\n\n---\n\n## 图片文字识别\n\n{formatted_ocr}\n\n---\n\n## 原始图片\n\n{images_markdown}"
+                        content = f"{formatted_ocr}\n\n---\n\n## 原始图片\n\n{images_markdown}"
                         add_job_log(job_id, '多模态分析', 'success', f'OCR完成，识别了{len(ocr_texts)}张图片')
                     else:
                         analysis = multimodal_service.format_article(
@@ -973,14 +966,6 @@ def format_article():
 
             if ocr_texts:
                 ocr_combined = "\n\n".join(ocr_texts)
-                print(f"[Multimodal] Formatting original content...")
-                formatted_content = multimodal_service.format_article(
-                    content=content,
-                    title=title,
-                    tags=tags,
-                    category=category
-                ).get('content', '')
-
                 print(f"[Multimodal] Formatting OCR text...")
                 formatted_ocr = multimodal_service.format_article(
                     content=ocr_combined,
@@ -991,7 +976,7 @@ def format_article():
 
                 images_markdown = "\n\n".join([f"![图片{i+1}]({url})" for i, url in enumerate(image_urls[:15])])
 
-                formatted_content = f"{formatted_content}\n\n---\n\n## 图片文字识别\n\n{formatted_ocr}\n\n---\n\n## 原始图片\n\n{images_markdown}"
+                formatted_content = f"{formatted_ocr}\n\n---\n\n## 原始图片\n\n{images_markdown}"
                 print(f"[Multimodal] Combined {len(ocr_texts)} OCR results with {len(image_urls[:15])} images")
 
                 analysis = {
@@ -1260,13 +1245,6 @@ def publish_sync(data):
 
                     if ocr_texts:
                         ocr_combined = "\n\n".join(ocr_texts)
-                        formatted_content = multimodal_service.format_article(
-                            content=content,
-                            title=title,
-                            tags=tags,
-                            category=category
-                        ).get('content', '')
-
                         formatted_ocr = multimodal_service.format_article(
                             content=ocr_combined,
                             title=title,
@@ -1276,7 +1254,7 @@ def publish_sync(data):
 
                         images_markdown = "\n\n".join([f"![图片{i+1}]({url})" for i, url in enumerate(image_urls[:15])])
 
-                        content = f"{formatted_content}\n\n---\n\n## 图片文字识别\n\n{formatted_ocr}\n\n---\n\n## 原始图片\n\n{images_markdown}"
+                        content = f"{formatted_ocr}\n\n---\n\n## 原始图片\n\n{images_markdown}"
                         print(f"[Sync] OCR completed with {len(ocr_texts)} results")
                     else:
                         analysis = multimodal_service.format_article(
