@@ -9,6 +9,7 @@ import os
 import json
 import base64
 import requests
+import time
 from pathlib import Path
 from typing import List, Optional, Dict, Any, Union
 
@@ -55,7 +56,7 @@ class MultimodalService:
         return f"data:{mime_type};base64,{image_b64}"
 
     def _call_api(self, messages: List[dict], temperature: float = 0.7, max_tokens: int = 16384) -> str:
-        """调用多模态 API"""
+        """调用多模态 API（带速率限制处理）"""
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -71,16 +72,35 @@ class MultimodalService:
             "stream": False
         }
 
-        response = requests.post(
-            f'{self.base_url}/chat/completions',
-            headers=headers,
-            json=payload,
-            timeout=120
-        )
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = requests.post(
+                    f'{self.base_url}/chat/completions',
+                    headers=headers,
+                    json=payload,
+                    timeout=120
+                )
 
-        response.raise_for_status()
-        result = response.json()
-        return result['choices'][0]['message']['content']
+                if response.status_code == 429:
+                    wait_time = 2 * (attempt + 1)
+                    print(f"[NVIDIA API] Rate limited (429), waiting {wait_time}s before retry...")
+                    time.sleep(wait_time)
+                    continue
+
+                response.raise_for_status()
+                result = response.json()
+                return result['choices'][0]['message']['content']
+
+            except requests.exceptions.RequestException as e:
+                if attempt < max_retries - 1:
+                    wait_time = 2 * (attempt + 1)
+                    print(f"[NVIDIA API] Request failed, retrying in {wait_time}s... Error: {e}")
+                    time.sleep(wait_time)
+                else:
+                    raise e
+
+        raise Exception("Max retries exceeded for NVIDIA API")
 
     def _build_image_ocr_prompt(self, image_url: str, task: str = "ocr") -> List[dict]:
         """构建图片OCR提示词"""

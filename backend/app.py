@@ -361,6 +361,9 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
                             ocr_text = multimodal_service.ocr_image(image_url=img_url)
                             if ocr_text:
                                 ocr_texts.append(f"图片{i}：{ocr_text}")
+                            if i < len(image_urls[:10]):
+                                import time
+                                time.sleep(1)
                         except Exception as e:
                             print(f"[OCR] Failed image {i}: {e}")
                             add_job_log(job_id, 'OCR识别', 'warning', f'图片{i} OCR失败: {str(e)}')
@@ -939,6 +942,9 @@ def format_article():
                     ocr_text = multimodal_service.ocr_image(image_url=img_url)
                     if ocr_text:
                         ocr_texts.append(f"图片{i}：{ocr_text}")
+                    if i < len(image_urls[:10]):
+                        import time
+                        time.sleep(1)
                 except Exception as e:
                     print(f"[OCR] Failed image {i}: {e}")
 
@@ -1211,6 +1217,9 @@ def publish_sync(data):
                             ocr_text = multimodal_service.ocr_image(image_url=img_url)
                             if ocr_text:
                                 ocr_texts.append(f"图片{i}：{ocr_text}")
+                            if i < len(image_urls[:10]):
+                                import time
+                                time.sleep(1)
                         except Exception as e:
                             print(f"[OCR] Failed image {i}: {e}")
 
