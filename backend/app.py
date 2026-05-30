@@ -223,11 +223,11 @@ def worker():
         job_id = None
         try:
             job_id, data = task_queue.get()
-            if job_id is None:  # Sentinel to stop worker
+            if job_id is None:
                 break
-            
+
             try:
-                process_publish_task(job_id, data, deepseek_service, github_service, markdown_generator)
+                process_publish_task(job_id, data, deepseek_service, github_service, markdown_generator, multimodal_service)
             except Exception as e:
                 # 任务处理失败，记录错误但继续处理下一个任务
                 print(f"Task {job_id} failed with exception: {e}")
@@ -252,64 +252,69 @@ worker_thread = threading.Thread(target=worker, daemon=True)
 worker_thread.start()
 
 
-def process_publish_task(job_id, data, deepseek_service, github_service, markdown_generator):
+def process_publish_task(job_id, data, deepseek_service, github_service, markdown_generator, multimodal_service=None):
     """
     Background task to process article publishing
     """
     try:
-        # Update status to processing
         jobs[job_id]['status'] = 'processing'
         jobs[job_id]['message'] = '正在分析文章内容...'
         jobs[job_id]['progress'] = 10
         add_job_log(job_id, '开始处理', 'start', '任务开始处理')
-        
+
         title = data.get('title', '').strip()
         content = data['content']
         date = data.get('date', datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%dT%H:%M:%S+08:00'))
         tags = data.get('tags', [])
         category = data.get('category', '')
-        categories = [] # Initialize categories list
+        categories = []
         author = data.get('author', '')
         target_dir = data.get('target_dir', 'content/posts')
         draft = data.get('draft', False)
         auto_format = data.get('auto_format', True)
-        
+        enable_ocr = data.get('enable_ocr', False)
+
         add_job_log(job_id, '参数解析', 'success', '参数解析完成', {
             'has_title': bool(title),
             'target_dir': target_dir,
-            'draft': draft
+            'draft': draft,
+            'enable_ocr': enable_ocr
         })
 
-        # 1. 识别 URL（支持从文案中提取）
         url_pattern = re.compile(r'https?://[^\s\u4e00-\u9fa5]+')
         urls = url_pattern.findall(content.strip())
-        
+
         is_xiaohongshu = False
         scraped_data = None
-        
+        image_urls = []
+
         if urls:
             url = urls[0].rstrip('.,!?;:)]}）〉》」』')
-            # 小红书链接特殊处理
             if 'xiaohongshu.com' in url or 'xhslink.com' in url:
                 is_xiaohongshu = True
                 add_job_log(job_id, '小红书识别', 'info', '识别为小红书链接，启用专用解析')
-            
+
             jobs[job_id]['message'] = '正在抓取链接内容...'
             add_job_log(job_id, 'URL抓取', 'start', f'检测到URL，开始抓取内容', {'url': url})
             print(f"Detected URL in publish: {url}, fetching content...")
-            
+
             scraped_data = fetch_article_content(url)
-            
+
             if scraped_data:
                 content = scraped_data['content']
                 if not title and scraped_data.get('title'):
                     title = scraped_data['title']
                     print(f"Use scraped title: {title}")
-                
+
                 if not author and scraped_data.get('author'):
                     author = scraped_data['author']
                     print(f"Use scraped author: {author}")
-                # 检查是否需要跳过 AI 排版（纯图片笔记）
+
+                if enable_ocr and scraped_data.get('platform') == 'xiaohongshu':
+                    image_urls = scraped_data.get('image_urls', [])
+                    print(f"[Task] Will process {len(image_urls)} images for OCR")
+                    add_job_log(job_id, 'OCR识别', 'info', f'检测到{len(image_urls)}张图片，将进行OCR识别')
+
                 skip_ai_format = scraped_data.get('skip_ai_format', False)
                 add_job_log(job_id, 'URL抓取', 'success', '成功获取文章内容', {
                     'url': url,
@@ -318,7 +323,6 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
                     'platform': 'xiaohongshu' if is_xiaohongshu else 'generic',
                     'skip_ai_format': skip_ai_format
                 })
-                # 立即更新任务历史中的标题
                 if title:
                     update_task_history_title(job_id, title)
             else:
@@ -328,54 +332,97 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
             add_job_log(job_id, '内容识别', 'info', '内容为纯文本，无需抓取URL')
             skip_ai_format = False
 
-        # 2. Parse Front Matter to avoid duplication
         add_job_log(job_id, 'Front Matter解析', 'start', '开始解析Front Matter')
         parsed = markdown_generator.parse_front_matter(content)
         content = parsed['content']
         add_job_log(job_id, 'Front Matter解析', 'success', 'Front Matter解析完成')
-        
-        # 3. AI Analysis（纯图片笔记跳过）
+
         if skip_ai_format:
             add_job_log(job_id, 'AI分析', 'info', '纯图片笔记，跳过AI排版')
-            # 保持原始内容，只设置基本分类和标签
             if not category:
                 category = 'AI绘画' if is_xiaohongshu else '未分类'
             if not tags:
                 tags = ['小红书', '图集']
-        else:
+        elif auto_format:
             jobs[job_id]['message'] = '正在进行AI优化排版...'
             jobs[job_id]['progress'] = 30
             add_job_log(job_id, 'AI分析', 'start', '开始AI优化排版')
-            
+
             try:
-                analysis = deepseek_service.format_article(
-                    content=content,
-                    title=title,
-                    tags=tags,
-                    category=category
-                )
-                
-                content = analysis.get('content', content)
-                tags = analysis.get('tags', [])
-                category = analysis.get('category', '未分类')
-                categories = analysis.get('categories', [])
-                # 如果没有返回多分类，则使用单分类
-                if not categories and category:
-                    categories = [category]
-                
+                if enable_ocr and multimodal_service and image_urls:
+                    add_job_log(job_id, '多模态分析', 'start', '使用多模态模型进行OCR和排版')
+
+                    ocr_texts = []
+                    for i, img_url in enumerate(image_urls[:10], 1):
+                        try:
+                            jobs[job_id]['message'] = f'正在OCR识别第{i}张图片...'
+                            add_job_log(job_id, 'OCR识别', 'progress', f'识别图片 {i}/{min(len(image_urls), 10)}')
+                            print(f"[OCR] Processing image {i}/{min(len(image_urls), 10)}...")
+                            ocr_text = multimodal_service.ocr_image(image_url=img_url)
+                            if ocr_text:
+                                ocr_texts.append(f"图片{i}：{ocr_text}")
+                        except Exception as e:
+                            print(f"[OCR] Failed image {i}: {e}")
+                            add_job_log(job_id, 'OCR识别', 'warning', f'图片{i} OCR失败: {str(e)}')
+
+                    if ocr_texts:
+                        ocr_combined = "\n\n".join(ocr_texts)
+                        add_job_log(job_id, '多模态排版', 'start', '正在对原文和OCR结果分别排版')
+
+                        formatted_content = multimodal_service.format_article(
+                            content=content,
+                            title=title,
+                            tags=tags,
+                            category=category
+                        ).get('content', '')
+
+                        formatted_ocr = multimodal_service.format_article(
+                            content=ocr_combined,
+                            title=title,
+                            tags=tags,
+                            category=category
+                        ).get('content', '')
+
+                        images_markdown = "\n\n".join([f"![图片{i+1}]({url})" for i, url in enumerate(image_urls[:10])])
+
+                        content = f"{formatted_content}\n\n---\n\n## 图片文字识别\n\n{formatted_ocr}\n\n---\n\n## 原始图片\n\n{images_markdown}"
+                        add_job_log(job_id, '多模态分析', 'success', f'OCR完成，识别了{len(ocr_texts)}张图片')
+                    else:
+                        analysis = multimodal_service.format_article(
+                            content=content,
+                            title=title,
+                            tags=tags,
+                            category=category
+                        )
+                        content = analysis.get('content', content)
+                        tags = analysis.get('tags', [])
+                        category = analysis.get('category', '未分类')
+                else:
+                    analysis = deepseek_service.format_article(
+                        content=content,
+                        title=title,
+                        tags=tags,
+                        category=category
+                    )
+                    content = analysis.get('content', content)
+                    tags = analysis.get('tags', [])
+                    category = analysis.get('category', '未分类')
+                    categories = analysis.get('categories', [])
+                    if not categories and category:
+                        categories = [category]
+
                 if not title:
                     extracted_title = parsed.get('front_matter', {}).get('title')
                     title = extracted_title if extracted_title else analysis.get('title', '未命名文章')
-                
+
                 add_job_log(job_id, 'AI分析', 'success', 'AI优化排版完成', {
                     'title': title,
                     'categories': categories,
                     'tags': tags
                 })
-                # AI分析完成后，更新任务历史中的标题（对于粘贴文本无标题的情况）
                 if title:
                     update_task_history_title(job_id, title)
-                    
+
             except Exception as e:
                 print(f"Warning: AI analysis failed: {e}")
                 add_job_log(job_id, 'AI分析', 'warning', f'AI分析失败，使用默认值: {str(e)}')
@@ -1043,7 +1090,7 @@ def publish_article():
             # 获取当前请求的基础 URL 来构建 webhook URL
             base_url = os.environ.get('WEBHOOK_BASE_URL', request.host_url.rstrip('/'))
             webhook_url = f"{base_url}/api/qstash-webhook"
-            
+
             try:
                 # 准备发送给 QStash 的数据
                 task_data = {
@@ -1053,7 +1100,9 @@ def publish_article():
                     'tags': data.get('tags', []),
                     'category': data.get('category', ''),
                     'target_dir': data.get('target_dir', 'content/posts'),
-                    'draft': data.get('draft', False)
+                    'draft': data.get('draft', False),
+                    'auto_format': data.get('auto_format', True),
+                    'enable_ocr': data.get('enable_ocr', False)
                 }
                 
                 # 通过 QStash 发布任务
@@ -1121,65 +1170,104 @@ def publish_sync(data):
         category = data.get('category', '')
         target_dir = data.get('target_dir', 'content/posts')
         draft = data.get('draft', False)
+        auto_format = data.get('auto_format', True)
+        enable_ocr = data.get('enable_ocr', False)
 
-        # 1. 识别 URL（支持从文案中提取）
         url_pattern = re.compile(r'https?://[^\s\u4e00-\u9fa5]+')
         urls = url_pattern.findall(content.strip())
-        
-        is_xiaohongshu = False
-        
+
+        image_urls = []
+
         if urls:
             url = urls[0].rstrip('.,!?;:)]}）〉》」』')
-            # 小红书链接特殊处理
             if 'xiaohongshu.com' in url or 'xhslink.com' in url:
-                is_xiaohongshu = True
                 print(f"[Sync] Detected Xiaohongshu URL: {url}")
-            
+
             print(f"[Sync] Detected URL: {url}, fetching content...")
             scraped_data = fetch_article_content(url)
-            
+
             if scraped_data:
                 content = scraped_data['content']
                 if not title and scraped_data.get('title'):
                     title = scraped_data['title']
                     print(f"[Sync] Use scraped title: {title}")
-            else:
-                return jsonify({
-                    'success': False,
-                    'error': '无法从链接获取内容，请检查链接是否有效'
-                }), 400
 
-        # 2. Parse Front Matter to avoid duplication
+                if enable_ocr and scraped_data.get('platform') == 'xiaohongshu':
+                    image_urls = scraped_data.get('image_urls', [])
+                    print(f"[Sync] Will process {len(image_urls)} images for OCR")
+
         parsed = markdown_generator.parse_front_matter(content)
         content = parsed['content']
-        
-        # 3. AI Analysis
-        try:
-            analysis = deepseek_service.format_article(
-                content=content,
-                title=title,
-                tags=tags,
-                category=category
-            )
-            
-            content = analysis.get('content', content)
-            tags = analysis.get('tags', [])
-            category = analysis.get('category', '未分类')
-            
-            if not title:
-                extracted_title = parsed.get('front_matter', {}).get('title')
-                title = extracted_title if extracted_title else analysis.get('title', '未命名文章')
-                
-        except Exception as e:
-            print(f"[Sync] Warning: AI analysis failed: {e}")
-            if not title:
-                # 尝试从 front matter 获取，如果没有则生成带时间戳的标题
-                extracted_title = parsed.get('front_matter', {}).get('title')
-                title = extracted_title if extracted_title else f"未命名文章_{datetime.now(timezone(timedelta(hours=8))).strftime('%Y%m%d%H%M%S')}"
-            if not category: category = "未分类"
-            if not tags: tags = ["未分类"]
 
-        # 4. Generate full content
+        if auto_format:
+            try:
+                if enable_ocr and multimodal_service and image_urls:
+                    print(f"[Sync] Using multimodal model for OCR and formatting...")
+
+                    ocr_texts = []
+                    for i, img_url in enumerate(image_urls[:10], 1):
+                        try:
+                            print(f"[OCR] Processing image {i}/{min(len(image_urls), 10)}...")
+                            ocr_text = multimodal_service.ocr_image(image_url=img_url)
+                            if ocr_text:
+                                ocr_texts.append(f"图片{i}：{ocr_text}")
+                        except Exception as e:
+                            print(f"[OCR] Failed image {i}: {e}")
+
+                    if ocr_texts:
+                        ocr_combined = "\n\n".join(ocr_texts)
+                        formatted_content = multimodal_service.format_article(
+                            content=content,
+                            title=title,
+                            tags=tags,
+                            category=category
+                        ).get('content', '')
+
+                        formatted_ocr = multimodal_service.format_article(
+                            content=ocr_combined,
+                            title=title,
+                            tags=tags,
+                            category=category
+                        ).get('content', '')
+
+                        images_markdown = "\n\n".join([f"![图片{i+1}]({url})" for i, url in enumerate(image_urls[:10])])
+
+                        content = f"{formatted_content}\n\n---\n\n## 图片文字识别\n\n{formatted_ocr}\n\n---\n\n## 原始图片\n\n{images_markdown}"
+                        print(f"[Sync] OCR completed with {len(ocr_texts)} results")
+                    else:
+                        analysis = multimodal_service.format_article(
+                            content=content,
+                            title=title,
+                            tags=tags,
+                            category=category
+                        )
+                        content = analysis.get('content', content)
+                        tags = analysis.get('tags', [])
+                        category = analysis.get('category', '未分类')
+                else:
+                    print(f"[Sync] Using DeepSeek for formatting...")
+                    analysis = deepseek_service.format_article(
+                        content=content,
+                        title=title,
+                        tags=tags,
+                        category=category
+                    )
+                    content = analysis.get('content', content)
+                    tags = analysis.get('tags', [])
+                    category = analysis.get('category', '未分类')
+
+                if not title:
+                    extracted_title = parsed.get('front_matter', {}).get('title')
+                    title = extracted_title if extracted_title else analysis.get('title', '未命名文章')
+
+            except Exception as e:
+                print(f"[Sync] Warning: AI analysis failed: {e}")
+                if not title:
+                    extracted_title = parsed.get('front_matter', {}).get('title')
+                    title = extracted_title if extracted_title else f"未命名文章_{datetime.now(timezone(timedelta(hours=8))).strftime('%Y%m%d%H%M%S')}"
+                if not category: category = "未分类"
+                if not tags: tags = ["未分类"]
+
         filename = markdown_generator.generate_filename(title)
         full_content = markdown_generator.wrap_with_front_matter(
             title=title,
@@ -1255,8 +1343,7 @@ def qstash_webhook():
         
         # Execute publishing via standard processor
         try:
-            # Reusing the robust processor which handles fetching, analysis, uploading AND LOGGING
-            process_publish_task(job_id, data, deepseek_service, github_service, markdown_generator)
+            process_publish_task(job_id, data, deepseek_service, github_service, markdown_generator, multimodal_service)
             
             # Check result from jobs dict
             job_result = jobs.get(job_id)

@@ -723,8 +723,9 @@ class HugoPublisher {
                     category: this.categorySelect.value,
                     target_dir: this.targetDirSelect.value,
                     draft: this.isDraftCheckbox.checked,
-                    auto_format: !alreadyFormatted,  // 已手动优化则跳过自动优化
-                    async: true  // 使用 QStash 异步模式
+                    auto_format: !alreadyFormatted,
+                    enable_ocr: this.enableOcrCheckbox?.checked || false,
+                    async: true
                 })
             });
 
