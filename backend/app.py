@@ -913,8 +913,10 @@ def format_article():
                     category=category
                 ).get('content', '')
 
-                formatted_content = f"{formatted_content}\n\n---\n\n## 图片文字识别\n\n{formatted_ocr}"
-                print(f"[Multimodal] Combined {len(ocr_texts)} OCR results")
+                images_markdown = "\n\n".join([f"![图片{i+1}]({url})" for i, url in enumerate(image_urls[:10])])
+
+                formatted_content = f"{formatted_content}\n\n---\n\n## 图片文字识别\n\n{formatted_ocr}\n\n---\n\n## 原始图片\n\n{images_markdown}"
+                print(f"[Multimodal] Combined {len(ocr_texts)} OCR results with {len(image_urls[:10])} images")
 
                 analysis = {
                     'content': formatted_content,
