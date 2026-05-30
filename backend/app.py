@@ -884,14 +884,53 @@ def format_article():
                     image_urls = scraped_data.get('image_urls', [])
 
         if enable_ocr and multimodal_service:
-            print(f"[Multimodal] Using stepfun model for article formatting with {len(image_urls)} images...")
-            analysis = multimodal_service.format_article(
-                content=content,
-                title=title,
-                tags=tags,
-                category=category,
-                image_urls=image_urls
-            )
+            print(f"[Multimodal] Using stepfun model, processing {len(image_urls)} images...")
+            ocr_texts = []
+            for i, img_url in enumerate(image_urls[:10], 1):
+                try:
+                    print(f"[OCR] Processing image {i}/{min(len(image_urls), 10)}: {img_url[:50]}...")
+                    ocr_text = multimodal_service.ocr_image(image_url=img_url)
+                    if ocr_text:
+                        ocr_texts.append(f"图片{i}：{ocr_text}")
+                except Exception as e:
+                    print(f"[OCR] Failed image {i}: {e}")
+
+            if ocr_texts:
+                ocr_combined = "\n\n".join(ocr_texts)
+                print(f"[Multimodal] Formatting original content...")
+                formatted_content = multimodal_service.format_article(
+                    content=content,
+                    title=title,
+                    tags=tags,
+                    category=category
+                ).get('content', '')
+
+                print(f"[Multimodal] Formatting OCR text...")
+                formatted_ocr = multimodal_service.format_article(
+                    content=ocr_combined,
+                    title=title,
+                    tags=tags,
+                    category=category
+                ).get('content', '')
+
+                formatted_content = f"{formatted_content}\n\n---\n\n## 图片文字识别\n\n{formatted_ocr}"
+                print(f"[Multimodal] Combined {len(ocr_texts)} OCR results")
+
+                analysis = {
+                    'content': formatted_content,
+                    'title': title,
+                    'category': category,
+                    'tags': tags
+                }
+            else:
+                print(f"[Multimodal] No OCR results, using standard format...")
+                analysis = multimodal_service.format_article(
+                    content=content,
+                    title=title,
+                    tags=tags,
+                    category=category,
+                    image_urls=image_urls
+                )
             print(f"[Multimodal] Formatting complete")
         else:
             print(f"[DeepSeek] Using DeepSeek for article formatting...")
