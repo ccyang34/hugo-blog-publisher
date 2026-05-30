@@ -5,7 +5,7 @@ Hugo博客发布器 - Flask后端API
 """
 
 import os
-import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 from datetime import datetime, timedelta, timezone
 from flask import Flask, request, jsonify, render_template
@@ -353,20 +353,31 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
                     add_job_log(job_id, '多模态分析', 'start', '使用多模态模型进行OCR和排版')
 
                     ocr_texts = []
-                    for i, img_url in enumerate(image_urls[:10], 1):
+                    def process_single_image(args):
+                        idx, img_url = args
                         try:
-                            jobs[job_id]['message'] = f'正在OCR识别第{i}张图片...'
-                            add_job_log(job_id, 'OCR识别', 'progress', f'识别图片 {i}/{min(len(image_urls), 10)}')
-                            print(f"[OCR] Processing image {i}/{min(len(image_urls), 10)}...")
+                            print(f"[OCR] Processing image {idx}...")
                             ocr_text = multimodal_service.ocr_image(image_url=img_url)
-                            if ocr_text:
-                                ocr_texts.append(f"图片{i}：{ocr_text}")
-                            if i < len(image_urls[:10]):
-                                import time
-                                time.sleep(1)
+                            return idx, img_url, ocr_text, None
                         except Exception as e:
-                            print(f"[OCR] Failed image {i}: {e}")
-                            add_job_log(job_id, 'OCR识别', 'warning', f'图片{i} OCR失败: {str(e)}')
+                            print(f"[OCR] Failed image {idx}: {e}")
+                            return idx, img_url, None, str(e)
+
+                    images_to_process = [(i, url) for i, url in enumerate(image_urls[:5], 1)]
+                    jobs[job_id]['message'] = f'正在并行OCR识别 {len(images_to_process)} 张图片...'
+                    add_job_log(job_id, 'OCR识别', 'start', f'并行识别 {len(images_to_process)} 张图片')
+
+                    with ThreadPoolExecutor(max_workers=5) as executor:
+                        futures = {executor.submit(process_single_image, args): args for args in images_to_process}
+                        for future in as_completed(futures):
+                            idx, img_url, ocr_text, error = future.result()
+                            if ocr_text:
+                                ocr_texts.append((idx, f"图片{idx}：{ocr_text}"))
+                            elif error:
+                                add_job_log(job_id, 'OCR识别', 'warning', f'图片{idx} OCR失败: {error}')
+
+                    ocr_texts.sort(key=lambda x: x[0])
+                    ocr_texts = [text for _, text in ocr_texts]
 
                     if ocr_texts:
                         ocr_combined = "\n\n".join(ocr_texts)
@@ -386,7 +397,7 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
                             category=category
                         ).get('content', '')
 
-                        images_markdown = "\n\n".join([f"![图片{i+1}]({url})" for i, url in enumerate(image_urls[:10])])
+                        images_markdown = "\n\n".join([f"![图片{i+1}]({url})" for i, url in enumerate(image_urls[:5])])
 
                         content = f"{formatted_content}\n\n---\n\n## 图片文字识别\n\n{formatted_ocr}\n\n---\n\n## 原始图片\n\n{images_markdown}"
                         add_job_log(job_id, '多模态分析', 'success', f'OCR完成，识别了{len(ocr_texts)}张图片')
@@ -936,17 +947,29 @@ def format_article():
         if enable_ocr and multimodal_service:
             print(f"[Multimodal] Using stepfun model, processing {len(image_urls)} images...")
             ocr_texts = []
-            for i, img_url in enumerate(image_urls[:10], 1):
+
+            def process_single_image(idx_url):
+                idx, img_url = idx_url
                 try:
-                    print(f"[OCR] Processing image {i}/{min(len(image_urls), 10)}: {img_url[:50]}...")
+                    print(f"[OCR] Processing image {idx}...")
                     ocr_text = multimodal_service.ocr_image(image_url=img_url)
-                    if ocr_text:
-                        ocr_texts.append(f"图片{i}：{ocr_text}")
-                    if i < len(image_urls[:10]):
-                        import time
-                        time.sleep(1)
+                    return idx, f"图片{idx}：{ocr_text}" if ocr_text else None, None
                 except Exception as e:
-                    print(f"[OCR] Failed image {i}: {e}")
+                    print(f"[OCR] Failed image {idx}: {e}")
+                    return idx, None, str(e)
+
+            images_to_process = [(i, url) for i, url in enumerate(image_urls[:5], 1)]
+            with ThreadPoolExecutor(max_workers=5) as executor:
+                futures = [executor.submit(process_single_image, args) for args in images_to_process]
+                for future in as_completed(futures):
+                    idx, ocr_text, error = future.result()
+                    if ocr_text:
+                        ocr_texts.append((idx, ocr_text))
+                    elif error:
+                        print(f"[OCR] Image {idx} failed: {error}")
+
+            ocr_texts.sort(key=lambda x: x[0])
+            ocr_texts = [text for _, text in ocr_texts]
 
             if ocr_texts:
                 ocr_combined = "\n\n".join(ocr_texts)
@@ -966,10 +989,10 @@ def format_article():
                     category=category
                 ).get('content', '')
 
-                images_markdown = "\n\n".join([f"![图片{i+1}]({url})" for i, url in enumerate(image_urls[:10])])
+                images_markdown = "\n\n".join([f"![图片{i+1}]({url})" for i, url in enumerate(image_urls[:5])])
 
                 formatted_content = f"{formatted_content}\n\n---\n\n## 图片文字识别\n\n{formatted_ocr}\n\n---\n\n## 原始图片\n\n{images_markdown}"
-                print(f"[Multimodal] Combined {len(ocr_texts)} OCR results with {len(image_urls[:10])} images")
+                print(f"[Multimodal] Combined {len(ocr_texts)} OCR results with {len(image_urls[:5])} images")
 
                 analysis = {
                     'content': formatted_content,
@@ -1211,17 +1234,29 @@ def publish_sync(data):
                     print(f"[Sync] Using multimodal model for OCR and formatting...")
 
                     ocr_texts = []
-                    for i, img_url in enumerate(image_urls[:10], 1):
+
+                    def process_single_image(idx_url):
+                        idx, img_url = idx_url
                         try:
-                            print(f"[OCR] Processing image {i}/{min(len(image_urls), 10)}...")
+                            print(f"[OCR] Processing image {idx}...")
                             ocr_text = multimodal_service.ocr_image(image_url=img_url)
-                            if ocr_text:
-                                ocr_texts.append(f"图片{i}：{ocr_text}")
-                            if i < len(image_urls[:10]):
-                                import time
-                                time.sleep(1)
+                            return idx, f"图片{idx}：{ocr_text}" if ocr_text else None, None
                         except Exception as e:
-                            print(f"[OCR] Failed image {i}: {e}")
+                            print(f"[OCR] Failed image {idx}: {e}")
+                            return idx, None, str(e)
+
+                    images_to_process = [(i, url) for i, url in enumerate(image_urls[:5], 1)]
+                    with ThreadPoolExecutor(max_workers=5) as executor:
+                        futures = [executor.submit(process_single_image, args) for args in images_to_process]
+                        for future in as_completed(futures):
+                            idx, ocr_text, error = future.result()
+                            if ocr_text:
+                                ocr_texts.append((idx, ocr_text))
+                            elif error:
+                                print(f"[OCR] Image {idx} failed: {error}")
+
+                    ocr_texts.sort(key=lambda x: x[0])
+                    ocr_texts = [text for _, text in ocr_texts]
 
                     if ocr_texts:
                         ocr_combined = "\n\n".join(ocr_texts)
@@ -1239,7 +1274,7 @@ def publish_sync(data):
                             category=category
                         ).get('content', '')
 
-                        images_markdown = "\n\n".join([f"![图片{i+1}]({url})" for i, url in enumerate(image_urls[:10])])
+                        images_markdown = "\n\n".join([f"![图片{i+1}]({url})" for i, url in enumerate(image_urls[:5])])
 
                         content = f"{formatted_content}\n\n---\n\n## 图片文字识别\n\n{formatted_ocr}\n\n---\n\n## 原始图片\n\n{images_markdown}"
                         print(f"[Sync] OCR completed with {len(ocr_texts)} results")
