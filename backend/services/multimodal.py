@@ -83,7 +83,7 @@ class MultimodalService:
                 )
 
                 if response.status_code == 429:
-                    wait_time = 2 * (attempt + 1)
+                    wait_time = 10 + 5 * attempt
                     print(f"[NVIDIA API] Rate limited (429), waiting {wait_time}s before retry...")
                     time.sleep(wait_time)
                     continue
@@ -94,7 +94,7 @@ class MultimodalService:
 
             except requests.exceptions.RequestException as e:
                 if attempt < max_retries - 1:
-                    wait_time = 2 * (attempt + 1)
+                    wait_time = 10 + 5 * attempt
                     print(f"[NVIDIA API] Request failed, retrying in {wait_time}s... Error: {e}")
                     time.sleep(wait_time)
                 else:
