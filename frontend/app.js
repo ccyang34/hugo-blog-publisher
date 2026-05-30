@@ -39,6 +39,7 @@ class HugoPublisher {
 
         this.targetDirSelect = document.getElementById('targetDir');
         this.isDraftCheckbox = document.getElementById('isDraft');
+        this.enableOcrCheckbox = document.getElementById('enableOcr');
 
         this.publishResult = document.getElementById('publishResult');
         this.successMessage = document.getElementById('successMessage');
@@ -1001,7 +1002,6 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
                         const blob = await item.getType(imageType);
                         const file = new File([blob], `paste_${Date.now()}.${imageType.split('/')[1]}`, { type: imageType });
                         await this.uploadImage(file);
-                        this.showNotification('已粘贴图片', 'success');
                         return;
                     }
 
@@ -1143,6 +1143,21 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
 
                 this.renderUploadedImages();
                 this.insertImageToContent(data.url, data.filename || file.name);
+
+                if (this.enableOcrCheckbox?.checked) {
+                    this.showNotification('正在 OCR 识别图片文字...', 'info');
+                    try {
+                        const ocrResult = await this.ocrImage(data.url);
+                        if (ocrResult) {
+                            this.appendOcrResultToContent(ocrResult);
+                            this.showNotification('OCR 识别完成!', 'success');
+                        }
+                    } catch (error) {
+                        console.warn('OCR failed:', error);
+                        this.showNotification('OCR 识别失败', 'error');
+                    }
+                }
+
                 this.showNotification('图片上传成功!', 'success');
             } else {
                 this.progressText.textContent = '上传失败';
@@ -1156,6 +1171,41 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
                 this.imageUploadProgress.classList.add('hidden');
             }, 1500);
         }
+    }
+
+    async ocrImage(imageUrl) {
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/api/ocr-image`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    image_url: imageUrl
+                })
+            });
+
+            const data = await response.json();
+            if (data.success && data.result) {
+                return data.result;
+            }
+            return null;
+        } catch (error) {
+            console.error('OCR API call failed:', error);
+            return null;
+        }
+    }
+
+    appendOcrResultToContent(ocrText) {
+        const textarea = this.contentTextarea;
+        const content = textarea.value;
+
+        const ocrMarkdown = `\n\n## 图片文字识别\n\n${ocrText}\n`;
+        textarea.value = content + ocrMarkdown;
+        textarea.selectionStart = textarea.selectionEnd = textarea.value.length;
+        textarea.focus();
+
+        this.updateStats();
     }
 
     insertImageToContent(url, filename) {
