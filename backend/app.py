@@ -11,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from .services.deepseek import DeepSeekService
+from .services.multimodal import MultimodalService
 from .services.github import GitHubService
 
 from .utils.markdown import MarkdownGenerator
@@ -45,6 +46,16 @@ except ValueError:
     
     deepseek_service = MockDeepSeekService()
     print("Warning: DeepSeek API key not set, using mock service")
+
+multimodal_service = None
+try:
+    multimodal_service = MultimodalService()
+    print("MultimodalService initialized successfully (NVIDIA API)")
+except ValueError as e:
+    print(f"Warning: MultimodalService not initialized: {e}")
+    print("Hint: Set NVIDIA_API_KEY environment variable to enable image OCR and multimodal features")
+except Exception as e:
+    print(f"Warning: MultimodalService initialization failed: {e}")
 
 try:
     github_service = GitHubService()
@@ -488,6 +499,182 @@ def test_deepseek():
             'mode': 'real',
             'model': getattr(deepseek_service, 'model', 'unknown'),
             'timestamp': beijing_time.isoformat()
+        }), 500
+
+
+@app.route('/api/test-multimodal', methods=['GET'])
+def test_multimodal():
+    """测试多模态大模型 API 连接状态"""
+    beijing_time = datetime.now(timezone(timedelta(hours=8)))
+
+    if not multimodal_service:
+        return jsonify({
+            'success': False,
+            'error': '多模态服务未配置',
+            'hint': '请设置 NVIDIA_API_KEY 环境变量',
+            'timestamp': beijing_time.isoformat()
+        }), 500
+
+    return jsonify({
+        'success': True,
+        'message': '多模态服务已配置',
+        'model': multimodal_service.model,
+        'timestamp': beijing_time.isoformat()
+    })
+
+
+@app.route('/api/ocr-image', methods=['POST'])
+def ocr_image():
+    """
+    对图片进行 OCR 识别（使用多模态大模型）
+
+    请求参数 (JSON):
+        image_url: 图片 URL
+        image_data: base64 编码的图片数据（可选，与 image_url 二选一）
+
+    返回:
+        OCR 识别结果
+    """
+    beijing_time = datetime.now(timezone(timedelta(hours=8)))
+
+    if not multimodal_service:
+        return jsonify({
+            'success': False,
+            'error': '多模态服务未配置，请设置 NVIDIA_API_KEY 环境变量'
+        }), 500
+
+    try:
+        data = request.json
+        if not data:
+            return jsonify({'success': False, 'error': '请求体不能为空'}), 400
+
+        image_url = data.get('image_url')
+        image_data = data.get('image_data')
+
+        if not image_url and not image_data:
+            return jsonify({'success': False, 'error': '必须提供 image_url 或 image_data'}), 400
+
+        result = multimodal_service.ocr_image(image_url=image_url, image_path=None)
+        if image_data:
+            result = multimodal_service.ocr_image(image_url=image_data)
+
+        return jsonify({
+            'success': True,
+            'result': result,
+            'timestamp': beijing_time.isoformat()
+        })
+
+    except Exception as e:
+        print(f"OCR error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/analyze-image', methods=['POST'])
+def analyze_image():
+    """
+    分析图片内容（使用多模态大模型）
+
+    请求参数 (JSON):
+        image_url: 图片 URL
+        context: 上下文提示（可选）
+
+    返回:
+        图片分析结果
+    """
+    beijing_time = datetime.now(timezone(timedelta(hours=8)))
+
+    if not multimodal_service:
+        return jsonify({
+            'success': False,
+            'error': '多模态服务未配置，请设置 NVIDIA_API_KEY 环境变量'
+        }), 500
+
+    try:
+        data = request.json
+        if not data:
+            return jsonify({'success': False, 'error': '请求体不能为空'}), 400
+
+        image_url = data.get('image_url')
+        context = data.get('context', '')
+
+        if not image_url:
+            return jsonify({'success': False, 'error': '必须提供 image_url'}), 400
+
+        result = multimodal_service.analyze_image(image_url=image_url, context=context)
+
+        return jsonify({
+            'success': True,
+            'result': result,
+            'timestamp': beijing_time.isoformat()
+        })
+
+    except Exception as e:
+        print(f"Image analysis error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/format-with-images', methods=['POST'])
+def format_with_images():
+    """
+    使用多模态大模型进行文章排版（支持图片OCR）
+
+    请求参数 (JSON):
+        content: 文章内容
+        title: 文章标题（可选）
+        tags: 标签列表（可选）
+        category: 分类（可选）
+        image_urls: 图片 URL 列表（可选）
+
+    返回:
+        格式化后的文章
+    """
+    beijing_time = datetime.now(timezone(timedelta(hours=8)))
+
+    if not multimodal_service:
+        return jsonify({
+            'success': False,
+            'error': '多模态服务未配置，请设置 NVIDIA_API_KEY 环境变量'
+        }), 500
+
+    try:
+        data = request.json
+        if not data:
+            return jsonify({'success': False, 'error': '请求体不能为空'}), 400
+
+        content = data.get('content', '')
+        title = data.get('title', '')
+        tags = data.get('tags', [])
+        category = data.get('category', '')
+        image_urls = data.get('image_urls', [])
+
+        if not content:
+            return jsonify({'success': False, 'error': '文章内容不能为空'}), 400
+
+        result = multimodal_service.format_article(
+            content=content,
+            title=title,
+            tags=tags,
+            category=category,
+            image_urls=image_urls
+        )
+
+        return jsonify({
+            'success': True,
+            'result': result,
+            'timestamp': beijing_time.isoformat()
+        })
+
+    except Exception as e:
+        print(f"Format with images error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
         }), 500
 
 

@@ -132,6 +132,9 @@ git push -u origin main
 | 变量名 | 值 | 说明 |
 |--------|-----|------|
 | `DEEPSEEK_API_KEY` | `sk-xxxxx` | 您的 DeepSeek API Key |
+| `DEEPSEEK_MODEL` | `deepseek-chat` | DeepSeek 模型名称（可选） |
+| `NVIDIA_API_KEY` | `nvapi-xxxxx` | NVIDIA API 密钥（用于多模态/图片OCR，可选） |
+| `NVIDIA_MODEL` | `stepfun-ai/step-3.7-flash` | 多模态模型名称（可选） |
 | `GITHUB_TOKEN` | `ghp_xxxxx` | 第一步获取的 GitHub Token |
 | `GITHUB_USERNAME` | `your-username` | 您的 GitHub 用户名 |
 | `GITHUB_REPO` | `hugo-blog` | 您的 Hugo 博客仓库名 |
@@ -142,6 +145,9 @@ git push -u origin main
 ### 4.2 环境变量说明
 
 - **DEEPSEEK_API_KEY**: 从 https://platform.deepseek.com 获取
+- **DEEPSEEK_MODEL**: DeepSeek 模型名称，默认为 `deepseek-chat`
+- **NVIDIA_API_KEY**: NVIDIA API 密钥，用于图片 OCR 功能，从 https://ngc.nvidia.com/ 获取（可选）
+- **NVIDIA_MODEL**: 多模态模型名称，默认为 `stepfun-ai/step-3.7-flash`（可选）
 - **GITHUB_TOKEN**: 第一步获取的 GitHub Personal Access Token
 - **GITHUB_USERNAME**: 您的 GitHub 用户名（不是邮箱）
 - **GITHUB_REPO**: 您的 Hugo 博客仓库名称（例如：`hugo-blog`）
@@ -467,14 +473,104 @@ Vercel 的免费套餐包括：
 
 ---
 
+## 更换大模型 API
+
+如果需要更换大模型服务商或模型，只需修改 Vercel 上的环境变量，无需修改代码。
+
+### 方法一：只更换 API Key 和模型名称
+
+如果新模型兼容 OpenAI API 格式（如 硅基流动、DeepSeek 其他版本、OpenAI、Qwen 等），直接修改环境变量：
+
+1. 进入 Vercel Dashboard → 您的项目 → **Settings** → **Environment Variables**
+
+2. 修改以下变量：
+
+| 变量名 | 说明 | 示例值 |
+|--------|------|--------|
+| `DEEPSEEK_API_KEY` | 新的 API Key | `sk-xxxxx`（新平台的 Key） |
+| `DEEPSEEK_MODEL` | 新模型名称 | `gpt-4o`、`qwen-max`、`deepseek-chat` |
+
+3. 点击 **Save**
+
+4. 点击 **Deployments** → 右上角 **...** → **Redeploy**
+
+### 方法二：更换不兼容的模型（如 Claude）
+
+如果需要使用 Claude 等不完全兼容 OpenAI API 格式的模型，需要修改代码：
+
+1. 在 `backend/services/` 目录下创建新的服务文件（如 `claude.py`）
+
+2. 修改 `backend/app.py` 引入新服务
+
+3. 推送到 GitHub 自动部署
+
+### 当前支持的功能
+
+后端使用 DeepSeek API 完成以下功能：
+- **文章格式化**：使用 AI 优化文章结构和排版
+- **分类识别**：自动识别文章适合的分类（研究报告、期货分析、市场分析等）
+- **标签生成**：根据内容自动生成相关标签
+
+### 常见模型名称参考
+
+| 服务商 | 模型名称 | base_url |
+|--------|----------|----------|
+| DeepSeek | `deepseek-chat`、`deepseek-v4-flash` | `https://api.deepseek.com` |
+| 硅基流动 | `Qwen/Qwen2.5-72B-Instruct` | `https://api.siliconflow.cn/v1` |
+| OpenAI | `gpt-4o`、`gpt-4o-mini` | `https://api.openai.com/v1` |
+| 通义千问 | `qwen-max`、`qwen-plus` | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
+
+---
+
+## 多模态大模型配置（图片OCR）
+
+项目支持使用多模态大模型进行图片 OCR 识别和文章排版。当前使用 NVIDIA API 的 Stepfun 模型。
+
+### 环境变量配置
+
+在 Vercel 上添加以下环境变量：
+
+| 变量名 | 说明 | 示例值 |
+|--------|------|--------|
+| `NVIDIA_API_KEY` | NVIDIA API 密钥 | `nvapi-xxxxx` |
+| `NVIDIA_MODEL` | 模型名称（可选） | `stepfun-ai/step-3.7-flash` |
+
+获取 NVIDIA API Key：https://ngc.nvidia.com/
+
+### 新增 API 端点
+
+启用多模态服务后，可以使用以下新接口：
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/test-multimodal` | GET | 测试多模态服务状态 |
+| `/api/ocr-image` | POST | 对图片进行 OCR 识别 |
+| `/api/analyze-image` | POST | 分析图片内容（图表、数据等） |
+| `/api/format-with-images` | POST | 支持图片的文章排版 |
+
+### OCR 接口示例
+
+```bash
+# 测试服务
+curl https://your-app.vercel.app/api/test-multimodal
+
+# OCR 识别
+curl -X POST https://your-app.vercel.app/api/ocr-image \
+  -H "Content-Type: application/json" \
+  -d '{"image_url": "https://example.com/image.png"}'
+```
+
+---
+
 ## 总结
 
 通过以上步骤，您已经成功在 Vercel 上部署了后端 API。现在您可以：
 
 1. ✅ 使用 DeepSeek AI 优化文章排版
-2. ✅ 将文章发布到 GitHub 仓库
-3. ✅ 上传图片到 GitHub
-4. ✅ 管理博客文件
+2. ✅ 使用多模态大模型进行图片 OCR 识别
+3. ✅ 将文章发布到 GitHub 仓库
+4. ✅ 上传图片到 GitHub
+5. ✅ 管理博客文件
 
 如果遇到问题，请查看 **常见问题排查** 部分或查看 Vercel 日志。
 
