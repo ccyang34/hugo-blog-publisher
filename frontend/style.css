@@ -2043,3 +2043,112 @@ body {
         gap: 6px;
     }
 }
+
+/* ============ 以下为原 mobile-fix.css 合并内容 ============ */
+/* Mobile layout override for status card */
+@media screen and (max-width: 767px) {
+    .cf-status-card {
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        padding: 10px 12px !important;
+        gap: 10px !important;
+    }
+
+    .status-group {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        width: 100% !important;
+        /* Take full width of top row */
+        flex: 1 1 100% !important;
+        justify-content: space-between !important;
+        margin-bottom: 10px !important;
+        /* Space between status and buttons */
+    }
+
+    .status-item {
+        flex: 1 !important;
+        justify-content: center !important;
+        /* Ensure items don't overflow */
+        min-width: 0 !important;
+    }
+
+    .status-info {
+        gap: 6px !important;
+    }
+
+    .status-divider {
+        display: block !important;
+        width: 1px !important;
+        height: 24px !important;
+        background: #e2e8f0 !important;
+        margin: 0 8px !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* Typography adjustments for fitting */
+    #status-text,
+    #github-status-text {
+        font-size: 0.8rem !important;
+        line-height: 1.2 !important;
+    }
+
+    .status-label {
+        font-size: 0.65rem !important;
+        white-space: nowrap !important;
+    }
+
+    /* Buttons row */
+    .status-actions {
+        width: 100% !important;
+        flex: 1 1 100% !important;
+        display: flex !important;
+        gap: 8px !important;
+    }
+
+    .btn-refresh,
+    .btn-deploy {
+        flex: 1 !important;
+        justify-content: center !important;
+        padding: 8px 0 !important;
+        font-size: 0.8rem !important;
+    }
+}
+/* 强制文章内容和发布密码同一行显示 */
+@media screen and (max-width: 767px) {
+    .inline-password-container {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        gap: 12px !important;
+    }
+    
+    .inline-password-container > label {
+        display: inline-block !important;
+        margin-bottom: 0 !important;
+        white-space: nowrap !important;
+        flex-shrink: 0 !important;
+    }
+    
+    .inline-password-group {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        gap: 8px !important;
+        flex-shrink: 0 !important;
+    }
+    
+    .password-label {
+        white-space: nowrap !important;
+        flex-shrink: 0 !important;
+    }
+    
+    .inline-password-container input {
+        width: 100px !important;
+        flex-shrink: 0 !important;
+    }
+}

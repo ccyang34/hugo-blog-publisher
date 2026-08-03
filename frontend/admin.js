@@ -11,81 +11,21 @@ class AdminPanel {
 
     checkAuthentication() {
         // 检查 sessionStorage 中是否已验证（需同时持有访问令牌）
-        if (sessionStorage.getItem('hugo_authenticated') === 'true' && sessionStorage.getItem('hugo_publish_token')) {
+        if (window.BlogApp && window.BlogApp.isAuthenticated()) {
             this.isAuthenticated = true;
             this.init();
         } else {
-            this.showLoginDialog();
-        }
-    }
-
-    showLoginDialog() {
-        const loginOverlay = document.createElement('div');
-        loginOverlay.id = 'loginOverlay';
-        loginOverlay.className = 'login-overlay';
-        loginOverlay.innerHTML = `
-            <div class="login-box">
-                <h2>🔐 管理后台登录</h2>
-                <p>请输入管理密码</p>
-                <input type="password" id="adminPassword" class="form-input" placeholder="输入密码" autocomplete="off">
-                <p id="loginError" class="error-text" style="display: none;"></p>
-                <button id="loginBtn" class="btn btn-primary">登录</button>
-                <a href="index.html" class="back-link">← 返回发布器</a>
-            </div>
-        `;
-        document.body.appendChild(loginOverlay);
-
-        const passwordInput = document.getElementById('adminPassword');
-        const loginBtn = document.getElementById('loginBtn');
-        const loginError = document.getElementById('loginError');
-
-        passwordInput.focus();
-
-        const handleLogin = async () => {
-            const password = passwordInput.value;
-            if (!password) {
-                loginError.textContent = '请输入密码';
-                loginError.style.display = 'block';
-                return;
-            }
-
-            loginBtn.disabled = true;
-            loginBtn.textContent = '验证中...';
-
-            try {
-                const response = await fetch(`${this.apiBaseUrl}/api/verify-password`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ password })
-                });
-                const data = await response.json();
-
-                if (data.success) {
-                    sessionStorage.setItem('hugo_authenticated', 'true');
-                    sessionStorage.setItem('hugo_publish_token', password);
-                    loginOverlay.remove();
+            window.BlogApp.showPasswordDialog({
+                apiBaseUrl: this.apiBaseUrl,
+                title: '🔐 管理后台登录',
+                variant: 'login',
+                backLinkHtml: '<a href="index.html" class="back-link">← 返回发布器</a>',
+                onSuccess: () => {
                     this.isAuthenticated = true;
                     this.init();
-                } else {
-                    loginError.textContent = '密码错误';
-                    loginError.style.display = 'block';
-                    loginBtn.disabled = false;
-                    loginBtn.textContent = '登录';
-                    passwordInput.value = '';
-                    passwordInput.focus();
                 }
-            } catch (error) {
-                loginError.textContent = '网络错误，请重试';
-                loginError.style.display = 'block';
-                loginBtn.disabled = false;
-                loginBtn.textContent = '登录';
-            }
-        };
-
-        loginBtn.addEventListener('click', handleLogin);
-        passwordInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') handleLogin();
-        });
+            });
+        }
     }
 
     init() {
@@ -469,9 +409,8 @@ class AdminPanel {
         const performDelete = async () => {
             this.showLoading('正在删除...');
             try {
-                const response = await fetch(`${this.apiBaseUrl}/api/file?path=${encodeURIComponent(path)}`, {
-                    method: 'DELETE',
-                    headers: this.authHeaders()
+                const response = await window.BlogApp.apiFetch(this.apiBaseUrl, `/api/file?path=${encodeURIComponent(path)}`, {
+                    method: 'DELETE'
                 });
                 const data = await response.json();
 
@@ -490,107 +429,15 @@ class AdminPanel {
             }
         };
 
-        if (sessionStorage.getItem('hugo_authenticated') === 'true' && sessionStorage.getItem('hugo_publish_token')) {
+        if (window.BlogApp && window.BlogApp.isAuthenticated()) {
             await performDelete();
         } else {
-            this.showPasswordDialog('删除文章', performDelete);
-        }
-    }
-
-    showPasswordDialog(action, onSuccess) {
-        const existingDialog = document.getElementById('passwordDialog');
-        if (existingDialog) existingDialog.remove();
-
-        const dialog = document.createElement('div');
-        dialog.id = 'passwordDialog';
-        dialog.className = 'modal';
-        dialog.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>🔐 密码验证</h3>
-                    <button class="modal-close">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <p>请输入密码以${action}：</p>
-                    <input type="password" id="passwordInput" class="form-input" placeholder="请输入密码" autocomplete="off">
-                    <p id="passwordError" class="error-text" style="display: none;"></p>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" id="cancelPasswordBtn">取消</button>
-                    <button class="btn btn-primary" id="confirmPasswordBtn">确认</button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(dialog);
-
-        const passwordInput = dialog.querySelector('#passwordInput');
-        const passwordError = dialog.querySelector('#passwordError');
-        const confirmBtn = dialog.querySelector('#confirmPasswordBtn');
-        const cancelBtn = dialog.querySelector('#cancelPasswordBtn');
-        const closeBtn = dialog.querySelector('.modal-close');
-
-        passwordInput.focus();
-
-        const closeDialog = () => dialog.remove();
-
-        const handleConfirm = async () => {
-            const password = passwordInput.value;
-            if (!password) {
-                passwordError.textContent = '请输入密码';
-                passwordError.style.display = 'block';
-                return;
-            }
-
-            confirmBtn.disabled = true;
-            confirmBtn.textContent = '验证中...';
-
-            const isValid = await this.verifyPassword(password);
-            if (isValid) {
-                closeDialog();
-                onSuccess();
-            } else {
-                passwordError.textContent = '密码错误，请重试';
-                passwordError.style.display = 'block';
-                confirmBtn.disabled = false;
-                confirmBtn.textContent = '确认';
-                passwordInput.value = '';
-                passwordInput.focus();
-            }
-        };
-
-        confirmBtn.addEventListener('click', handleConfirm);
-        cancelBtn.addEventListener('click', closeDialog);
-        closeBtn.addEventListener('click', closeDialog);
-        dialog.addEventListener('click', (e) => {
-            if (e.target === dialog) closeDialog();
-        });
-        passwordInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') handleConfirm();
-            if (e.key === 'Escape') closeDialog();
-        });
-    }
-
-    async verifyPassword(password) {
-        try {
-            const response = await fetch(`${this.apiBaseUrl}/api/verify-password`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password })
+            window.BlogApp.showPasswordDialog({
+                apiBaseUrl: this.apiBaseUrl,
+                action: '删除文章',
+                onSuccess: performDelete
             });
-            const data = await response.json();
-            if (data.success === true) {
-                sessionStorage.setItem('hugo_publish_token', password);
-                return true;
-            }
-            return false;
-        } catch (error) {
-            console.error('密码验证错误:', error);
-            return false;
         }
-    }
-
-    authHeaders(extra = {}) {
-        return Object.assign({ 'X-Auth-Token': sessionStorage.getItem('hugo_publish_token') || '' }, extra);
     }
 
     async loadMedia() {
@@ -802,9 +649,9 @@ class AdminPanel {
             }
 
             // 2. Trigger
-            const response = await fetch(`${this.apiBaseUrl}/api/github/trigger`, {
+            const response = await window.BlogApp.apiFetch(this.apiBaseUrl, '/api/github/trigger', {
                 method: 'POST',
-                headers: this.authHeaders({ 'Content-Type': 'application/json' }),
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     workflow_id: targetWfId,
                     ref: 'main'

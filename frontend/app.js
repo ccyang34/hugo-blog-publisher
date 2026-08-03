@@ -227,7 +227,7 @@ class HugoPublisher {
         this.showLoading('正在使用DeepSeek优化文章排版...');
 
         try {
-            const response = await fetch(`${this.apiBaseUrl}/api/format`, {
+            const response = await window.BlogApp.apiFetch(this.apiBaseUrl, '/api/format', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -299,7 +299,7 @@ class HugoPublisher {
         // 优先检查页面上的内联密码输入框
         const inlinePwdInput = document.getElementById('inlinePublishPassword');
         if (inlinePwdInput && inlinePwdInput.value.trim()) {
-            const isValid = await this.verifyPassword(inlinePwdInput.value.trim());
+            const isValid = await window.BlogApp.verifyPassword(this.apiBaseUrl, inlinePwdInput.value.trim());
             if (!isValid) {
                 this.showNotification('发布密码不正确，请重新输入', 'error');
                 inlinePwdInput.focus();
@@ -307,18 +307,22 @@ class HugoPublisher {
             }
         }
 
-        if (sessionStorage.getItem('hugo_authenticated') === 'true' && sessionStorage.getItem('hugo_publish_token')) {
+        if (window.BlogApp.isAuthenticated()) {
             if (isBatchUrl) {
                 this.publishBatch(lines);
             } else {
                 this.publishArticle();
             }
         } else {
-            this.showPasswordDialog('发布文章', () => {
-                if (isBatchUrl) {
-                    this.publishBatch(lines);
-                } else {
-                    this.publishArticle();
+            window.BlogApp.showPasswordDialog({
+                apiBaseUrl: this.apiBaseUrl,
+                action: '发布文章',
+                onSuccess: () => {
+                    if (isBatchUrl) {
+                        this.publishBatch(lines);
+                    } else {
+                        this.publishArticle();
+                    }
                 }
             });
         }
@@ -357,9 +361,9 @@ class HugoPublisher {
             this.renderJobQueue();
 
             try {
-                const response = await fetch(`${this.apiBaseUrl}/api/publish`, {
+                const response = await window.BlogApp.apiFetch(this.apiBaseUrl, '/api/publish', {
                     method: 'POST',
-                    headers: this.authHeaders({ 'Content-Type': 'application/json' }),
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         title: '', // Auto-detect
                         content: url,
@@ -516,104 +520,6 @@ class HugoPublisher {
         setTimeout(() => this.pollJobs(), pollInterval);
     }
 
-    showPasswordDialog(action, onSuccess) {
-        // 移除已存在的对话框
-        const existingDialog = document.getElementById('passwordDialog');
-        if (existingDialog) existingDialog.remove();
-
-        const dialog = document.createElement('div');
-        dialog.id = 'passwordDialog';
-        dialog.className = 'modal';
-        dialog.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>🔐 密码验证</h3>
-                    <button class="modal-close">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <p>请输入密码以${action}：</p>
-                    <input type="password" id="passwordInput" class="form-input" placeholder="请输入密码" autocomplete="off">
-                    <p id="passwordError" class="error-text" style="display: none;"></p>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" id="cancelPasswordBtn">取消</button>
-                    <button class="btn btn-primary" id="confirmPasswordBtn">确认</button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(dialog);
-
-        const passwordInput = dialog.querySelector('#passwordInput');
-        const passwordError = dialog.querySelector('#passwordError');
-        const confirmBtn = dialog.querySelector('#confirmPasswordBtn');
-        const cancelBtn = dialog.querySelector('#cancelPasswordBtn');
-        const closeBtn = dialog.querySelector('.modal-close');
-
-        passwordInput.focus();
-
-        const closeDialog = () => dialog.remove();
-
-        const handleConfirm = async () => {
-            const password = passwordInput.value;
-            if (!password) {
-                passwordError.textContent = '请输入密码';
-                passwordError.style.display = 'block';
-                return;
-            }
-
-            confirmBtn.disabled = true;
-            confirmBtn.textContent = '验证中...';
-
-            const isValid = await this.verifyPassword(password);
-            if (isValid) {
-                closeDialog();
-                onSuccess();
-            } else {
-                passwordError.textContent = '密码错误，请重试';
-                passwordError.style.display = 'block';
-                confirmBtn.disabled = false;
-                confirmBtn.textContent = '确认';
-                passwordInput.value = '';
-                passwordInput.focus();
-            }
-        };
-
-        confirmBtn.addEventListener('click', handleConfirm);
-        cancelBtn.addEventListener('click', closeDialog);
-        closeBtn.addEventListener('click', closeDialog);
-        dialog.addEventListener('click', (e) => {
-            if (e.target === dialog) closeDialog();
-        });
-        passwordInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') handleConfirm();
-            if (e.key === 'Escape') closeDialog();
-        });
-    }
-
-    async verifyPassword(password) {
-        try {
-            const response = await fetch(`${this.apiBaseUrl}/api/verify-password`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password })
-            });
-            const data = await response.json();
-            if (data.success === true) {
-                sessionStorage.setItem('hugo_authenticated', 'true');
-                sessionStorage.setItem('hugo_publish_token', password);
-                return true;
-            }
-            return false;
-        } catch (error) {
-            console.error('密码验证错误:', error);
-            return false;
-        }
-    }
-
-    authHeaders(extra = {}) {
-        return Object.assign({ 'X-Auth-Token': sessionStorage.getItem('hugo_publish_token') || '' }, extra);
-    }
-
     async publishArticle() {
         const title = this.titleInput.value.trim();
         // 判断是否已手动优化过
@@ -633,11 +539,11 @@ class HugoPublisher {
         this.showLoading(loadingMsg);
 
         try {
-            const response = await fetch(`${this.apiBaseUrl}/api/publish`, {
+            const response = await window.BlogApp.apiFetch(this.apiBaseUrl, '/api/publish', {
                 method: 'POST',
-                headers: this.authHeaders({
+                headers: {
                     'Content-Type': 'application/json'
-                }),
+                },
                 body: JSON.stringify({
                     title: title,
                     content: content,
@@ -654,10 +560,13 @@ class HugoPublisher {
             if (response.status === 401) {
                 this.hideLoading();
                 this.isPublishing = false;
-                sessionStorage.removeItem('hugo_authenticated');
-                sessionStorage.removeItem('hugo_publish_token');
+                window.BlogApp.clearSession();
                 this.showNotification('登录已失效，请重新输入发布密码', 'error');
-                this.showPasswordDialog('发布文章', () => this.publishArticle());
+                window.BlogApp.showPasswordDialog({
+                    apiBaseUrl: this.apiBaseUrl,
+                    action: '发布文章',
+                    onSuccess: () => this.publishArticle()
+                });
                 return;
             }
 
@@ -772,39 +681,14 @@ class HugoPublisher {
     }
 
     updatePreview(markdown) {
-        const html = this.markdownToHtml(markdown);
+        // 使用共享安全渲染（common.js），防 XSS
+        const html = (window.BlogApp ? window.BlogApp.markdownToHtml(markdown) : this.markdownToHtmlLegacy(markdown));
         this.previewContent.innerHTML = html;
     }
 
-    markdownToHtml(markdown) {
-        let html = markdown
-            .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-            .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-            .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\*(.+?)\*/g, '<em>$1</em>')
-            .replace(/`(.+?)`/g, '<code>$1</code>')
-            .replace(/```(\w+)?\n([\s\S]+?)```/g, '<pre><code class="language-$1">$2</code></pre>')
-            .replace(/!\[(.+?)\]\((.+?)\)/g, (match, alt, src) => {
-                // 如果是本地路径且预览失败，尝试回退
-                const fallbackAttr = src.startsWith('/images/') ? `onerror="if(!this.dataset.tried){this.dataset.tried=true; this.src=this.src.replace('/images/', 'https://raw.githubusercontent.com/${window.APP_CONFIG?.githubUser}/${window.APP_CONFIG?.githubRepo}/main/static/images/');}"` : '';
-                return `<img src="${src}" alt="${alt}" ${fallbackAttr} style="max-width:100%; height:auto; display:block; margin: 10px 0; border-radius: 8px;">`;
-            })
-            .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank">$1</a>')
-            .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
-            .replace(/^- (.+)$/gm, '<li>$1</li>')
-            .replace(/^(\d+)\. (.+)$/gm, '<li>$2</li>')
-            .replace(/\n\n/g, '</p><p>')
-            .replace(/^(?!<)(.+)$/gm, '<p>$1</p>');
-
-        html = html.replace(/<li>.*<\/li>/s, (match) => {
-            if (match.includes('<ul>') || match.includes('<ol>')) {
-                return match;
-            }
-            return '<ul>' + match + '</ul>';
-        });
-
-        return html;
+    // 保留旧实现作为 BlogApp 未加载时的兜底（已加 HTML 转义）
+    markdownToHtmlLegacy(markdown) {
+        return window.BlogApp ? window.BlogApp.markdownToHtml(markdown) : String(markdown).replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
     updateStats() {
@@ -1057,9 +941,8 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
             const formData = new FormData();
             formData.append('file', fileToUpload);
 
-            const response = await fetch(`${this.apiBaseUrl}/api/upload-image`, {
+            const response = await window.BlogApp.apiFetch(this.apiBaseUrl, '/api/upload-image', {
                 method: 'POST',
-                headers: this.authHeaders(),
                 body: formData
             });
 
@@ -1149,11 +1032,11 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
 
         try {
             this.showLoading('正在删除图片...');
-            const response = await fetch(`${this.apiBaseUrl}/api/delete-image`, {
+            const response = await window.BlogApp.apiFetch(this.apiBaseUrl, '/api/delete-image', {
                 method: 'POST',
-                headers: this.authHeaders({
+                headers: {
                     'Content-Type': 'application/json'
-                }),
+                },
                 body: JSON.stringify({ filename })
             });
 
@@ -1393,10 +1276,14 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
 
     confirmDeleteFile(path, filename) {
         if (confirm(`确定要删除文章 "${filename}" 吗？\n\n此操作不可撤销！`)) {
-            if (sessionStorage.getItem('hugo_authenticated') === 'true' && sessionStorage.getItem('hugo_publish_token')) {
+            if (window.BlogApp.isAuthenticated()) {
                 this.deleteFile(path, filename);
             } else {
-                this.showPasswordDialog('删除文章', () => this.deleteFile(path, filename));
+                window.BlogApp.showPasswordDialog({
+                    apiBaseUrl: this.apiBaseUrl,
+                    action: '删除文章',
+                    onSuccess: () => this.deleteFile(path, filename)
+                });
             }
         }
     }
@@ -1405,9 +1292,8 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
         this.showLoading('正在删除文章...');
 
         try {
-            const response = await fetch(`${this.apiBaseUrl}/api/file?path=${encodeURIComponent(path)}`, {
-                method: 'DELETE',
-                headers: this.authHeaders()
+            const response = await window.BlogApp.apiFetch(this.apiBaseUrl, `/api/file?path=${encodeURIComponent(path)}`, {
+                method: 'DELETE'
             });
             const data = await response.json();
 
@@ -1486,11 +1372,11 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
 
         // 同时也保存到服务器 (Redis)
         try {
-            await fetch(`${this.apiBaseUrl}/api/task-history`, {
+            await window.BlogApp.apiFetch(this.apiBaseUrl, '/api/task-history', {
                 method: 'POST',
-                headers: this.authHeaders({
+                headers: {
                     'Content-Type': 'application/json'
-                }),
+                },
                 body: JSON.stringify(historyItem)
             });
         } catch (error) {
@@ -1597,7 +1483,7 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
         if (confirm('确定要清空所有任务历史吗？这将同时清除服务器和本地的记录。')) {
             try {
                 // 清除服务器端 Redis 历史
-                await fetch(`${this.apiBaseUrl}/api/task-history`, { method: 'DELETE', headers: this.authHeaders() });
+                await window.BlogApp.apiFetch(this.apiBaseUrl, '/api/task-history', { method: 'DELETE' });
             } catch (error) {
                 console.error('Failed to clear server history:', error);
             }

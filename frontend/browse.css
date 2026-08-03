@@ -140,45 +140,10 @@
     gap: 8px;
 }
 
-.article-list-item:hover {
-    background: var(--border-color);
-}
-
-.article-list-item.active {
-    background: rgba(37, 99, 235, 0.1);
-    border-color: var(--primary-color);
-}
-
 .article-list-item .item-content {
     flex: 1;
     overflow: hidden;
     cursor: pointer;
-}
-
-.article-list-item .item-delete-btn {
-    width: 24px;
-    height: 24px;
-    border: none;
-    background: transparent;
-    color: var(--text-secondary);
-    font-size: 1.25rem;
-    cursor: pointer;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: var(--transition);
-    opacity: 1;
-    flex-shrink: 0;
-}
-
-.article-list-item:hover .item-delete-btn {
-    opacity: 1;
-}
-
-.article-list-item .item-delete-btn:hover {
-    background: var(--danger-color);
-    color: white;
 }
 
 .article-list-item .item-title {
@@ -189,20 +154,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-
-.article-list-item .item-meta {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    display: flex;
-    gap: 8px;
-}
-
-.article-list-item .item-dir {
-    padding: 2px 6px;
-    background: var(--surface);
-    border-radius: 4px;
-    font-size: 0.7rem;
 }
 
 .list-footer {
@@ -281,10 +232,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-}
-
-.hidden {
-    display: none !important;
 }
 
 .list-actions {

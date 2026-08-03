@@ -16,7 +16,7 @@ class ArticleBrowser {
         this.setupInfiniteScroll();
 
         // 检查是否有会话授权（需同时持有访问令牌）
-        if (sessionStorage.getItem('hugo_authenticated') === 'true' && sessionStorage.getItem('hugo_publish_token')) {
+        if (window.BlogApp && window.BlogApp.isAuthenticated()) {
             this.loadArticles();
         } else {
             this.handleAccessValidation();
@@ -232,9 +232,8 @@ class ArticleBrowser {
     async deleteFile(path) {
         this.showLoading('正在删除...');
         try {
-            const response = await fetch(`${this.apiBaseUrl}/api/file?path=${encodeURIComponent(path)}`, {
-                method: 'DELETE',
-                headers: this.authHeaders()
+            const response = await window.BlogApp.apiFetch(this.apiBaseUrl, `/api/file?path=${encodeURIComponent(path)}`, {
+                method: 'DELETE'
             });
             const data = await response.json();
             if (data.success) {
@@ -269,9 +268,9 @@ class ArticleBrowser {
     async renameFile(oldPath, newName) {
         this.showLoading('正在重命名...');
         try {
-            const response = await fetch(`${this.apiBaseUrl}/api/rename`, {
+            const response = await window.BlogApp.apiFetch(this.apiBaseUrl, '/api/rename', {
                 method: 'POST',
-                headers: this.authHeaders({ 'Content-Type': 'application/json' }),
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ old_path: oldPath, new_name: newName })
             });
             const data = await response.json();
@@ -309,7 +308,7 @@ class ArticleBrowser {
                 formData.append('file', file);
                 formData.append('path', this.currentBrowsePath);
 
-                const response = await fetch(`${this.apiBaseUrl}/api/upload`, {
+                const response = await window.BlogApp.apiFetch(this.apiBaseUrl, '/api/upload', {
                     method: 'POST',
                     body: formData
                 });
@@ -787,110 +786,12 @@ class ArticleBrowser {
         }
     }
 
-    showPasswordDialog(action, onSuccess) {
-        const existingDialog = document.getElementById('passwordDialog');
-        if (existingDialog) existingDialog.remove();
-
-        const dialog = document.createElement('div');
-        dialog.id = 'passwordDialog';
-        dialog.className = 'modal';
-        dialog.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3>🔐 密码验证</h3>
-                    <button class="modal-close">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <p>请输入密码以${action}：</p>
-                    <input type="password" id="passwordInput" class="form-input" placeholder="请输入密码" autocomplete="off">
-                    <p id="passwordError" class="error-text" style="display: none;"></p>
-                </div>
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" id="cancelPasswordBtn">取消</button>
-                    <button class="btn btn-primary" id="confirmPasswordBtn">确认</button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(dialog);
-
-        const passwordInput = dialog.querySelector('#passwordInput');
-        const passwordError = dialog.querySelector('#passwordError');
-        const confirmBtn = dialog.querySelector('#confirmPasswordBtn');
-        const cancelBtn = dialog.querySelector('#cancelPasswordBtn');
-        const closeBtn = dialog.querySelector('.modal-close');
-
-        passwordInput.focus();
-
-        const closeDialog = () => dialog.remove();
-
-        const handleConfirm = async () => {
-            const password = passwordInput.value;
-            if (!password) {
-                passwordError.textContent = '请输入密码';
-                passwordError.style.display = 'block';
-                return;
-            }
-
-            confirmBtn.disabled = true;
-            confirmBtn.textContent = '验证中...';
-
-            const isValid = await this.verifyPassword(password);
-            if (isValid) {
-                closeDialog();
-                onSuccess();
-            } else {
-                passwordError.textContent = '密码错误，请重试';
-                passwordError.style.display = 'block';
-                confirmBtn.disabled = false;
-                confirmBtn.textContent = '确认';
-                passwordInput.value = '';
-                passwordInput.focus();
-            }
-        };
-
-        confirmBtn.addEventListener('click', handleConfirm);
-        cancelBtn.addEventListener('click', closeDialog);
-        closeBtn.addEventListener('click', closeDialog);
-        dialog.addEventListener('click', (e) => {
-            if (e.target === dialog) closeDialog();
-        });
-        passwordInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') handleConfirm();
-            if (e.key === 'Escape') closeDialog();
-        });
-    }
-
-    async verifyPassword(password) {
-        try {
-            const response = await fetch(`${this.apiBaseUrl}/api/verify-password`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ password })
-            });
-            const data = await response.json();
-            if (data.success === true) {
-                sessionStorage.setItem('hugo_authenticated', 'true');
-                sessionStorage.setItem('hugo_publish_token', password);
-                return true;
-            }
-            return false;
-        } catch (error) {
-            console.error('密码验证错误:', error);
-            return false;
-        }
-    }
-
-    authHeaders(extra = {}) {
-        return Object.assign({ 'X-Auth-Token': sessionStorage.getItem('hugo_publish_token') || '' }, extra);
-    }
-
     async deleteArticle(path, name) {
         this.showLoading('正在删除...');
 
         try {
-            const response = await fetch(`${this.apiBaseUrl}/api/file?path=${encodeURIComponent(path)}`, {
-                method: 'DELETE',
-                headers: this.authHeaders()
+            const response = await window.BlogApp.apiFetch(this.apiBaseUrl, `/api/file?path=${encodeURIComponent(path)}`, {
+                method: 'DELETE'
             });
             const data = await response.json();
 
@@ -917,8 +818,12 @@ class ArticleBrowser {
         if (this.articleList) {
             this.articleList.innerHTML = '<p class="empty-text">需要密码验证才能浏览文章</p>';
         }
-        this.showPasswordDialog('进入浏览页面', () => {
-            this.loadArticles();
+        window.BlogApp.showPasswordDialog({
+            apiBaseUrl: this.apiBaseUrl,
+            action: '进入浏览页面',
+            onSuccess: () => {
+                this.loadArticles();
+            }
         });
     }
 }
