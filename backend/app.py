@@ -161,8 +161,15 @@ def require_publish_auth(f):
     """
     @wraps(f)
     def wrapper(*args, **kwargs):
-        if not _check_token():
-            return jsonify({'success': False, 'error': '未授权：缺少或错误的访问令牌'}), 401
+        token = request.headers.get('X-Auth-Token', '').strip()
+        if not token:
+            auth_header = request.headers.get('Authorization', '')
+            if auth_header.startswith('Bearer '):
+                token = auth_header[7:].strip()
+        if not token:
+            return jsonify({'success': False, 'error': '未授权：缺少访问令牌，请重新输入发布密码'}), 401
+        if token != _get_publish_password():
+            return jsonify({'success': False, 'error': '未授权：访问令牌无效，请重新输入发布密码'}), 401
         return f(*args, **kwargs)
     return wrapper
 

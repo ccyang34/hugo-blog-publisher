@@ -10,8 +10,8 @@ class AdminPanel {
     }
 
     checkAuthentication() {
-        // 检查 sessionStorage 中是否已验证
-        if (sessionStorage.getItem('hugo_authenticated') === 'true') {
+        // 检查 sessionStorage 中是否已验证（需同时持有访问令牌）
+        if (sessionStorage.getItem('hugo_authenticated') === 'true' && sessionStorage.getItem('hugo_publish_token')) {
             this.isAuthenticated = true;
             this.init();
         } else {
@@ -490,7 +490,7 @@ class AdminPanel {
             }
         };
 
-        if (sessionStorage.getItem('hugo_authenticated') === 'true') {
+        if (sessionStorage.getItem('hugo_authenticated') === 'true' && sessionStorage.getItem('hugo_publish_token')) {
             await performDelete();
         } else {
             this.showPasswordDialog('删除文章', performDelete);

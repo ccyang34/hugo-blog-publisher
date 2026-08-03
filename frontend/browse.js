@@ -15,8 +15,8 @@ class ArticleBrowser {
         this.bindEvents();
         this.setupInfiniteScroll();
 
-        // 检查是否有会话授权
-        if (sessionStorage.getItem('hugo_authenticated') === 'true') {
+        // 检查是否有会话授权（需同时持有访问令牌）
+        if (sessionStorage.getItem('hugo_authenticated') === 'true' && sessionStorage.getItem('hugo_publish_token')) {
             this.loadArticles();
         } else {
             this.handleAccessValidation();
