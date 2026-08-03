@@ -39,7 +39,6 @@ class HugoPublisher {
 
         this.targetDirSelect = document.getElementById('targetDir');
         this.isDraftCheckbox = document.getElementById('isDraft');
-        this.enableOcrCheckbox = document.getElementById('enableOcr');
 
         this.publishResult = document.getElementById('publishResult');
         this.successMessage = document.getElementById('successMessage');
@@ -237,8 +236,7 @@ class HugoPublisher {
                     content: content,
                     title: this.titleInput.value.trim(),
                     tags: this.getTags(),
-                    category: this.categorySelect.value,
-                    enable_ocr: this.enableOcrCheckbox?.checked || false
+                    category: this.categorySelect.value
                 })
             });
 
@@ -276,6 +274,13 @@ class HugoPublisher {
 
 
     async handlePublishWithPassword() {
+        // 防重复提交：正在发布时忽略再次点击
+        if (this.isPublishing) {
+            this.showNotification('正在发布中，请勿重复操作', 'info');
+            return;
+        }
+        this.isPublishing = true;
+
         const title = this.titleInput.value.trim();
         const content = this.currentContent || this.contentTextarea.value.trim();
 
@@ -354,7 +359,7 @@ class HugoPublisher {
             try {
                 const response = await fetch(`${this.apiBaseUrl}/api/publish`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: this.authHeaders({ 'Content-Type': 'application/json' }),
                     body: JSON.stringify({
                         title: '', // Auto-detect
                         content: url,
@@ -595,6 +600,7 @@ class HugoPublisher {
             const data = await response.json();
             if (data.success === true) {
                 sessionStorage.setItem('hugo_authenticated', 'true');
+                sessionStorage.setItem('hugo_publish_token', password);
                 return true;
             }
             return false;
@@ -602,6 +608,10 @@ class HugoPublisher {
             console.error('密码验证错误:', error);
             return false;
         }
+    }
+
+    authHeaders(extra = {}) {
+        return Object.assign({ 'X-Auth-Token': sessionStorage.getItem('hugo_publish_token') || '' }, extra);
     }
 
     async publishArticle() {
@@ -625,9 +635,9 @@ class HugoPublisher {
         try {
             const response = await fetch(`${this.apiBaseUrl}/api/publish`, {
                 method: 'POST',
-                headers: {
+                headers: this.authHeaders({
                     'Content-Type': 'application/json'
-                },
+                }),
                 body: JSON.stringify({
                     title: title,
                     content: content,
@@ -636,7 +646,6 @@ class HugoPublisher {
                     target_dir: this.targetDirSelect.value,
                     draft: this.isDraftCheckbox.checked,
                     auto_format: !alreadyFormatted,
-                    enable_ocr: this.enableOcrCheckbox?.checked || false,
                     async: true
                 })
             });
@@ -645,6 +654,7 @@ class HugoPublisher {
 
             if (data.success) {
                 this.hideLoading();
+                this.isPublishing = false;
                 this.publishBtn.disabled = false;
                 if (this.publishBtnLeft) this.publishBtnLeft.disabled = false;
 
@@ -723,6 +733,7 @@ class HugoPublisher {
 
     handlePublishSuccess(result) {
         this.hideLoading();
+        this.isPublishing = false;
         this.publishBtn.disabled = false;
         if (this.publishBtnLeft) this.publishBtnLeft.disabled = false;
 
@@ -737,6 +748,7 @@ class HugoPublisher {
 
     handlePublishError(errorMsg) {
         this.hideLoading();
+        this.isPublishing = false;
         this.publishBtn.disabled = false;
         if (this.publishBtnLeft) this.publishBtnLeft.disabled = false;
 
@@ -1036,6 +1048,7 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
 
             const response = await fetch(`${this.apiBaseUrl}/api/upload-image`, {
                 method: 'POST',
+                headers: this.authHeaders(),
                 body: formData
             });
 
@@ -1127,9 +1140,9 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
             this.showLoading('正在删除图片...');
             const response = await fetch(`${this.apiBaseUrl}/api/delete-image`, {
                 method: 'POST',
-                headers: {
+                headers: this.authHeaders({
                     'Content-Type': 'application/json'
-                },
+                }),
                 body: JSON.stringify({ filename })
             });
 
@@ -1166,6 +1179,9 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
         this.publishBtn.disabled = disabled;
         if (this.publishBtnLeft) {
             this.publishBtnLeft.disabled = disabled;
+        }
+        if (!disabled) {
+            this.isPublishing = false;
         }
     }
 
@@ -1379,7 +1395,8 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
 
         try {
             const response = await fetch(`${this.apiBaseUrl}/api/file?path=${encodeURIComponent(path)}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: this.authHeaders()
             });
             const data = await response.json();
 
@@ -1460,9 +1477,9 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
         try {
             await fetch(`${this.apiBaseUrl}/api/task-history`, {
                 method: 'POST',
-                headers: {
+                headers: this.authHeaders({
                     'Content-Type': 'application/json'
-                },
+                }),
                 body: JSON.stringify(historyItem)
             });
         } catch (error) {
@@ -1569,7 +1586,7 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
         if (confirm('确定要清空所有任务历史吗？这将同时清除服务器和本地的记录。')) {
             try {
                 // 清除服务器端 Redis 历史
-                await fetch(`${this.apiBaseUrl}/api/task-history`, { method: 'DELETE' });
+                await fetch(`${this.apiBaseUrl}/api/task-history`, { method: 'DELETE', headers: this.authHeaders() });
             } catch (error) {
                 console.error('Failed to clear server history:', error);
             }

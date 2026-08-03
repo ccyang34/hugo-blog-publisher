@@ -22,10 +22,6 @@ GITHUB_TOKEN=ghp-your-github-personal-access-token
 GITHUB_USERNAME=your-github-username
 GITHUB_REPO=hugo-blog
 
-# NVIDIA 多模态 API 配置（可选，用于小红书图片OCR）
-NVIDIA_API_KEY=your-nvidia-api-key
-NVIDIA_MODEL=stepfun-ai/step-3.7-flash
-
 # QStash 异步任务配置（可选，不配置则回退同步发布）
 QSTASH_TOKEN=your-qstash-token
 QSTASH_CURRENT_SIGNING_KEY=your-qstash-current-signing-key

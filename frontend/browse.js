@@ -233,7 +233,8 @@ class ArticleBrowser {
         this.showLoading('正在删除...');
         try {
             const response = await fetch(`${this.apiBaseUrl}/api/file?path=${encodeURIComponent(path)}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: this.authHeaders()
             });
             const data = await response.json();
             if (data.success) {
@@ -270,7 +271,7 @@ class ArticleBrowser {
         try {
             const response = await fetch(`${this.apiBaseUrl}/api/rename`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this.authHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ old_path: oldPath, new_name: newName })
             });
             const data = await response.json();
@@ -869,6 +870,7 @@ class ArticleBrowser {
             const data = await response.json();
             if (data.success === true) {
                 sessionStorage.setItem('hugo_authenticated', 'true');
+                sessionStorage.setItem('hugo_publish_token', password);
                 return true;
             }
             return false;
@@ -878,12 +880,17 @@ class ArticleBrowser {
         }
     }
 
+    authHeaders(extra = {}) {
+        return Object.assign({ 'X-Auth-Token': sessionStorage.getItem('hugo_publish_token') || '' }, extra);
+    }
+
     async deleteArticle(path, name) {
         this.showLoading('正在删除...');
 
         try {
             const response = await fetch(`${this.apiBaseUrl}/api/file?path=${encodeURIComponent(path)}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                headers: this.authHeaders()
             });
             const data = await response.json();
 

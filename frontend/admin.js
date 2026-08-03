@@ -62,6 +62,7 @@ class AdminPanel {
 
                 if (data.success) {
                     sessionStorage.setItem('hugo_authenticated', 'true');
+                    sessionStorage.setItem('hugo_publish_token', password);
                     loginOverlay.remove();
                     this.isAuthenticated = true;
                     this.init();
@@ -469,7 +470,8 @@ class AdminPanel {
             this.showLoading('正在删除...');
             try {
                 const response = await fetch(`${this.apiBaseUrl}/api/file?path=${encodeURIComponent(path)}`, {
-                    method: 'DELETE'
+                    method: 'DELETE',
+                    headers: this.authHeaders()
                 });
                 const data = await response.json();
 
@@ -576,11 +578,19 @@ class AdminPanel {
                 body: JSON.stringify({ password })
             });
             const data = await response.json();
-            return data.success === true;
+            if (data.success === true) {
+                sessionStorage.setItem('hugo_publish_token', password);
+                return true;
+            }
+            return false;
         } catch (error) {
             console.error('密码验证错误:', error);
             return false;
         }
+    }
+
+    authHeaders(extra = {}) {
+        return Object.assign({ 'X-Auth-Token': sessionStorage.getItem('hugo_publish_token') || '' }, extra);
     }
 
     async loadMedia() {
@@ -794,7 +804,7 @@ class AdminPanel {
             // 2. Trigger
             const response = await fetch(`${this.apiBaseUrl}/api/github/trigger`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: this.authHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({
                     workflow_id: targetWfId,
                     ref: 'main'

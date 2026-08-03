@@ -133,12 +133,10 @@ git push -u origin main
 |--------|-----|------|
 | `DEEPSEEK_API_KEY` | `sk-xxxxx` | 您的 DeepSeek API Key |
 | `DEEPSEEK_MODEL` | `deepseek-chat` | DeepSeek 模型名称（可选） |
-| `NVIDIA_API_KEY` | `nvapi-xxxxx` | NVIDIA API 密钥（用于多模态/图片OCR，可选） |
-| `NVIDIA_MODEL` | `stepfun-ai/step-3.7-flash` | 多模态模型名称（可选） |
 | `GITHUB_TOKEN` | `ghp_xxxxx` | 第一步获取的 GitHub Token |
 | `GITHUB_USERNAME` | `your-username` | 您的 GitHub 用户名 |
 | `GITHUB_REPO` | `hugo-blog` | 您的 Hugo 博客仓库名 |
-| `SECRET_KEY` | `任意随机字符串` | 用于加密，建议 32 位以上 |
+| `PUBLISH_PASSWORD` | `your-password` | 发布密码（写接口鉴权） |
 | `FRONTEND_URL` | `*` | 允许的前端地址，`*` 表示允许所有 |
 | `DEBUG` | `false` | 生产环境设为 false |
 
@@ -146,12 +144,10 @@ git push -u origin main
 
 - **DEEPSEEK_API_KEY**: 从 https://platform.deepseek.com 获取
 - **DEEPSEEK_MODEL**: DeepSeek 模型名称，默认为 `deepseek-chat`
-- **NVIDIA_API_KEY**: NVIDIA API 密钥，用于图片 OCR 功能，从 https://ngc.nvidia.com/ 获取（可选）
-- **NVIDIA_MODEL**: 多模态模型名称，默认为 `stepfun-ai/step-3.7-flash`（可选）
 - **GITHUB_TOKEN**: 第一步获取的 GitHub Personal Access Token
 - **GITHUB_USERNAME**: 您的 GitHub 用户名（不是邮箱）
 - **GITHUB_REPO**: 您的 Hugo 博客仓库名称（例如：`hugo-blog`）
-- **SECRET_KEY**: 任意随机字符串，例如：`my-secret-key-1234567890abcdef`
+- **PUBLISH_PASSWORD**: 发布密码，前端验证及写接口鉴权使用
 - **FRONTEND_URL**: 前端地址，暂时设为 `*` 允许所有来源，部署前端后可以更新为具体地址
 - **DEBUG**: 生产环境设为 `false`
 
@@ -522,55 +518,14 @@ Vercel 的免费套餐包括：
 
 ---
 
-## 多模态大模型配置（图片OCR）
-
-项目支持使用多模态大模型进行图片 OCR 识别和文章排版。当前使用 NVIDIA API 的 Stepfun 模型。
-
-### 环境变量配置
-
-在 Vercel 上添加以下环境变量：
-
-| 变量名 | 说明 | 示例值 |
-|--------|------|--------|
-| `NVIDIA_API_KEY` | NVIDIA API 密钥 | `nvapi-xxxxx` |
-| `NVIDIA_MODEL` | 模型名称（可选） | `stepfun-ai/step-3.7-flash` |
-
-获取 NVIDIA API Key：https://ngc.nvidia.com/
-
-### 新增 API 端点
-
-启用多模态服务后，可以使用以下新接口：
-
-| 端点 | 方法 | 说明 |
-|------|------|------|
-| `/api/test-multimodal` | GET | 测试多模态服务状态 |
-| `/api/ocr-image` | POST | 对图片进行 OCR 识别 |
-| `/api/analyze-image` | POST | 分析图片内容（图表、数据等） |
-| `/api/format-with-images` | POST | 支持图片的文章排版 |
-
-### OCR 接口示例
-
-```bash
-# 测试服务
-curl https://your-app.vercel.app/api/test-multimodal
-
-# OCR 识别
-curl -X POST https://your-app.vercel.app/api/ocr-image \
-  -H "Content-Type: application/json" \
-  -d '{"image_url": "https://example.com/image.png"}'
-```
-
----
-
 ## 总结
 
 通过以上步骤，您已经成功在 Vercel 上部署了后端 API。现在您可以：
 
 1. ✅ 使用 DeepSeek AI 优化文章排版
-2. ✅ 使用多模态大模型进行图片 OCR 识别
-3. ✅ 将文章发布到 GitHub 仓库
-4. ✅ 上传图片到 GitHub
-5. ✅ 管理博客文件
+2. ✅ 将文章发布到 GitHub 仓库
+3. ✅ 上传图片到 GitHub
+4. ✅ 管理博客文件
 
 如果遇到问题，请查看 **常见问题排查** 部分或查看 Vercel 日志。
 

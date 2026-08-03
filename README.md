@@ -5,7 +5,6 @@
 ## 功能特性
 
 - **AI文章优化**：使用 DeepSeek API 自动优化文章排版、修正错别字、优化段落结构
-- **多模态图片OCR**：可选使用 NVIDIA API（stepfun-ai/step-3.7-flash）识别小红书图片文字并排版
 - **多平台文章解析**：支持小红书、微信公众号、今日头条、知乎等链接内容抓取
 - **Hugo格式支持**：自动生成符合 Hugo 要求的 Markdown 格式和 front matter
 - **一键发布**：直接将文章发布到 GitHub 仓库的指定目录
@@ -31,7 +30,6 @@ hugo-blog-publisher/
 │   ├── services/            # 服务层
 │   │   ├── base_llm.py     # LLM服务公共基类
 │   │   ├── deepseek.py     # DeepSeek API服务
-│   │   ├── multimodal.py   # NVIDIA多模态API服务(OCR)
 │   │   └── github.py       # GitHub上传服务
 │   └── utils/               # 工具函数
 │       ├── markdown.py      # Markdown格式处理
@@ -75,8 +73,6 @@ PUBLISH_PASSWORD=your-publish-password
 FRONTEND_URL=https://your-project.pages.dev
 
 # 以下为可选配置：
-# NVIDIA多模态API（图片OCR）
-NVIDIA_API_KEY=your-nvidia-api-key
 # QStash异步任务
 QSTASH_TOKEN=your-qstash-token
 QSTASH_CURRENT_SIGNING_KEY=your-qstash-signing-key

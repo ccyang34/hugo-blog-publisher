@@ -147,8 +147,7 @@ class DeepSeekService(BaseLLMService):
         
         try:
             response = self._call_api(messages, temperature=0.5)
-            response = self._clean_json_response(response)
-            result = json.loads(response)
+            result = self._extract_json(response)
             return self._normalize_format_result(result)
         except Exception as e:
             print(f"Error calling DeepSeek for format: {e}")

@@ -5,13 +5,13 @@ Hugo博客发布器 - Flask后端API
 """
 
 import os
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
+import time
+import hashlib
 from datetime import datetime, timedelta, timezone
 from flask import Flask, request, jsonify, render_template
 from flask_cors import CORS
 from .services.deepseek import DeepSeekService
-from .services.multimodal import MultimodalService
 from .services.github import GitHubService
 
 from .utils.markdown import MarkdownGenerator
@@ -22,6 +22,7 @@ import uuid
 import traceback
 import queue
 import atexit
+from functools import wraps
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 CORS(app, origins=[os.environ.get('FRONTEND_URL', '*')])
@@ -45,16 +46,6 @@ except ValueError:
     
     deepseek_service = MockDeepSeekService()
     print("Warning: DeepSeek API key not set, using mock service")
-
-multimodal_service = None
-try:
-    multimodal_service = MultimodalService()
-    print("MultimodalService initialized successfully (NVIDIA API)")
-except ValueError as e:
-    print(f"Warning: MultimodalService not initialized: {e}")
-    print("Hint: Set NVIDIA_API_KEY environment variable to enable image OCR and multimodal features")
-except Exception as e:
-    print(f"Warning: MultimodalService initialization failed: {e}")
 
 try:
     github_service = GitHubService()
@@ -107,6 +98,73 @@ else:
 
 TASK_HISTORY_KEY = "hugo_publisher:task_history"
 MAX_TASK_HISTORY = 20
+
+# 防重复提交：content hash -> {'ts': 提交时间戳, 'job_id': 任务ID, 'status': 状态}
+SUBMISSION_DEDUP_WINDOW = 120  # 秒，窗口期内相同内容只处理一次
+_submission_lock = threading.Lock()
+recent_submissions = {}
+
+
+def _content_key(content: str) -> str:
+    """根据内容生成去重键（忽略空白差异）"""
+    return hashlib.sha256(' '.join(content.split()).encode('utf-8')).hexdigest()
+
+
+def _check_duplicate_submission(content: str):
+    """检查相同内容是否在窗口期内已提交（未失败的记录视为重复）"""
+    content_key = _content_key(content)
+    now = time.time()
+    with _submission_lock:
+        # 清理过期记录
+        expired = [k for k, v in recent_submissions.items() if now - v['ts'] > SUBMISSION_DEDUP_WINDOW]
+        for k in expired:
+            del recent_submissions[k]
+        record = recent_submissions.get(content_key)
+        if record and record['status'] != 'failed':
+            return record
+        return None
+
+
+def _record_submission(content: str, job_id: str, status: str, mode: str = ''):
+    """记录一次内容提交"""
+    content_key = _content_key(content)
+    with _submission_lock:
+        recent_submissions[content_key] = {'ts': time.time(), 'job_id': job_id, 'status': status, 'mode': mode}
+
+
+def _remove_submission(content: str):
+    """移除内容提交记录（任务失败后允许重新提交）"""
+    content_key = _content_key(content)
+    with _submission_lock:
+        recent_submissions.pop(content_key, None)
+
+
+def _get_publish_password() -> str:
+    """获取发布密码（用于写接口鉴权）"""
+    return os.environ.get('PUBLISH_PASSWORD', 'c')
+
+
+def _check_token() -> bool:
+    """校验请求是否携带正确的发布令牌（X-Auth-Token 或 Authorization: Bearer）"""
+    token = request.headers.get('X-Auth-Token', '').strip()
+    if not token:
+        auth_header = request.headers.get('Authorization', '')
+        if auth_header.startswith('Bearer '):
+            token = auth_header[7:].strip()
+    return bool(token) and token == _get_publish_password()
+
+
+def require_publish_auth(f):
+    """
+    写操作接口鉴权装饰器
+    校验请求头 X-Auth-Token（或 Authorization: Bearer）与发布密码一致
+    """
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if not _check_token():
+            return jsonify({'success': False, 'error': '未授权：缺少或错误的访问令牌'}), 401
+        return f(*args, **kwargs)
+    return wrapper
 
 
 def save_task_to_history(task_data):
@@ -226,7 +284,7 @@ def worker():
                 break
 
             try:
-                process_publish_task(job_id, data, deepseek_service, github_service, markdown_generator, multimodal_service)
+                process_publish_task(job_id, data, deepseek_service, github_service, markdown_generator)
             except Exception as e:
                 # 任务处理失败，记录错误但继续处理下一个任务
                 print(f"Task {job_id} failed with exception: {e}")
@@ -251,7 +309,7 @@ worker_thread = threading.Thread(target=worker, daemon=True)
 worker_thread.start()
 
 
-def process_publish_task(job_id, data, deepseek_service, github_service, markdown_generator, multimodal_service=None):
+def process_publish_task(job_id, data, deepseek_service, github_service, markdown_generator):
     """
     Background task to process article publishing
     """
@@ -271,13 +329,11 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
         target_dir = data.get('target_dir', 'content/posts')
         draft = data.get('draft', False)
         auto_format = data.get('auto_format', True)
-        enable_ocr = data.get('enable_ocr', False)
 
         add_job_log(job_id, '参数解析', 'success', '参数解析完成', {
             'has_title': bool(title),
             'target_dir': target_dir,
-            'draft': draft,
-            'enable_ocr': enable_ocr
+            'draft': draft
         })
 
         url_pattern = re.compile(r'https?://[^\s\u4e00-\u9fa5]+')
@@ -285,7 +341,6 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
 
         is_xiaohongshu = False
         scraped_data = None
-        image_urls = []
 
         if urls:
             url = urls[0].rstrip('.,!?;:)]}）〉》」』')
@@ -308,11 +363,6 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
                 if not author and scraped_data.get('author'):
                     author = scraped_data['author']
                     print(f"Use scraped author: {author}")
-
-                if enable_ocr and scraped_data.get('platform') == 'xiaohongshu':
-                    image_urls = scraped_data.get('image_urls', [])
-                    print(f"[Task] Will process {len(image_urls)} images for OCR")
-                    add_job_log(job_id, 'OCR识别', 'info', f'检测到{len(image_urls)}张图片，将进行OCR识别')
 
                 skip_ai_format = scraped_data.get('skip_ai_format', False)
                 add_job_log(job_id, 'URL抓取', 'success', '成功获取文章内容', {
@@ -348,84 +398,18 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
             add_job_log(job_id, 'AI分析', 'start', '开始AI优化排版')
 
             try:
-                if enable_ocr and multimodal_service and image_urls:
-                    add_job_log(job_id, '多模态分析', 'start', '使用多模态模型进行OCR和排版')
-
-                    ocr_texts = []
-                    def process_single_image(args):
-                        idx, img_url = args
-                        try:
-                            print(f"[OCR] Processing image {idx}...")
-                            ocr_text = multimodal_service.ocr_image(image_url=img_url)
-                            return idx, img_url, ocr_text, None
-                        except Exception as e:
-                            print(f"[OCR] Failed image {idx}: {e}")
-                            return idx, img_url, None, str(e)
-
-                    images_to_process = [(i, url) for i, url in enumerate(image_urls[:15], 1)]
-                    jobs[job_id]['message'] = f'正在并行OCR识别 {len(images_to_process)} 张图片...'
-                    add_job_log(job_id, 'OCR识别', 'start', f'并行识别 {len(images_to_process)} 张图片')
-
-                    with ThreadPoolExecutor(max_workers=15) as executor:
-                        futures = {executor.submit(process_single_image, args): args for args in images_to_process}
-                        for future in as_completed(futures):
-                            idx, img_url, ocr_text, error = future.result()
-                            if ocr_text:
-                                ocr_texts.append((idx, f"图片{idx}：{ocr_text}"))
-                            elif error:
-                                add_job_log(job_id, 'OCR识别', 'warning', f'图片{idx} OCR失败: {error}')
-
-                    ocr_texts.sort(key=lambda x: x[0])
-                    ocr_texts = [text for _, text in ocr_texts]
-
-                    if ocr_texts:
-                        ocr_combined = "\n\n".join(ocr_texts)
-                        add_job_log(job_id, '多模态排版', 'start', '正在对原文和OCR结果分别排版')
-
-                        content_without_images = re.sub(r'!\[[^\]]*\]\([^)]+\)', '', content)
-                        content_without_images = re.sub(r'\n\n+', '\n\n', content_without_images).strip()
-
-                        formatted_content = multimodal_service.format_article(
-                            content=content_without_images,
-                            title=title,
-                            tags=tags,
-                            category=category
-                        ).get('content', '')
-
-                        formatted_ocr = multimodal_service.format_article(
-                            content=ocr_combined,
-                            title=title,
-                            tags=tags,
-                            category=category
-                        ).get('content', '')
-
-                        images_markdown = "\n\n".join([f"![图片{i+1}]({url})" for i, url in enumerate(image_urls[:15])])
-
-                        content = f"{formatted_content}\n\n---\n\n## 图片文字识别\n\n{formatted_ocr}\n\n---\n\n## 原始图片\n\n{images_markdown}"
-                        add_job_log(job_id, '多模态分析', 'success', f'OCR完成，识别了{len(ocr_texts)}张图片')
-                    else:
-                        analysis = multimodal_service.format_article(
-                            content=content,
-                            title=title,
-                            tags=tags,
-                            category=category
-                        )
-                        content = analysis.get('content', content)
-                        tags = analysis.get('tags', [])
-                        category = analysis.get('category', '未分类')
-                else:
-                    analysis = deepseek_service.format_article(
-                        content=content,
-                        title=title,
-                        tags=tags,
-                        category=category
-                    )
-                    content = analysis.get('content', content)
-                    tags = analysis.get('tags', [])
-                    category = analysis.get('category', '未分类')
-                    categories = analysis.get('categories', [])
-                    if not categories and category:
-                        categories = [category]
+                analysis = deepseek_service.format_article(
+                    content=content,
+                    title=title,
+                    tags=tags,
+                    category=category
+                )
+                content = analysis.get('content', content)
+                tags = analysis.get('tags', [])
+                category = analysis.get('category', '未分类')
+                categories = analysis.get('categories', [])
+                if not categories and category:
+                    categories = [category]
 
                 if not title:
                     extracted_title = parsed.get('front_matter', {}).get('title')
@@ -506,6 +490,11 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
         jobs[job_id]['status'] = 'failed'
         jobs[job_id]['error'] = str(e)
         add_job_log(job_id, '任务失败', 'error', f'任务执行失败: {str(e)}')
+        # 任务失败后移除防重记录，允许重新提交
+        try:
+            _remove_submission(data['content'])
+        except Exception:
+            pass
 
 
 @app.route('/api/health', methods=['GET'])
@@ -562,182 +551,6 @@ def test_deepseek():
             'mode': 'real',
             'model': getattr(deepseek_service, 'model', 'unknown'),
             'timestamp': beijing_time.isoformat()
-        }), 500
-
-
-@app.route('/api/test-multimodal', methods=['GET'])
-def test_multimodal():
-    """测试多模态大模型 API 连接状态"""
-    beijing_time = datetime.now(timezone(timedelta(hours=8)))
-
-    if not multimodal_service:
-        return jsonify({
-            'success': False,
-            'error': '多模态服务未配置',
-            'hint': '请设置 NVIDIA_API_KEY 环境变量',
-            'timestamp': beijing_time.isoformat()
-        }), 500
-
-    return jsonify({
-        'success': True,
-        'message': '多模态服务已配置',
-        'model': multimodal_service.model,
-        'timestamp': beijing_time.isoformat()
-    })
-
-
-@app.route('/api/ocr-image', methods=['POST'])
-def ocr_image():
-    """
-    对图片进行 OCR 识别（使用多模态大模型）
-
-    请求参数 (JSON):
-        image_url: 图片 URL
-        image_data: base64 编码的图片数据（可选，与 image_url 二选一）
-
-    返回:
-        OCR 识别结果
-    """
-    beijing_time = datetime.now(timezone(timedelta(hours=8)))
-
-    if not multimodal_service:
-        return jsonify({
-            'success': False,
-            'error': '多模态服务未配置，请设置 NVIDIA_API_KEY 环境变量'
-        }), 500
-
-    try:
-        data = request.json
-        if not data:
-            return jsonify({'success': False, 'error': '请求体不能为空'}), 400
-
-        image_url = data.get('image_url')
-        image_data = data.get('image_data')
-
-        if not image_url and not image_data:
-            return jsonify({'success': False, 'error': '必须提供 image_url 或 image_data'}), 400
-
-        result = multimodal_service.ocr_image(image_url=image_url, image_path=None)
-        if image_data:
-            result = multimodal_service.ocr_image(image_url=image_data)
-
-        return jsonify({
-            'success': True,
-            'result': result,
-            'timestamp': beijing_time.isoformat()
-        })
-
-    except Exception as e:
-        print(f"OCR error: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@app.route('/api/analyze-image', methods=['POST'])
-def analyze_image():
-    """
-    分析图片内容（使用多模态大模型）
-
-    请求参数 (JSON):
-        image_url: 图片 URL
-        context: 上下文提示（可选）
-
-    返回:
-        图片分析结果
-    """
-    beijing_time = datetime.now(timezone(timedelta(hours=8)))
-
-    if not multimodal_service:
-        return jsonify({
-            'success': False,
-            'error': '多模态服务未配置，请设置 NVIDIA_API_KEY 环境变量'
-        }), 500
-
-    try:
-        data = request.json
-        if not data:
-            return jsonify({'success': False, 'error': '请求体不能为空'}), 400
-
-        image_url = data.get('image_url')
-        context = data.get('context', '')
-
-        if not image_url:
-            return jsonify({'success': False, 'error': '必须提供 image_url'}), 400
-
-        result = multimodal_service.analyze_image(image_url=image_url, context=context)
-
-        return jsonify({
-            'success': True,
-            'result': result,
-            'timestamp': beijing_time.isoformat()
-        })
-
-    except Exception as e:
-        print(f"Image analysis error: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-
-@app.route('/api/format-with-images', methods=['POST'])
-def format_with_images():
-    """
-    使用多模态大模型进行文章排版（支持图片OCR）
-
-    请求参数 (JSON):
-        content: 文章内容
-        title: 文章标题（可选）
-        tags: 标签列表（可选）
-        category: 分类（可选）
-        image_urls: 图片 URL 列表（可选）
-
-    返回:
-        格式化后的文章
-    """
-    beijing_time = datetime.now(timezone(timedelta(hours=8)))
-
-    if not multimodal_service:
-        return jsonify({
-            'success': False,
-            'error': '多模态服务未配置，请设置 NVIDIA_API_KEY 环境变量'
-        }), 500
-
-    try:
-        data = request.json
-        if not data:
-            return jsonify({'success': False, 'error': '请求体不能为空'}), 400
-
-        content = data.get('content', '')
-        title = data.get('title', '')
-        tags = data.get('tags', [])
-        category = data.get('category', '')
-        image_urls = data.get('image_urls', [])
-
-        if not content:
-            return jsonify({'success': False, 'error': '文章内容不能为空'}), 400
-
-        result = multimodal_service.format_article(
-            content=content,
-            title=title,
-            tags=tags,
-            category=category,
-            image_urls=image_urls
-        )
-
-        return jsonify({
-            'success': True,
-            'result': result,
-            'timestamp': beijing_time.isoformat()
-        })
-
-    except Exception as e:
-        print(f"Format with images error: {e}")
-        return jsonify({
-            'success': False,
-            'error': str(e)
         }), 500
 
 
@@ -840,6 +653,8 @@ def index():
 def api_get_task_history():
     """获取或清除任务历史记录"""
     if request.method == 'DELETE':
+        if not _check_token():
+            return jsonify({'success': False, 'error': '未授权：缺少或错误的访问令牌'}), 401
         # 清除所有历史记录
         try:
             if redis_client:
@@ -866,6 +681,7 @@ def api_get_task_history():
 
 
 @app.route('/api/task-history', methods=['POST'])
+@require_publish_auth
 def api_save_task_history():
     """保存任务到历史记录（供前端调用）"""
     try:
@@ -900,17 +716,14 @@ def favicon():
 @app.route('/api/format', methods=['POST'])
 def format_article():
     """
-    调用大模型进行文章排版
-    - enable_ocr=False: 使用 DeepSeek API 进行排版
-    - enable_ocr=True: 使用多模态大模型（stepfun-ai/step-3.7-flash）进行排版，能识别图片内容
+    调用 DeepSeek 进行文章排版
 
     请求参数:
     {
         "content": "原始文章内容",
         "title": "文章标题（可选）",
         "tags": ["标签1", "标签2"]（可选）,
-        "category": "分类"（可选）,
-        "enable_ocr": true/false（可选，默认false）
+        "category": "分类"（可选）
     }
     """
     try:
@@ -926,11 +739,9 @@ def format_article():
         title = data.get('title', '')
         tags = data.get('tags', [])
         category = data.get('category', '')
-        enable_ocr = data.get('enable_ocr', False)
 
         url_pattern = re.compile(r'https?://[^\s\u4e00-\u9fa5]+')
         urls = url_pattern.findall(content.strip())
-        image_urls = []
 
         if urls:
             url = urls[0].rstrip('.,!?;:)]}）〉》」』')
@@ -943,87 +754,13 @@ def format_article():
                     title = scraped_data['title']
                     print(f"Use scraped title: {title}")
 
-                if enable_ocr and scraped_data.get('platform') == 'xiaohongshu':
-                    image_urls = scraped_data.get('image_urls', [])
-
-        if enable_ocr and multimodal_service:
-            print(f"[Multimodal] Using stepfun model, processing {len(image_urls)} images...")
-            ocr_texts = []
-
-            def process_single_image(idx_url):
-                idx, img_url = idx_url
-                try:
-                    print(f"[OCR] Processing image {idx}...")
-                    ocr_text = multimodal_service.ocr_image(image_url=img_url)
-                    return idx, f"图片{idx}：{ocr_text}" if ocr_text else None, None
-                except Exception as e:
-                    print(f"[OCR] Failed image {idx}: {e}")
-                    return idx, None, str(e)
-
-            images_to_process = [(i, url) for i, url in enumerate(image_urls[:15], 1)]
-            with ThreadPoolExecutor(max_workers=15) as executor:
-                futures = [executor.submit(process_single_image, args) for args in images_to_process]
-                for future in as_completed(futures):
-                    idx, ocr_text, error = future.result()
-                    if ocr_text:
-                        ocr_texts.append((idx, ocr_text))
-                    elif error:
-                        print(f"[OCR] Image {idx} failed: {error}")
-
-            ocr_texts.sort(key=lambda x: x[0])
-            ocr_texts = [text for _, text in ocr_texts]
-
-            if ocr_texts:
-                ocr_combined = "\n\n".join(ocr_texts)
-                print(f"[Multimodal] Formatting original content...")
-
-                content_without_images = re.sub(r'!\[[^\]]*\]\([^)]+\)', '', content)
-                content_without_images = re.sub(r'\n\n+', '\n\n', content_without_images).strip()
-
-                formatted_content = multimodal_service.format_article(
-                    content=content_without_images,
-                    title=title,
-                    tags=tags,
-                    category=category
-                ).get('content', '')
-
-                print(f"[Multimodal] Formatting OCR text...")
-                formatted_ocr = multimodal_service.format_article(
-                    content=ocr_combined,
-                    title=title,
-                    tags=tags,
-                    category=category
-                ).get('content', '')
-
-                images_markdown = "\n\n".join([f"![图片{i+1}]({url})" for i, url in enumerate(image_urls[:15])])
-
-                formatted_content = f"{formatted_content}\n\n---\n\n## 图片文字识别\n\n{formatted_ocr}\n\n---\n\n## 原始图片\n\n{images_markdown}"
-                print(f"[Multimodal] Combined {len(ocr_texts)} OCR results with {len(image_urls[:15])} images")
-
-                analysis = {
-                    'content': formatted_content,
-                    'title': title,
-                    'category': category,
-                    'tags': tags
-                }
-            else:
-                print(f"[Multimodal] No OCR results, using standard format...")
-                analysis = multimodal_service.format_article(
-                    content=content,
-                    title=title,
-                    tags=tags,
-                    category=category,
-                    image_urls=image_urls
-                )
-            print(f"[Multimodal] Formatting complete")
-        else:
-            print(f"[DeepSeek] Using DeepSeek for article formatting...")
-            analysis = deepseek_service.format_article(
-                content=content,
-                title=title,
-                tags=tags,
-                category=category
-            )
+        print(f"[DeepSeek] Using DeepSeek for article formatting...")
+        analysis = deepseek_service.format_article(
+            content=content,
+            title=title,
+            tags=tags,
+            category=category
+        )
 
         formatted_content = analysis.get('content', '')
         suggested_title = analysis.get('title', title) if not title else title
@@ -1095,6 +832,7 @@ def preview_article():
 
 
 @app.route('/api/publish', methods=['POST'])
+@require_publish_auth
 def publish_article():
     """发布文章到GitHub
     
@@ -1111,6 +849,17 @@ def publish_article():
                 'success': False,
                 'error': '缺少必要参数（content）'
             }), 400
+        
+        # 防重复提交：窗口期内相同内容只处理一次
+        duplicate = _check_duplicate_submission(data['content'])
+        if duplicate:
+            return jsonify({
+                'success': True,
+                'message': '相同内容已在提交处理中，请勿重复提交',
+                'job_id': duplicate['job_id'],
+                'mode': duplicate.get('mode', ''),
+                'deduplicated': True
+            })
         
         # 检查发布模式
         # async_mode=true: 使用 QStash 异步（推荐，提交后立即返回）
@@ -1136,8 +885,7 @@ def publish_article():
                     'category': data.get('category', ''),
                     'target_dir': data.get('target_dir', 'content/posts'),
                     'draft': data.get('draft', False),
-                    'auto_format': data.get('auto_format', True),
-                    'enable_ocr': data.get('enable_ocr', False)
+                    'auto_format': data.get('auto_format', True)
                 }
                 
                 # 通过 QStash 发布任务
@@ -1146,6 +894,8 @@ def publish_article():
                     body=task_data,
                     retries=3
                 )
+                
+                _record_submission(data['content'], job_id, 'queued', mode='async')
                 
                 return jsonify({
                     'success': True,
@@ -1179,6 +929,7 @@ def publish_article():
                 'target_dir': data.get('target_dir', 'content/posts')
             })
             
+            _record_submission(data['content'], job_id, 'queued', mode='queue')
             task_queue.put((job_id, data))
             
             return jsonify({
@@ -1206,12 +957,9 @@ def publish_sync(data):
         target_dir = data.get('target_dir', 'content/posts')
         draft = data.get('draft', False)
         auto_format = data.get('auto_format', True)
-        enable_ocr = data.get('enable_ocr', False)
 
         url_pattern = re.compile(r'https?://[^\s\u4e00-\u9fa5]+')
         urls = url_pattern.findall(content.strip())
-
-        image_urls = []
 
         if urls:
             url = urls[0].rstrip('.,!?;:)]}）〉》」』')
@@ -1227,88 +975,21 @@ def publish_sync(data):
                     title = scraped_data['title']
                     print(f"[Sync] Use scraped title: {title}")
 
-                if enable_ocr and scraped_data.get('platform') == 'xiaohongshu':
-                    image_urls = scraped_data.get('image_urls', [])
-                    print(f"[Sync] Will process {len(image_urls)} images for OCR")
-
         parsed = markdown_generator.parse_front_matter(content)
         content = parsed['content']
 
         if auto_format:
             try:
-                if enable_ocr and multimodal_service and image_urls:
-                    print(f"[Sync] Using multimodal model for OCR and formatting...")
-
-                    ocr_texts = []
-
-                    def process_single_image(idx_url):
-                        idx, img_url = idx_url
-                        try:
-                            print(f"[OCR] Processing image {idx}...")
-                            ocr_text = multimodal_service.ocr_image(image_url=img_url)
-                            return idx, f"图片{idx}：{ocr_text}" if ocr_text else None, None
-                        except Exception as e:
-                            print(f"[OCR] Failed image {idx}: {e}")
-                            return idx, None, str(e)
-
-                    images_to_process = [(i, url) for i, url in enumerate(image_urls[:15], 1)]
-                    with ThreadPoolExecutor(max_workers=15) as executor:
-                        futures = [executor.submit(process_single_image, args) for args in images_to_process]
-                        for future in as_completed(futures):
-                            idx, ocr_text, error = future.result()
-                            if ocr_text:
-                                ocr_texts.append((idx, ocr_text))
-                            elif error:
-                                print(f"[OCR] Image {idx} failed: {error}")
-
-                    ocr_texts.sort(key=lambda x: x[0])
-                    ocr_texts = [text for _, text in ocr_texts]
-
-                    if ocr_texts:
-                        ocr_combined = "\n\n".join(ocr_texts)
-
-                        content_without_images = re.sub(r'!\[[^\]]*\]\([^)]+\)', '', content)
-                        content_without_images = re.sub(r'\n\n+', '\n\n', content_without_images).strip()
-
-                        formatted_content = multimodal_service.format_article(
-                            content=content_without_images,
-                            title=title,
-                            tags=tags,
-                            category=category
-                        ).get('content', '')
-
-                        formatted_ocr = multimodal_service.format_article(
-                            content=ocr_combined,
-                            title=title,
-                            tags=tags,
-                            category=category
-                        ).get('content', '')
-
-                        images_markdown = "\n\n".join([f"![图片{i+1}]({url})" for i, url in enumerate(image_urls[:15])])
-
-                        content = f"{formatted_content}\n\n---\n\n## 图片文字识别\n\n{formatted_ocr}\n\n---\n\n## 原始图片\n\n{images_markdown}"
-                        print(f"[Sync] OCR completed with {len(ocr_texts)} results")
-                    else:
-                        analysis = multimodal_service.format_article(
-                            content=content,
-                            title=title,
-                            tags=tags,
-                            category=category
-                        )
-                        content = analysis.get('content', content)
-                        tags = analysis.get('tags', [])
-                        category = analysis.get('category', '未分类')
-                else:
-                    print(f"[Sync] Using DeepSeek for formatting...")
-                    analysis = deepseek_service.format_article(
-                        content=content,
-                        title=title,
-                        tags=tags,
-                        category=category
-                    )
-                    content = analysis.get('content', content)
-                    tags = analysis.get('tags', [])
-                    category = analysis.get('category', '未分类')
+                print(f"[Sync] Using DeepSeek for formatting...")
+                analysis = deepseek_service.format_article(
+                    content=content,
+                    title=title,
+                    tags=tags,
+                    category=category
+                )
+                content = analysis.get('content', content)
+                tags = analysis.get('tags', [])
+                category = analysis.get('category', '未分类')
 
                 if not title:
                     extracted_title = parsed.get('front_matter', {}).get('title')
@@ -1341,6 +1022,7 @@ def publish_sync(data):
         )
         
         if result['success']:
+            _record_submission(data['content'], 'sync', 'completed', mode='sync')
             return jsonify({
                 'success': True,
                 'message': '文章发布成功',
@@ -1349,6 +1031,7 @@ def publish_sync(data):
                 'title': title
             })
         else:
+            _remove_submission(data['content'])
             return jsonify({
                 'success': False,
                 'error': result.get('error', '上传失败')
@@ -1357,6 +1040,7 @@ def publish_sync(data):
     except Exception as e:
         print(f"[Sync] Publish failed: {str(e)}")
         traceback.print_exc()
+        _remove_submission(data['content'])
         return jsonify({
             'success': False,
             'error': str(e)
@@ -1397,7 +1081,7 @@ def qstash_webhook():
         
         # Execute publishing via standard processor
         try:
-            process_publish_task(job_id, data, deepseek_service, github_service, markdown_generator, multimodal_service)
+            process_publish_task(job_id, data, deepseek_service, github_service, markdown_generator)
             
             # Check result from jobs dict
             job_result = jobs.get(job_id)
@@ -1568,6 +1252,8 @@ def get_file():
     """获取或删除文件内容"""
     try:
         if request.method == 'DELETE':
+            if not _check_token():
+                return jsonify({'success': False, 'error': '未授权：缺少或错误的访问令牌'}), 401
             path = request.args.get('path', '')
             if not path:
                 return jsonify({
@@ -1599,6 +1285,7 @@ def get_file():
 
 
 @app.route('/api/rename', methods=['POST'])
+@require_publish_auth
 def rename_file():
     """重命名文件或文件夹"""
     try:
@@ -1696,6 +1383,7 @@ def serve_image(filename):
 
 
 @app.route('/api/upload-image', methods=['POST'])
+@require_publish_auth
 def upload_image():
     """
     上传图片到 GitHub 仓库的 static/images/ 目录
@@ -1778,6 +1466,7 @@ def upload_image():
         }), 500
 
 @app.route('/api/delete-image', methods=['POST'])
+@require_publish_auth
 def delete_image():
     """
     删除已上传的图片
@@ -1853,6 +1542,7 @@ def list_github_runs():
         return jsonify(result), 500
 
 @app.route('/api/github/trigger', methods=['POST'])
+@require_publish_auth
 def trigger_github_workflow():
     """触发 Workflow"""
     data = request.json

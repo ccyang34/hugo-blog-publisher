@@ -4,6 +4,8 @@
 LLM 服务公共基类
 """
 
+import json
+
 
 class BaseLLMService:
     """DeepSeek / 多模态等 LLM 排版服务的公共逻辑基类"""
@@ -32,6 +34,48 @@ class BaseLLMService:
         if response.startswith('```'):
             return response.replace('```', '', 1).rsplit('```', 1)[0].strip()
         return response
+
+    def _extract_json(self, text: str) -> dict:
+        """
+        从模型输出中提取 JSON 对象
+        容忍输出前后夹带的解释文字、代码块标记等噪音
+        """
+        text = self._clean_json_response(text).strip()
+
+        # 优先直接解析完整 JSON
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            pass
+
+        # 否则扫描第一个平衡的 {...} 块
+        start = text.find('{')
+        if start == -1:
+            raise ValueError('响应中未找到 JSON 对象')
+
+        depth = 0
+        in_string = False
+        escape = False
+        for i in range(start, len(text)):
+            ch = text[i]
+            if in_string:
+                if escape:
+                    escape = False
+                elif ch == '\\':
+                    escape = True
+                elif ch == '"':
+                    in_string = False
+                continue
+            if ch == '"':
+                in_string = True
+            elif ch == '{':
+                depth += 1
+            elif ch == '}':
+                depth -= 1
+                if depth == 0:
+                    return json.loads(text[start:i + 1])
+
+        raise ValueError('响应中未找到完整的 JSON 对象')
 
     def _normalize_format_result(self, result: dict) -> dict:
         """
