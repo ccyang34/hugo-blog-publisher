@@ -252,9 +252,8 @@ def _handle_wechat(soup, url=None):
                 md_parts.append(desc_text + "\n\n")
             
             for i, img_url in enumerate(img_list, 1):
-                # 使用代理绕过防盗链
-                proxy_url = f"https://i0.wp.com/{img_url.replace('https://', '').replace('http://', '')}"
-                md_parts.append(f"![图片{i}]({proxy_url})\n\n")
+                # 微信图片 mmbiz.qpic.cn 无防盗链，直接使用原图地址（国内可访问）
+                md_parts.append(f"![图片{i}]({img_url})\n\n")
             
             content = "".join(md_parts).strip()
             
@@ -274,13 +273,12 @@ def _handle_wechat(soup, url=None):
         return _handle_generic(soup, url=url)
 
     # --- 以下为标准文章处理逻辑 ---
-    # Handle lazy loading images - 使用代理绕过防盗链
+    # Handle lazy loading images - 微信图片无防盗链，直接使用原图
     for img in article.find_all('img'):
         src = img.get('data-src') or img.get('src', '')
         if src and ('mmbiz.qpic.cn' in src or 'mmbiz.qlogo.cn' in src):
-            # 使用 WordPress 图片代理绕过微信防盗链
-            proxy_url = f"https://i0.wp.com/{src.replace('https://', '').replace('http://', '')}"
-            img['src'] = proxy_url
+            # 微信图片 mmbiz.qpic.cn 无防盗链，直接使用原图地址（国内可访问）
+            img['src'] = src
         elif img.get('data-src'):
             img['src'] = img['data-src']
     
@@ -381,12 +379,12 @@ def _handle_wechat(soup, url=None):
             cover = video_covers.get(video_num, '')
             vid = video_ids.get(video_num, '')
             
-            # 处理封面图（使用代理绕过防盗链）
+            # 处理封面图（微信图片无防盗链，直接使用原图）
             cover_url = ""
             cover = safe_unquote(cover)
             if cover and ('mmbiz.qpic.cn' in cover or 'mmbiz.qlogo.cn' in cover):
-                # 使用 i0.wp.com 代理
-                cover_url = f"https://i0.wp.com/{cover.replace('https://', '').replace('http://', '')}"
+                # 微信图片 mmbiz.qpic.cn 无防盗链，直接使用原图地址（国内可访问）
+                cover_url = cover
             elif cover:
                 cover_url = cover 
             
