@@ -687,9 +687,13 @@ def _handle_xiaohongshu(soup, html_text, url=None):
             md_parts.append("## 描述\n\n")
             md_parts.append(f"{desc}\n\n")
         
+        # 处理视频
+        videos = data.get('video', [])
+
         # 处理图片 - 竖向顺序排列
+        # 视频笔记的 data.data 为视频封面/截图，不作为正文图片输出
         images = data.get('data', [])
-        if images:
+        if images and not videos:
             md_parts.append(f"\n## 图片 ({len(images)}张)\n\n")
             
             for i, img in enumerate(images, 1):
@@ -701,7 +705,6 @@ def _handle_xiaohongshu(soup, html_text, url=None):
                     md_parts.append(f"![图片{i}]({proxy_url})\n\n")
         
         # 处理视频
-        videos = data.get('video', [])
         if videos:
             md_parts.append(f"\n## 视频 ({len(videos)}个)\n\n")
             for i, video in enumerate(videos, 1):
@@ -719,12 +722,13 @@ def _handle_xiaohongshu(soup, html_text, url=None):
         content = ''.join(md_parts)
 
         extracted_image_urls = []
-        images = data.get('data', [])
-        for i, img in enumerate(images, 1):
-            img_url = img.get('urlDefault') or img.get('urlPre', '')
-            if img_url:
-                proxy_url = f"https://i0.wp.com/{img_url.replace('https://', '').replace('http://', '')}"
-                extracted_image_urls.append(proxy_url)
+        if not videos:
+            images = data.get('data', [])
+            for i, img in enumerate(images, 1):
+                img_url = img.get('urlDefault') or img.get('urlPre', '')
+                if img_url:
+                    proxy_url = f"https://i0.wp.com/{img_url.replace('https://', '').replace('http://', '')}"
+                    extracted_image_urls.append(proxy_url)
 
         if not desc:
             desc = ''
