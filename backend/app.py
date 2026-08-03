@@ -16,7 +16,6 @@ from .services.github import GitHubService
 
 from .utils.markdown import MarkdownGenerator
 from .utils.web_scraper import fetch_article_content
-from .utils.web_scraper import fetch_article_content
 import re
 import threading
 import uuid
@@ -290,7 +289,7 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
 
         if urls:
             url = urls[0].rstrip('.,!?;:)]}）〉》」』')
-            if 'xiaohongshu.com' in url or 'xhslink.com' in url:
+            if 'xiaohongshu.com' in url or 'xhslink' in url:
                 is_xiaohongshu = True
                 add_job_log(job_id, '小红书识别', 'info', '识别为小红书链接，启用专用解析')
 
@@ -1216,7 +1215,7 @@ def publish_sync(data):
 
         if urls:
             url = urls[0].rstrip('.,!?;:)]}）〉》」』')
-            if 'xiaohongshu.com' in url or 'xhslink.com' in url:
+            if 'xiaohongshu.com' in url or 'xhslink' in url:
                 print(f"[Sync] Detected Xiaohongshu URL: {url}")
 
             print(f"[Sync] Detected URL: {url}, fetching content...")
@@ -1670,11 +1669,6 @@ def verify_password():
         password = data.get('password', '')
         
         correct_password = os.environ.get('PUBLISH_PASSWORD', 'c')
-        
-        # 调试日志：输出比对信息（生产环境建议排查后删除）
-        print(f"DEBUG: Comparing passwords.")
-        print(f"DEBUG: Received: '{password}' (len: {len(password)})")
-        print(f"DEBUG: Expected: '{correct_password}' (len: {len(correct_password)})")
         
         if password == correct_password:
             return jsonify({

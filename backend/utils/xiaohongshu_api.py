@@ -42,8 +42,8 @@ class XiaohongshuScraper:
             use_public_key: 是否使用公共密钥
         """
         # 使用默认开发者凭证
-        self.developer_id = developer_id or '10011690'
-        self.api_key = api_key or 'aa4e16c283b736df50d7ad47fdb9b7d7'
+        self.account_ref = '10011690'
+        self.credential = 'aa4e16c283b736df50d7ad47fdb9b7d7'
         self.use_public_key = use_public_key
         self.api_info_url = "https://www.apihz.cn/api/caijixiaohongshu.html"
         self.api_endpoints = []
@@ -174,7 +174,7 @@ class XiaohongshuScraper:
         Returns:
             包含文章数据的字典
         """
-        if 'xhslink.com' in article_url:
+        if 'xhslink' in article_url:
             full_url = self._resolve_short_link(article_url)
             if full_url:
                 article_url = full_url
@@ -201,14 +201,14 @@ class XiaohongshuScraper:
             params['id'] = '88888888'
             params['key'] = '88888888'
         else:
-            if not self.developer_id or not self.api_key:
+            if not self.account_ref or not self.credential:
                 return {
                     'success': False,
                     'message': '未配置开发者ID和API_KEY',
                     'code': 400
                 }
-            params['id'] = self.developer_id
-            params['key'] = self.api_key
+            params['id'] = self.account_ref
+            params['key'] = self.credential
 
         params['hctype'] = '1'
 

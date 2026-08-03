@@ -2,25 +2,48 @@
 
 ## 环境变量配置
 
-### 1. 后端环境变量 (Railway/Render)
+### 1. 后端环境变量 (Railway/Render/Vercel)
 
-在后端服务平台（如Railway、Render）设置以下环境变量：
+在后端服务平台（如Railway、Render、Vercel）设置以下环境变量：
 
 ```env
+# 基础配置
+PORT=5000
+DEBUG=false
+FRONTEND_URL=https://your-project.pages.dev   # CORS白名单，* 表示允许所有
+PUBLISH_PASSWORD=your-publish-password        # 发布密码
+
 # DeepSeek API配置
 DEEPSEEK_API_KEY=sk-your-deepseek-api-key
+DEEPSEEK_MODEL=deepseek-v4-flash
 
 # GitHub配置
 GITHUB_TOKEN=ghp-your-github-personal-access-token
 GITHUB_USERNAME=your-github-username
-GITHUB_REPO=hugo-blog  # 你的Hugo博客仓库名
+GITHUB_REPO=hugo-blog
 
-# 安全配置
-SECRET_KEY=your-random-secret-key
+# NVIDIA 多模态 API 配置（可选，用于小红书图片OCR）
+NVIDIA_API_KEY=your-nvidia-api-key
+NVIDIA_MODEL=stepfun-ai/step-3.7-flash
 
-# CORS配置（前端地址）
-FRONTEND_URL=https://your-project.pages.dev
+# QStash 异步任务配置（可选，不配置则回退同步发布）
+QSTASH_TOKEN=your-qstash-token
+QSTASH_CURRENT_SIGNING_KEY=your-qstash-current-signing-key
+QSTASH_NEXT_SIGNING_KEY=your-qstash-next-signing-key
+
+# Upstash Redis 配置（可选，用于持久化任务历史）
+UPSTASH_REDIS_REST_URL=your-upstash-redis-url
+UPSTASH_REDIS_REST_TOKEN=your-upstash-redis-token
+
+# Webhook 基础地址（QStash 回调地址，部署后必填）
+WEBHOOK_BASE_URL=https://your-api.example.com
+
+# apihz.cn 第三方解析 API 凭证（小红书/今日头条抓取，必填）
+APIHZ_DEVELOPER_ID=your-apihz-developer-id
+APIHZ_API_KEY=your-apihz-api-key
 ```
+
+> 完整变量清单见 `.env.example`，所有变量均可选（除 DeepSeek/GitHub 外），缺省时功能自动降级。
 
 ### 2. GitHub Token获取方法
 
@@ -53,8 +76,10 @@ const CONFIG = {
 2. 点击 "New Project" → "Deploy from GitHub"
 3. 选择本仓库
 4. 在Variables中添加上述环境变量
-5. 设置启动命令：`gunicorn backend.app:app --bind 0.0.0.0:$PORT`
+5. 启动命令由 `Procfile` 指定：`gunicorn app:app --bind 0.0.0.0:$PORT`（Railway 会挂载 `backend` 目录为工作目录）
 6. 部署完成后获取API地址
+
+> 也可以在 Vercel 部署（见 `VERCEL_DEPLOY.md`），入口为 `api/index.py`。
 
 ### 前端部署 (Cloudflare Pages)
 

@@ -13,8 +13,10 @@ import time
 from pathlib import Path
 from typing import List, Optional, Dict, Any, Union
 
+from .base_llm import BaseLLMService
 
-class MultimodalService:
+
+class MultimodalService(BaseLLMService):
     """多模态大模型服务类"""
 
     IMAGE_MIME_TYPES = {
@@ -30,18 +32,6 @@ class MultimodalService:
         self.api_key = os.environ.get('NVIDIA_API_KEY', '')
         self.base_url = 'https://integrate.api.nvidia.com/v1'
         self.model = os.environ.get('NVIDIA_MODEL', 'stepfun-ai/step-3.7-flash')
-
-        self.PRESET_CATEGORIES = {
-            "研究报告": "长篇、深度、结构化的正式报告。",
-            "期货分析": "针对大豆、油脂、豆油、棕榈油、基差、榨利等期货品种的产业链分析与行情研判。",
-            "市场分析": "针对股票、宏观经济、各行业资金流向（如AI行业资金分析）、市场热点等非期货品种的金融/行情复盘。",
-            "ETF投资": "针对各类ETF基金（如宽基、行业、跨境ETF）的申购赎回、走势分析、配置策略。",
-            "投资策略": "偏向方法论、配置逻辑、模型工具的使用、避坑指南。",
-            "投资理财": "泛理财、公募基金、个人财务规划。",
-            "AI与技术": "侧重技术层面：AI工具（如Claude, NotebookLM）应用、编程开发、自动化脚本、量化技术干货、AI Agent（Skills/MCP/RAG/Memory）。",
-            "新闻资讯": "宏观新闻事件点评、行业突发新闻。",
-            "个人随笔": "生活、运动（乒乓球）、学习方法、随感、认知进化。"
-        }
 
         if not self.api_key:
             raise ValueError('未设置NVIDIA API密钥，请配置环境变量NVIDIA_API_KEY')
@@ -264,27 +254,9 @@ class MultimodalService:
 
         try:
             response = self._call_api(messages, temperature=0.5, max_tokens=16384)
-
-            if response.startswith('```json'):
-                response = response.replace('```json', '', 1).rsplit('```', 1)[0].strip()
-            elif response.startswith('```'):
-                response = response.replace('```', '', 1).rsplit('```', 1)[0].strip()
-
+            response = self._clean_json_response(response)
             result = json.loads(response)
-
-            categories = result.get('categories', [])
-            if not categories and result.get('category'):
-                categories = [result.get('category')]
-
-            if isinstance(categories, str):
-                categories = [categories]
-
-            return {
-                'title': result.get('title', '').strip(),
-                'categories': categories,
-                'tags': result.get('tags', []),
-                'content': result.get('content', '').strip()
-            }
+            return self._normalize_format_result(result)
         except Exception as e:
             print(f"Error calling Multimodal API for format: {e}")
             return {

@@ -419,7 +419,7 @@ class MarkdownGenerator:
         text = re.sub(r'```[\s\S]*?```', '', content)
         text = re.sub(r'`[^`]+`', '', text)
         text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', text)
-        text = re.sub(r'[#*_~\[\]()]/g', '', text)
+        text = re.sub(r'[#*_~\[\]()]', '', text)
         text = re.sub(r'\s+', ' ', text)
         
         words = text.strip().split()

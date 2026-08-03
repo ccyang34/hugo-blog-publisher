@@ -23,7 +23,7 @@ from src.ocr_utils import macos_ocr, ocr_image_batch
 
 def is_xhs_url(url: str) -> bool:
     """判断是否是小红书链接"""
-    return "xiaohongshu.com" in url or "xhslink.com" in url
+    return "xiaohongshu.com" in url or "xhslink" in url
 
 
 def is_weixin_url(url: str) -> bool:

@@ -233,7 +233,7 @@ class XiaohongshuScraper:
         """
         original_url = article_url
         
-        if 'xhslink.com' in article_url:
+        if 'xhslink' in article_url:
             full_url = self._resolve_short_link(article_url)
             if full_url:
                 article_url = full_url

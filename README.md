@@ -4,9 +4,12 @@
 
 ## 功能特性
 
-- **AI文章优化**：使用DeepSeek API自动优化文章排版、修正错别字、优化段落结构
-- **Hugo格式支持**：自动生成符合Hugo要求的Markdown格式和front matter
-- **一键发布**：直接将文章发布到GitHub仓库的指定目录
+- **AI文章优化**：使用 DeepSeek API 自动优化文章排版、修正错别字、优化段落结构
+- **多模态图片OCR**：可选使用 NVIDIA API（stepfun-ai/step-3.7-flash）识别小红书图片文字并排版
+- **多平台文章解析**：支持小红书、微信公众号、今日头条、知乎等链接内容抓取
+- **Hugo格式支持**：自动生成符合 Hugo 要求的 Markdown 格式和 front matter
+- **一键发布**：直接将文章发布到 GitHub 仓库的指定目录
+- **异步发布**：可选 QStash 异步任务 + Upstash Redis 任务历史持久化
 - **实时预览**：支持预览格式化后的文章效果
 - **标签管理**：支持设置分类和标签
 - **草稿功能**：可以选择将文章发布为草稿
@@ -17,22 +20,30 @@
 hugo-blog-publisher/
 ├── frontend/                 # 前端 (部署到Cloudflare Pages)
 │   ├── index.html           # 主页面
+│   ├── admin.html           # 管理页面
+│   ├── browse.html          # 文章浏览页面
 │   ├── style.css            # 样式文件
 │   ├── app.js               # 前端逻辑
 │   └── config.js            # 前端配置
 │
-├── backend/                  # 后端API (部署到Railway/Render)
+├── backend/                  # 后端API (部署到Railway/Render/Vercel)
 │   ├── app.py               # Flask主程序
-│   ├── requirements.txt     # Python依赖
 │   ├── services/            # 服务层
+│   │   ├── base_llm.py     # LLM服务公共基类
 │   │   ├── deepseek.py     # DeepSeek API服务
+│   │   ├── multimodal.py   # NVIDIA多模态API服务(OCR)
 │   │   └── github.py       # GitHub上传服务
 │   └── utils/               # 工具函数
-│       └── markdown.py      # Markdown格式处理
+│       ├── markdown.py      # Markdown格式处理
+│       └── web_scraper.py   # 多平台文章抓取
 │
+├── api/index.py             # Vercel Serverless 入口
 ├── railway.json             # Railway部署配置
+├── vercel.json              # Vercel部署配置
 ├── Procfile                 # Gunicorn启动配置
-└── CONFIG.md               # 环境变量配置说明
+├── CONFIG.md                # 环境变量配置说明
+├── DEPLOY.md                # Railway完整部署教程
+└── VERCEL_DEPLOY.md         # Vercel部署教程
 ```
 
 ## 快速开始
@@ -57,12 +68,27 @@ GITHUB_TOKEN=ghp-your-github-personal-access-token
 GITHUB_USERNAME=your-github-username
 GITHUB_REPO=hugo-blog  # 你的Hugo博客仓库名
 
-# 安全配置
-SECRET_KEY=your-random-secret-key
+# 发布密码
+PUBLISH_PASSWORD=your-publish-password
 
 # CORS配置（前端地址）
 FRONTEND_URL=https://your-project.pages.dev
+
+# 以下为可选配置：
+# NVIDIA多模态API（图片OCR）
+NVIDIA_API_KEY=your-nvidia-api-key
+# QStash异步任务
+QSTASH_TOKEN=your-qstash-token
+QSTASH_CURRENT_SIGNING_KEY=your-qstash-signing-key
+# Upstash Redis任务历史
+UPSTASH_REDIS_REST_URL=your-upstash-url
+UPSTASH_REDIS_REST_TOKEN=your-upstash-token
+# apihz.cn解析API（小红书/头条抓取）
+APIHZ_DEVELOPER_ID=your-apihz-developer-id
+APIHZ_API_KEY=your-apihz-api-key
 ```
+
+> 完整变量清单见 `.env.example`，部署到 Railway 见 `DEPLOY.md`，部署到 Vercel 见 `VERCEL_DEPLOY.md`。
 
 更新 `frontend/config.js` 中的后端API地址：
 
@@ -97,12 +123,14 @@ npx serve frontend
 
 ## 部署
 
-### 部署后端到Railway
+### 部署后端到 Railway
 
 1. 在 [Railway](https://railway.app) 注册账号并创建新项目
 2. 连接你的GitHub仓库
 3. 设置环境变量（参考上面的 `.env` 文件）
 4. 部署完成后，Railway会提供一个URL，例如：`https://your-app.railway.app`
+
+> 详细步骤见 [DEPLOY.md](DEPLOY.md)。也可以在 Vercel 部署，见 [VERCEL_DEPLOY.md](VERCEL_DEPLOY.md)。
 
 ### 部署前端到Cloudflare Pages
 

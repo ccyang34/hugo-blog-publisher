@@ -4,94 +4,38 @@ import re
 import json
 import sys
 import os
+import importlib
 from markdownify import markdownify as md
 from urllib.parse import urlparse, unquote
 
-# 导入小红书 API - 多种方式尝试
-XiaohongshuScraper = None
 
-# 方式1：尝试从 backend.utils 包导入
-try:
-    from backend.utils.xiaohongshu_api import XiaohongshuScraper
-    print("XiaohongshuScraper imported from backend.utils")
-except ImportError:
-    pass
-
-# 方式2：尝试相对导入
-if XiaohongshuScraper is None:
+def _load_optional_scraper(module_name: str, attr_name: str):
+    """跨运行环境加载可选解析器，全部尝试失败时返回 None"""
+    candidates = [f'backend.utils.{module_name}', f'.{module_name}', module_name]
+    for mod in candidates:
+        try:
+            if mod.startswith('.'):
+                mod_obj = importlib.import_module(mod, package=__package__)
+            else:
+                mod_obj = importlib.import_module(mod)
+            return getattr(mod_obj, attr_name)
+        except (ImportError, AttributeError):
+            continue
+    # 兜底：将当前目录加入 sys.path 后直接导入
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    if current_dir not in sys.path:
+        sys.path.insert(0, current_dir)
     try:
-        from .xiaohongshu_api import XiaohongshuScraper
-        print("XiaohongshuScraper imported from relative module")
-    except ImportError:
-        pass
+        return getattr(importlib.import_module(module_name), attr_name)
+    except (ImportError, AttributeError):
+        return None
 
-# 方式3：尝试直接导入
-if XiaohongshuScraper is None:
-    try:
-        from xiaohongshu_api import XiaohongshuScraper
-        print("XiaohongshuScraper imported directly")
-    except ImportError:
-        pass
 
-# 方式4：动态添加路径后导入
-if XiaohongshuScraper is None:
-    try:
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        if current_dir not in sys.path:
-            sys.path.insert(0, current_dir)
-        from xiaohongshu_api import XiaohongshuScraper
-        print(f"XiaohongshuScraper imported via path: {current_dir}")
-    except ImportError as e:
-        print(f"Warning: All import attempts failed for XiaohongshuScraper: {e}")
-        XiaohongshuScraper = None
+XiaohongshuScraper = _load_optional_scraper('xiaohongshu_api', 'XiaohongshuScraper')
+print("XiaohongshuScraper is ready!" if XiaohongshuScraper else "XiaohongshuScraper not available, will use legacy parser")
 
-if XiaohongshuScraper:
-    print("XiaohongshuScraper is ready!")
-else:
-    print("XiaohongshuScraper not available, will use legacy parser")
-
-# 导入今日头条 API - 多种方式尝试
-ToutiaoScraper = None
-
-# 方式1：尝试从 backend.utils 包导入
-try:
-    from backend.utils.toutiao_api import ToutiaoScraper
-    print("ToutiaoScraper imported from backend.utils")
-except ImportError:
-    pass
-
-# 方式2：尝试相对导入
-if ToutiaoScraper is None:
-    try:
-        from .toutiao_api import ToutiaoScraper
-        print("ToutiaoScraper imported from relative module")
-    except ImportError:
-        pass
-
-# 方式3：尝试直接导入
-if ToutiaoScraper is None:
-    try:
-        from toutiao_api import ToutiaoScraper
-        print("ToutiaoScraper imported directly")
-    except ImportError:
-        pass
-
-# 方式4：动态添加路径后导入
-if ToutiaoScraper is None:
-    try:
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        if current_dir not in sys.path:
-            sys.path.insert(0, current_dir)
-        from toutiao_api import ToutiaoScraper
-        print(f"ToutiaoScraper imported via path: {current_dir}")
-    except ImportError as e:
-        print(f"Warning: All import attempts failed for ToutiaoScraper: {e}")
-        ToutiaoScraper = None
-
-if ToutiaoScraper:
-    print("ToutiaoScraper is ready!")
-else:
-    print("ToutiaoScraper not available, will use legacy parser")
+ToutiaoScraper = _load_optional_scraper('toutiao_api', 'ToutiaoScraper')
+print("ToutiaoScraper is ready!" if ToutiaoScraper else "ToutiaoScraper not available, will use legacy parser")
 
 def fetch_article_content(url):
     """
@@ -101,7 +45,7 @@ def fetch_article_content(url):
     try:
         # 检查是否是小红书短链或长链
         original_url = url
-        is_xiaohongshu = 'xiaohongshu.com' in url or 'xhslink.com' in url
+        is_xiaohongshu = 'xiaohongshu.com' in url or 'xhslink' in url
         is_zhihu = 'zhihu.com' in url
         
         # 根据不同平台设置不同的请求头
