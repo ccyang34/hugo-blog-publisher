@@ -139,6 +139,115 @@ def _clean_soup(soup):
         tag.decompose()
     return soup
 
+def _decode_js_string(raw):
+    """解码 JS 字符串字面量中的常见转义序列（含 \\xHH 十六进制转义）"""
+    if not raw:
+        return raw
+    raw = (raw.replace('\\x0a', '\n')
+               .replace('\\n', '\n')
+               .replace('\\r', '\r')
+               .replace('\\t', '\t')
+               .replace('\\"', '"')
+               .replace("\\'", "'")
+               .replace('\\\\', '\\'))
+    # 解码剩余的 \\xHH 十六进制转义（如 \x3c -> <, \x22 -> "）
+    raw = re.sub(r'\\x([0-9a-fA-F]{2})', lambda m: chr(int(m.group(1), 16)), raw)
+    return raw
+
+
+def _strip_html_tags(text):
+    """去掉 HTML 标签，保留标签内文本（如话题链接 #小米汽车）"""
+    if not text:
+        return text
+    text = text.replace('&lt;', '<').replace('&gt;', '>').replace('&quot;', '"').replace('&amp;', '&').replace('&#39;', "'")
+    text = re.sub(r'<[^>]+>', '', text)
+    return text.strip()
+
+
+def _extract_wechat_new_template(html_text, url=None):
+    """
+    新版微信分享页模板：正文不在 DOM 中，而是存放在 JS 变量 content_noencode 里
+    （纯文本，\\x0a 表示换行），标题存放在 window.cgiDataNew 的 title 字段。
+    正文图片存放在 window.picture_page_info_list 数组（元素含 cdn_url 原图），
+    旧版字段 picture_list_in_pictext 作为兼容来源。
+    解析成功返回 {'title','content','author'}，否则返回 None。
+    """
+    if 'content_noencode' not in html_text:
+        return None
+
+    # 提取正文
+    content_match = re.search(r"content_noencode\s*:\s*'((?:[^'\\]|\\.)*)'", html_text)
+    if not content_match:
+        return None
+    content = _decode_js_string(content_match.group(1)).strip()
+    if not content:
+        return None
+    # content_noencode 可能含 HTML（话题链接等），清理为纯文本
+    content = _strip_html_tags(content)
+
+    # 提取正文图片列表：优先 picture_page_info_list，其次 picture_list_in_pictext
+    # 每个元素含原图/水印图/分享封面多个 cdn_url，只取顶层原图（紧跟 width/height 后的 cdn_url）
+    image_urls = []
+    pic_sources = [
+        r'window\.picture_page_info_list\s*=\s*\[(.*)\];',
+        r'picture_list_in_pictext\s*:\s*\[(.*?)\]'
+    ]
+    for pattern in pic_sources:
+        pic_match = re.search(pattern, html_text, re.DOTALL)
+        if pic_match:
+            pic_body = pic_match.group(1)
+            # 顶层原图：width, height 之后紧跟的 cdn_url（排除 watermark_info/share_cover 嵌套里的）
+            for m in re.finditer(
+                r"width:\s*'[^']*'\s*\*\s*1,\s*height:\s*'[^']*'\s*\*\s*1,\s*cdn_url:\s*'((?:[^'\\]|\\.)*)'",
+                pic_body
+            ):
+                img_url = _decode_js_string(m.group(1)).strip()
+                if img_url and 'mmbiz.qpic.cn' in img_url and img_url not in image_urls:
+                    image_urls.append(img_url)
+            # 兼容：若精确匹配失败，退回提取该数组内所有 mmbiz 图片 URL（去重）
+            if not image_urls:
+                for m in re.finditer(r"cdn_url\s*:\s*'((?:[^'\\]|\\.)*)'", pic_body):
+                    img_url = _decode_js_string(m.group(1)).strip()
+                    if img_url and 'mmbiz.qpic.cn' in img_url and img_url not in image_urls:
+                        image_urls.append(img_url)
+            if image_urls:
+                break
+
+    # 提取标题：优先 cgiDataNew 中的 title，其次 og:title
+    title = ""
+    title_match = re.search(
+        r"window\.cgiDataNew\s*=\s*\{.*?\btitle\s*:\s*'((?:[^'\\]|\\.)*)'",
+        html_text, re.DOTALL
+    )
+    if title_match:
+        title = _decode_js_string(title_match.group(1)).strip()
+    if not title:
+        og_title = re.search(r'<meta property="og:title" content="([^"]*)"', html_text)
+        if og_title:
+            title = og_title.group(1)
+
+    # 构建 Markdown 内容：正文 + 图片 + 来源
+    md_parts = [content]
+    if image_urls:
+        md_parts.append("")
+        md_parts.append(f"## 图片 ({len(image_urls)}张)")
+        md_parts.append("")
+        for i, img_url in enumerate(image_urls, 1):
+            md_parts.append(f"![图片{i}]({img_url})")
+            md_parts.append("")
+    md_parts.append("---")
+    if url:
+        md_parts.append(f"*来源: [微信公众号]({url})*")
+    else:
+        md_parts.append("*来源: 微信公众号*")
+
+    return {
+        'title': title,
+        'content': '\n'.join(md_parts),
+        'author': ''
+    }
+
+
 def _handle_wechat(soup, url=None):
     """Parse WeChat Official Account articles - 支持标准图文和短图文/图片集模板"""
     # Get HTML text for regex operations
@@ -157,6 +266,11 @@ def _handle_wechat(soup, url=None):
     # 如果找不到标准正文容器，尝试处理“短图文/图片集”模板
     if not article:
         html_text = str(soup)
+
+        # 新版分享页模板：正文在 JS 变量 content_noencode 中
+        new_template = _extract_wechat_new_template(html_text, url)
+        if new_template:
+            return new_template
         
         # 1. 提取短图文特有的图片列表和描述
         import json
