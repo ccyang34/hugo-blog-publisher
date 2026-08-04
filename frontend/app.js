@@ -25,7 +25,6 @@ class HugoPublisher {
         this.publishBtn = document.getElementById('publishBtn');
         this.publishBtnLeft = document.getElementById('publishBtnLeft');
         this.clearBtn = document.getElementById('clearBtn');
-        this.pasteBtn = document.getElementById('pasteBtn');
         this.sampleBtn = document.getElementById('sampleBtn');
         this.toggleMetadataBtn = document.getElementById('toggleMetadataBtn');
         this.metadataSection = document.getElementById('metadataSection');
@@ -107,9 +106,6 @@ class HugoPublisher {
             this.publishBtnLeft.addEventListener('click', () => this.handlePublishWithPassword());
         }
         this.clearBtn.addEventListener('click', () => this.clearForm());
-        if (this.pasteBtn) {
-            this.pasteBtn.addEventListener('click', () => this.handlePasteButton());
-        }
         this.sampleBtn.addEventListener('click', () => this.loadSample());
 
         if (this.toggleMetadataBtn) {
@@ -775,85 +771,6 @@ DeepSeek是一个强大的AI工具，可以帮助我们：
                 await this.uploadImage(file);
                 break;
             }
-        }
-    }
-
-    async handlePasteButton() {
-        try {
-            // 优先尝试简单的 readText()，更容易获得权限
-            if (navigator.clipboard?.readText) {
-                try {
-                    const text = await navigator.clipboard.readText();
-                    if (text && text.trim()) {
-                        const textarea = this.contentTextarea;
-                        const start = textarea.selectionStart;
-                        const end = textarea.selectionEnd;
-                        const currentValue = textarea.value;
-
-                        textarea.value = currentValue.substring(0, start) + text + currentValue.substring(end);
-                        textarea.selectionStart = textarea.selectionEnd = start + text.length;
-                        textarea.focus();
-
-                        this.updateStats();
-                        this.showNotification('已粘贴文本', 'success');
-
-                        // 自动分析逻辑：如果标题为空且内容长度超过100，自动触发格式化分析
-                        if (!this.titleInput.value.trim() && text.length > 100) {
-                            setTimeout(() => {
-                                if (!this.titleInput.value.trim()) {
-                                    this.formatArticle();
-                                }
-                            }, 500);
-                        }
-                        return;
-                    }
-                } catch (e) {
-                    // readText 失败，尝试 read()
-                }
-            }
-
-            // 尝试读取剪贴板内容（包括图片）
-            if (navigator.clipboard?.read) {
-                const clipboardItems = await navigator.clipboard.read();
-
-                for (const item of clipboardItems) {
-                    // 检查是否有图片
-                    if (item.types.includes('image/png') || item.types.includes('image/jpeg')) {
-                        const imageType = item.types.find(t => t.startsWith('image/'));
-                        const blob = await item.getType(imageType);
-                        const file = new File([blob], `paste_${Date.now()}.${imageType.split('/')[1]}`, { type: imageType });
-                        await this.uploadImage(file);
-                        return;
-                    }
-
-                    // 检查是否有文本
-                    if (item.types.includes('text/plain')) {
-                        const blob = await item.getType('text/plain');
-                        const text = await blob.text();
-                        if (text.trim()) {
-                            const textarea = this.contentTextarea;
-                            const start = textarea.selectionStart;
-                            const end = textarea.selectionEnd;
-                            const currentValue = textarea.value;
-
-                            textarea.value = currentValue.substring(0, start) + text + currentValue.substring(end);
-                            textarea.selectionStart = textarea.selectionEnd = start + text.length;
-                            textarea.focus();
-
-                            this.updateStats();
-                            this.showNotification('已粘贴文本', 'success');
-                            return;
-                        }
-                    }
-                }
-            }
-
-            this.showNotification('剪贴板为空', 'info');
-        } catch (error) {
-            // Clipboard API 不可用或权限被拒绝，聚焦输入框让用户手动粘贴
-            console.warn('剪贴板读取失败:', error);
-            this.contentTextarea.focus();
-            this.showNotification('请长按输入框选择"粘贴"', 'info');
         }
     }
 
