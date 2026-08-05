@@ -12,6 +12,29 @@ from typing import List, Optional, Dict, Any
 from .base_llm import BaseLLMService
 
 
+# 量化类文章强信号词：命中任意词即判定为量化相关内容
+QUANT_TITLE_KW = ["量化", "quant", "因子", "barra", "动量", "cta", "回测", "指增",
+                  "指数增强", "超额", "alpha", "程序化", "高频", "套利", "多因子", "选股",
+                  "趋势跟踪", "均值回归", "网格", "对冲", "中性", "多空", "择时",
+                  "机器学习", "深度学习", "预测模型", "净值", "回撤", "夏普", "波动率",
+                  "仓位", "风控", "tushare", "akshare", "backtrader", "qlib", "vnpy",
+                  "聚宽", "掘金", "实盘", "模拟盘", "自动交易", "量化信号", "参数优化"]
+# 量化类推荐标签池：命中后 AI 提取标签时需优先从该池中选取
+QUANT_TAG_POOL = ["量化", "量化交易", "量化投资", "量化分析", "量化策略", "程序化",
+                  "回测", "因子", "动量", "barra", "cta", "指数增强", "指增", "量化选股",
+                  "多因子", "高频", "套利", "量化平台", "quant",
+                  "趋势跟踪", "均值回归", "网格交易", "对冲", "中性", "多空", "择时",
+                  "机器学习", "深度学习", "预测模型", "净值", "回撤", "夏普", "波动率",
+                  "风控", "仓位管理", "tushare", "akshare", "backtrader", "qlib", "vnpy",
+                  "聚宽", "掘金", "实盘", "模拟盘", "自动交易", "量化信号", "策略优化"]
+
+
+def _match_quant_keywords(title: str, content: str) -> bool:
+    """根据标题与正文判断是否为量化类文章"""
+    text = f"{title or ''} {content or ''}".lower()
+    return any(kw.lower() in text for kw in QUANT_TITLE_KW)
+
+
 class DeepSeekService(BaseLLMService):
     """DeepSeek API服务类"""
     
@@ -73,7 +96,21 @@ class DeepSeekService(BaseLLMService):
         """
         # 检测是否是小红书内容
         is_xiaohongshu = 'xhs-slider' in content or '来源: 小红书' in content or '**作者**:' in content
-        
+
+        # 检测是否是量化类文章（标题或正文命中强信号词）
+        is_quant = _match_quant_keywords(title, content)
+
+        # 量化类文章：标签提取时优先包含量化关键词
+        quant_tag_rule = ""
+        if is_quant:
+            quant_pool = "、".join(QUANT_TAG_POOL)
+            quant_tag_rule = f"""
+## 量化类文章标签规则（必须遵守）
+检测到本文与量化交易/投资相关。提取标签时必须满足：
+1. 从以下量化关键词池中优先选取 3-6 个与正文高度相关的标签（并确保包含「量化」）：
+{quant_pool}
+2. 剩余标签可补充正文涉及的其他主题（如 AI 工具、Python 编程、市场分析等），但量化标签必须占多数。
+"""
         # 用户已指定分类时，作为硬性约束传给 AI
         user_category_rule = ""
         if category and category.strip():
@@ -108,7 +145,7 @@ class DeepSeekService(BaseLLMService):
 {chr(10).join([f"        - {k}：{v}" for k, v in self.PRESET_CATEGORIES.items()])}
      - **自主创建规则**：如果文章内容确实不属于上述任何分类，请根据你的理解自主创建一个最能代表文章主题的、简洁的分类（要求 2-4 个汉字）。
    - 提取 5-8 个核心标签（Tags）。
-   - **标题处理**：如果原文没有明确标题，请根据内容**必须**生成一个简洁有力的标题；如果已有标题，请保留或仅做微调。**可以根据原始文章标题或者自主命名的标题，在开头添加一个契合主题的emoji，不强制，有契合才添加。**
+{quant_tag_rule}   - **标题处理**：如果原文没有明确标题，请根据内容**必须**生成一个简洁有力的标题；如果已有标题，请保留或仅做微调。**可以根据原始文章标题或者自主命名的标题，在开头添加一个契合主题的emoji，不强制，有契合才添加。**
 2. **格式排版（关键）**：
    - **严格保留原义**：不要重写、摘要或扩写正文内容，保持原文的完整性。
    - **保留结构**：严格还原原文的层级结构（H2/H3）、列表（有序/无序）、引用、代码块。

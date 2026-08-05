@@ -59,6 +59,45 @@ except ValueError:
     markdown_generator = None
     print("Warning: Markdown generator not initialized, some functionality may be disabled")
 
+# 量化分类强信号词规则
+# 标题强信号词
+TITLE_KW = ["量化", "quant", "因子", "barra", "动量", "cta", "回测", "指增",
+            "指数增强", "超额", "alpha", "程序化", "高频", "套利", "多因子", "选股",
+            "趋势跟踪", "均值回归", "网格", "对冲", "中性", "多空", "择时",
+            "机器学习", "深度学习", "预测模型", "净值", "回撤", "夏普", "波动率",
+            "仓位", "风控", "tushare", "akshare", "backtrader", "qlib", "vnpy",
+            "聚宽", "掘金", "实盘", "模拟盘", "自动交易", "量化信号", "参数优化"]
+# 现有 tags 里的量化相关词
+TAG_KW = ["量化", "量化交易", "量化投资", "量化分析", "量化策略", "程序化",
+          "回测", "因子", "动量", "barra", "cta", "指数增强", "指增", "量化选股",
+          "多因子", "高频", "套利", "量化平台", "quant",
+          "趋势跟踪", "均值回归", "网格交易", "对冲", "中性", "多空", "择时",
+          "机器学习", "深度学习", "预测模型", "净值", "回撤", "夏普", "波动率",
+          "风控", "仓位管理", "tushare", "akshare", "backtrader", "qlib", "vnpy",
+          "聚宽", "掘金", "实盘", "模拟盘", "自动交易", "量化信号", "策略优化"]
+
+
+def _match_quant_rule(title: str, tags) -> bool:
+    """根据标题强信号词与标签关键词判断是否为量化文章"""
+    title = (title or '').lower()
+    if any(kw.lower() in title for kw in TITLE_KW):
+        return True
+    tag_text = ' '.join((tags or [])).lower()
+    if any(kw.lower() in tag_text for kw in TAG_KW):
+        return True
+    return False
+
+
+def _ensure_quant_tag(tags) -> list:
+    """命中量化规则后，确保标签里包含量化相关标签，提升标签覆盖"""
+    result = list(tags or [])
+    quant_tags = ['量化', '量化策略']
+    for qt in quant_tags:
+        if qt not in result:
+            result.append(qt)
+    return result
+
+
 # QStash 客户端初始化
 qstash_client = None
 qstash_receiver = None
@@ -416,6 +455,11 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
                 if category:
                     # 用户优先：用户已指定分类，直接采用，不再使用 AI 分类
                     categories = [category]
+                elif _match_quant_rule(title or analysis.get('title', ''), tags):
+                    # 量化强信号规则：标题/tags 命中量化词时归为量化，并补充量化标签
+                    categories = ['量化']
+                    category = '量化'
+                    tags = _ensure_quant_tag(tags)
                 else:
                     categories = analysis.get('categories', [])
                     if not categories:
@@ -1015,7 +1059,14 @@ def publish_sync(data):
                 )
                 content = analysis.get('content', content)
                 tags = analysis.get('tags', [])
-                if not category:
+                if category:
+                    # 用户优先：用户已指定分类，直接采用，不再使用 AI 分类
+                    pass
+                elif _match_quant_rule(title or analysis.get('title', ''), tags):
+                    # 量化强信号规则：标题/tags 命中量化词时归为量化，并补充量化标签
+                    category = '量化'
+                    tags = _ensure_quant_tag(tags)
+                else:
                     # 用户未指定分类时，才使用 AI 生成分类
                     categories = analysis.get('categories', [])
                     category = categories[0] if categories else '未分类'
