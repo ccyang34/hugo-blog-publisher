@@ -413,14 +413,28 @@ def process_publish_task(job_id, data, deepseek_service, github_service, markdow
                 )
                 content = analysis.get('content', content)
                 tags = analysis.get('tags', [])
-                category = analysis.get('category', '未分类')
-                categories = analysis.get('categories', [])
-                if not categories and category:
+                if category:
+                    # 用户优先：用户已指定分类，直接采用，不再使用 AI 分类
                     categories = [category]
+                else:
+                    categories = analysis.get('categories', [])
+                    if not categories:
+                        categories = ['未分类']
+                    category = categories[0]
 
                 if not title:
                     extracted_title = parsed.get('front_matter', {}).get('title')
-                    title = extracted_title if extracted_title else analysis.get('title', '未命名文章')
+                    if extracted_title:
+                        title = extracted_title
+                    elif analysis.get('title'):
+                        title = analysis.get('title')
+                    else:
+                        # AI 未返回标题时，显式调用标题生成接口，避免落到"未命名文章"
+                        try:
+                            title = deepseek_service.improve_title(content)
+                        except Exception as e:
+                            print(f"Warning: AI title generation failed: {e}")
+                            title = f"未命名文章_{datetime.now(timezone(timedelta(hours=8))).strftime('%Y%m%d%H%M%S')}"
 
                 add_job_log(job_id, 'AI分析', 'success', 'AI优化排版完成', {
                     'title': title,
@@ -771,7 +785,12 @@ def format_article():
 
         formatted_content = analysis.get('content', '')
         suggested_title = analysis.get('title', title) if not title else title
-        suggested_category = analysis.get('category', category)
+        if category:
+            # 用户已指定分类时，预览也返回用户分类
+            suggested_category = category
+        else:
+            suggested_categories = analysis.get('categories', [])
+            suggested_category = suggested_categories[0] if suggested_categories else ''
         suggested_tags = analysis.get('tags', tags)
 
         return jsonify({
@@ -996,11 +1015,24 @@ def publish_sync(data):
                 )
                 content = analysis.get('content', content)
                 tags = analysis.get('tags', [])
-                category = analysis.get('category', '未分类')
+                if not category:
+                    # 用户未指定分类时，才使用 AI 生成分类
+                    categories = analysis.get('categories', [])
+                    category = categories[0] if categories else '未分类'
 
                 if not title:
                     extracted_title = parsed.get('front_matter', {}).get('title')
-                    title = extracted_title if extracted_title else analysis.get('title', '未命名文章')
+                    if extracted_title:
+                        title = extracted_title
+                    elif analysis.get('title'):
+                        title = analysis.get('title')
+                    else:
+                        # AI 未返回标题时，显式调用标题生成接口，避免落到"未命名文章"
+                        try:
+                            title = deepseek_service.improve_title(content)
+                        except Exception as e:
+                            print(f"Warning: AI title generation failed: {e}")
+                            title = f"未命名文章_{datetime.now(timezone(timedelta(hours=8))).strftime('%Y%m%d%H%M%S')}"
 
             except Exception as e:
                 print(f"[Sync] Warning: AI analysis failed: {e}")

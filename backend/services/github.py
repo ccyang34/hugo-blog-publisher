@@ -304,6 +304,19 @@ class GitHubService:
                             date_match = re.search(r'^date:\s*["\']?(.+?)["\']?\s*$', content, re.MULTILINE)
                             if date_match:
                                 item['updated_at'] = date_match.group(1)
+                            # 提取 front matter 中的分类（categories: [...]），避免依赖文件名猜分类
+                            categories_match = re.search(
+                                r'^categories:\s*\[(.*?)\]', content, re.MULTILINE | re.DOTALL)
+                            if categories_match:
+                                cats = [c.strip().strip('"\'') for c in categories_match.group(1).split(',') if c.strip()]
+                                if cats:
+                                    item['categories'] = cats
+                            # 兼容单分类字段 category: "xxx"
+                            if 'categories' not in item:
+                                category_match = re.search(
+                                    r'^category:\s*["\']?(.+?)["\']?\s*$', content, re.MULTILINE)
+                                if category_match:
+                                    item['categories'] = [category_match.group(1).strip()]
                     except Exception as e:
                         print(f"Error fetching metadata for {item['name']}: {e}")
                 

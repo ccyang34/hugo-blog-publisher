@@ -74,6 +74,14 @@ class DeepSeekService(BaseLLMService):
         # 检测是否是小红书内容
         is_xiaohongshu = 'xhs-slider' in content or '来源: 小红书' in content or '**作者**:' in content
         
+        # 用户已指定分类时，作为硬性约束传给 AI
+        user_category_rule = ""
+        if category and category.strip():
+            user_category_rule = f"""
+## 用户指定分类（必须遵守）
+用户已明确指定文章分类为：**「{category.strip()}」**
+请在分类结果中直接采用该分类，不要替换为其他分类。"""
+        
         platform_rules = ""
         if is_xiaohongshu:
             platform_rules = """
@@ -113,6 +121,7 @@ class DeepSeekService(BaseLLMService):
    - **Markdown 规范**：确保输出符合标准 Markdown 语法。
    - 严禁输出 YAML Front Matter 或 Markdown 一级标题（H1）。
 {platform_rules}
+{user_category_rule}
 3. **输出格式**：
    - 必须以 JSON 格式返回，包含以下字段：
      - `title`: 最终确定的标题

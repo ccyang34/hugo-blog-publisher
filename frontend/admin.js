@@ -203,7 +203,7 @@ class AdminPanel {
 
         const allFiles = [...posts, ...notes, ...drafts];
         allFiles.forEach(file => {
-            const category = this.extractCategory(file.name) || '未分类';
+            const category = this.extractCategory(file) || '未分类';
             categories[category] = (categories[category] || 0) + 1;
         });
 
@@ -233,7 +233,12 @@ class AdminPanel {
         container.innerHTML = html;
     }
 
-    extractCategory(filename) {
+    extractCategory(file) {
+        // 优先使用 front matter 中的分类，其次回退到文件名规则
+        if (file && file.categories && file.categories.length > 0) {
+            return file.categories[0];
+        }
+        const filename = typeof file === 'string' ? file : (file && file.name ? file.name : '');
         const match = filename.match(/^\d{4}-\d{2}-\d{2}-(.+?)-/);
         return match ? match[1] : null;
     }
@@ -357,7 +362,7 @@ class AdminPanel {
         tbody.innerHTML = articles.map(file => `
             <tr>
                 <td class="table-title" title="${file.name}">${file.name}</td>
-                <td>${this.extractCategory(file.name) || '-'}</td>
+                <td>${this.extractCategory(file) || '-'}</td>
                 <td><span class="table-tag">-</span></td>
                 <td>${file.dirName}</td>
                 <td>${file.updated_at ? new Date(file.updated_at).toLocaleDateString('zh-CN') : '-'}</td>
@@ -389,7 +394,7 @@ class AdminPanel {
         }
 
         if (category) {
-            filtered = filtered.filter(f => this.extractCategory(f.name) === category);
+            filtered = filtered.filter(f => this.extractCategory(f) === category);
         }
 
         if (dir !== 'all') {
